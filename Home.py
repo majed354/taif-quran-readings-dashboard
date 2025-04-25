@@ -14,10 +14,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CSS و HTML للقائمة العلوية المتجاوبة (RTL) ---
-responsive_menu_html_css = """
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
-<style>
+# --- تحميل ملف CSS المخصص ---
+def load_css():
+    css = """
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap');
+
     /* --- إخفاء عناصر Streamlit الافتراضية --- */
     [data-testid="stToolbar"], #MainMenu, header, footer,
     [class^="viewerBadge_"], [id^="GithubIcon"],
@@ -33,62 +34,6 @@ responsive_menu_html_css = """
     * { font-family: 'Tajawal', sans-serif !important; }
     .stApp { direction: rtl; text-align: right; }
 
-    /* --- تنسيق شريط التنقل العلوي (للسطح المكتب) --- */
-    .top-navbar {
-        background-color: #f8f9fa; padding: 0.5rem 1rem; border-bottom: 1px solid #e7e7e7;
-        width: 100%; box-sizing: border-box; display: none; /* Hidden by default on mobile */
-    }
-    .top-navbar ul {
-        list-style: none; padding: 0; margin: 0; display: flex;
-        justify-content: flex-start; align-items: center;
-        flex-wrap: wrap; /* Allow wrapping on smaller desktop screens */
-    }
-    .top-navbar li {
-        position: relative; margin-left: 1.2rem; /* Reduced margin */
-        margin-bottom: 0.3rem; /* Add margin if wraps */
-    }
-    .top-navbar li:first-child { margin-right: 0; }
-    .top-navbar a { text-decoration: none; color: #333; padding: 0.5rem 0.1rem; display: block; font-weight: 500; white-space: nowrap; /* Prevent wrapping within link */ }
-    .top-navbar a:hover { color: #1e88e5; }
-
-    /* --- تنسيق زر وقائمة البرجر (للجوال) --- */
-    .mobile-menu-trigger {
-        display: none; /* Hidden by default on desktop */
-        position: fixed; top: 10px; right: 15px; z-index: 1001;
-        cursor: pointer; background-color: #1e88e5; color: white;
-        padding: 6px 10px; border-radius: 5px; font-size: 1.3rem; line-height: 1;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-    .mobile-menu-checkbox { display: none; }
-    .mobile-menu {
-        display: none; position: fixed; top: 0; right: 0;
-        width: 250px; height: 100%; background-color: #f8f9fa;
-        z-index: 1000; padding: 60px 20px 20px 20px;
-        box-shadow: -2px 0 5px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease-in-out;
-        transform: translateX(100%); overflow-y: auto;
-    }
-    .mobile-menu ul { list-style: none; padding: 0; margin: 0; }
-    .mobile-menu li { margin-bottom: 0.5rem; }
-    .mobile-menu a { text-decoration: none; color: #333; padding: 10px 5px; display: block; font-weight: 500; border-bottom: 1px solid #eee; }
-    .mobile-menu a:hover { color: #1e88e5; background-color: #eee; }
-
-    /* --- إظهار قائمة البرجر عند تفعيل الـ checkbox --- */
-    .mobile-menu-checkbox:checked ~ .mobile-menu { display: block; transform: translateX(0); }
-    .mobile-menu-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 999; }
-    .mobile-menu-checkbox:checked ~ .mobile-menu-overlay { display: block; }
-
-    /* --- قواعد Media Query للتبديل بين القائمتين --- */
-    @media only screen and (max-width: 768px) {
-        .top-navbar { display: none; }
-        .mobile-menu-trigger { display: block; }
-        .main .block-container { padding-right: 1rem !important; padding-left: 1rem !important; padding-top: 55px !important; }
-    }
-    @media only screen and (min-width: 769px) {
-        .top-navbar { display: block; }
-        .mobile-menu-trigger, .mobile-menu, .mobile-menu-overlay, .mobile-menu-checkbox { display: none; }
-    }
-
     /* --- تنسيقات عامة أخرى --- */
     h1,h2,h3 { color: #1e88e5; font-weight: 600; }
     h1 { padding-bottom: 15px; border-bottom: 2px solid #1e88e5; margin-bottom: 30px; font-size: calc(1.2rem + 1vw); }
@@ -101,54 +46,79 @@ responsive_menu_html_css = """
     .stSelectbox label, .stMultiselect label { font-weight: 500; }
     .back-to-top { position: fixed; bottom: 20px; left: 20px; width: 40px; height: 40px; background-color: #1e88e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 998; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: scale(0); }
     .back-to-top.visible { opacity: 1; transform: scale(1); }
-    @media only screen and (min-width: 769px) and (max-width: 1024px) { h1 { font-size: 1.7rem; } h2, h3 { font-size: 1.2rem; } }
     
     /* تلوين البطاقات حسب قيمة المؤشر */
     .metric-card.positive { background-color: rgba(39, 174, 96, 0.1); }
     .metric-card.warning { background-color: rgba(241, 196, 15, 0.1); }
     .metric-card.negative { background-color: rgba(231, 76, 60, 0.1); }
-</style>
+    
+    /* تنسيق عناصر page_link */
+    [data-testid="StyledLinkIconContainer"] > div > a {
+        background-color: #f8f9fa;
+        color: #333;
+        display: block;
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: 1px solid #e7e7e7;
+        text-align: center;
+    }
+    [data-testid="StyledLinkIconContainer"] > div > a:hover {
+        background-color: #1e88e5;
+        color: white;
+    }
+    
+    /* الاستجابة للشاشات الصغيرة */
+    @media only screen and (max-width: 768px) {
+        [data-testid="StyledLinkIconContainer"] > div > a {
+            padding: 6px;
+            font-size: 0.8rem;
+        }
+    }
+    @media only screen and (min-width: 769px) and (max-width: 1024px) { 
+        h1 { font-size: 1.7rem; } 
+        h2, h3 { font-size: 1.2rem; } 
+    }
+    """
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
-<nav class="top-navbar">
-    <ul>
-        <li><a href="/">🏠 الرئيسية</a></li>
-        <li><a href="/هيئة_التدريس">👥 هيئة التدريس</a></li>
-        <li><a href="/إنجاز_المهام">🏆 إنجاز المهام</a></li>
-        <li><a href="/program1">📚 بكالوريوس القرآن وعلومه</a></li>
-        <li><a href="/program2">📖 بكالوريوس القراءات</a></li>
-        <li><a href="/program3">🎓 ماجستير الدراسات القرآنية</a></li>
-        <li><a href="/program4">📜 ماجستير القراءات</a></li>
-        <li><a href="/program5">🔍 دكتوراه علوم القرآن</a></li>
-        <li><a href="/program6">📘 دكتوراه القراءات</a></li>
-    </ul>
-</nav>
+load_css()
 
-<input type="checkbox" id="mobile-menu-toggle" class="mobile-menu-checkbox">
-<label for="mobile-menu-toggle" class="mobile-menu-trigger">☰</label>
-<label for="mobile-menu-toggle" class="mobile-menu-overlay"></label>
-<div class="mobile-menu">
-    <ul>
-        <li><a href="/">🏠 الرئيسية</a></li>
-        <li><a href="/هيئة_التدريس">👥 هيئة التدريس</a></li>
-        <li><a href="/إنجاز_المهام">🏆 إنجاز المهام</a></li>
-        <li><a href="/program1">📚 بكالوريوس القرآن وعلومه</a></li>
-        <li><a href="/program2">📖 بكالوريوس القراءات</a></li>
-        <li><a href="/program3">🎓 ماجستير الدراسات القرآنية</a></li>
-        <li><a href="/program4">📜 ماجستير القراءات</a></li>
-        <li><a href="/program5">🔍 دكتوراه علوم القرآن</a></li>
-        <li><a href="/program6">📘 دكتوراه القراءات</a></li>
-    </ul>
-</div>
+# --- العنوان الرئيسي ---
+st.markdown("<h1 style='text-align: center;'>قسم القراءات - كلية القرآن الكريم والدراسات الإسلامية</h1>", unsafe_allow_html=True)
 
+# --- إنشاء قائمة التنقل ---
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.page_link("Home.py", label="🏠 الرئيسية", icon="🏠")
+    st.page_link("pages/1_👥_هيئة_التدريس.py", label="👥 هيئة التدريس", icon="👥")
+with col2:
+    st.page_link("pages/2_🏆_إنجاز_المهام.py", label="🏆 إنجاز المهام", icon="🏆")
+    st.page_link("pages/3_📚_بكالوريوس_القرآن_وعلومه.py", label="📚 بكالوريوس القرآن وعلومه", icon="📚")
+with col3:
+    st.page_link("pages/4_📖_بكالوريوس_القراءات.py", label="📖 بكالوريوس القراءات", icon="📖")
+    st.page_link("pages/5_🎓_ماجستير_الدراسات_القرآنية.py", label="🎓 ماجستير الدراسات", icon="🎓")
+with col4:
+    st.page_link("pages/6_📜_ماجستير_القراءات.py", label="📜 ماجستير القراءات", icon="📜")
+    st.page_link("pages/7_🔍_دكتوراه_علوم_القرآن.py", label="🔍 دكتوراه علوم القرآن", icon="🔍")
+
+# رمز للفصل بين قائمة التنقل ومحتوى الصفحة
+st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown("<h2>🏠 الصفحة الرئيسية - قسم القراءات</h2>", unsafe_allow_html=True)
+
+# --- دالة للعودة إلى الأعلى (اختياري) ---
+back_to_top_js = """
 <div class="back-to-top" onclick="scrollToTop()">
     <span style="font-size: 1.2rem;">↑</span>
 </div>
 <script>
-    // منطق التمرير إلى الأعلى
     window.scrollToTop = function() {
         try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
         catch(e){ console.error("Error scrolling to top:", e); }
     }
+    
     try {
         window.addEventListener('scroll', function() {
              const backToTopButton = document.querySelector('.back-to-top');
@@ -158,22 +128,9 @@ responsive_menu_html_css = """
              }
         });
     } catch(e){ console.error("Error adding scroll listener:", e); }
-
-    // إغلاق قائمة الجوال عند النقر على أحد الروابط
-    try {
-        document.querySelectorAll('.mobile-menu a').forEach(link => {
-            link.addEventListener('click', () => {
-                const checkbox = document.getElementById('mobile-menu-toggle');
-                if (checkbox) {
-                    checkbox.checked = false; // إلغاء تحديد المربع لإغلاق القائمة
-                }
-            });
-        });
-    } catch(e) { console.error("Error adding mobile link click listener:", e); }
 </script>
 """
-# تطبيق القائمة العلوية و CSS العام وزر العودة للأعلى
-st.markdown(responsive_menu_html_css, unsafe_allow_html=True)
+st.markdown(back_to_top_js, unsafe_allow_html=True)
 
 # --- دوال مساعدة ---
 def is_mobile():
