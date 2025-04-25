@@ -101,8 +101,8 @@ responsive_menu_html_css = """
 
     /* --- تنسيقات عامة أخرى (من الكود القديم) --- */
     h1,h2,h3 { color: #1e88e5; font-weight: 600; }
-    /* تصغير حجم الخط للعنوان الرئيسي H1 */
-    h1 { padding-bottom: 12px; border-bottom: 2px solid #1e88e5; margin-bottom: 25px; font-size: calc(1.1rem + 0.8vw); } /* تصغير الخط */
+    /* تصغير حجم الخط للعنوان الرئيسي H1 وتغيير الهامش السفلي */
+    h1 { padding-bottom: 10px; border-bottom: 1px solid #1e88e5; margin-bottom: 20px; font-size: calc(1rem + 0.6vw); } /* تصغير الخط والهامش */
     h2 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.4vw); } /* تصغير الخط */
     h3 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.1vw); } /* تصغير الخط */
     .metric-card { background-color: white; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); text-align: center; margin-bottom: 12px; } /* تعديل الظل والحشو */
@@ -115,7 +115,7 @@ responsive_menu_html_css = """
     .back-to-top span { font-size: 1rem; } /* تصغير السهم */
 
     @media only screen and (min-width: 769px) and (max-width: 1024px) {
-        h1 { font-size: 1.6rem; }
+        h1 { font-size: 1.5rem; } /* تصغير إضافي للشاشات المتوسطة */
         h2, h3 { font-size: 1.1rem; }
         .top-navbar a { font-size: 0.85rem; } /* تصغير إضافي للشاشات المتوسطة */
     }
@@ -197,27 +197,13 @@ responsive_menu_html_css = """
 # تطبيق القائمة العلوية و CSS العام وزر العودة للأعلى
 st.markdown(responsive_menu_html_css, unsafe_allow_html=True)
 
-# --- العنوان الرئيسي للصفحة (من الكود الجديد، مع تعديل بسيط) ---
-# تم إزالة العنوان الإضافي الذي كان فوق القائمة في الكود الجديد
-# تم الإبقاء على هذا العنوان ليكون عنوان الصفحة الرئيسي
-st.markdown("<h1>🏠 الصفحة الرئيسية - قسم القراءات</h1>", unsafe_allow_html=True)
+# --- العنوان الرئيسي للصفحة (تم التعديل) ---
+st.markdown("<h1>🏠 الرئيسية</h1>", unsafe_allow_html=True) # تغيير النص وتصغير الخط عبر CSS
 
 # --- دوال مساعدة ---
 # (نفس دوال الكود الجديد)
 def is_mobile():
     """التحقق من كون العرض الحالي محتملاً أن يكون جهاز محمول"""
-    # هذا الجزء يحتاج إلى طريقة لتحديد عرض الشاشة من جانب الخادم أو العميل
-    # Streamlit لا يوفر طريقة مباشرة لذلك. يمكن استخدام مكونات مخصصة أو حلول بديلة.
-    # كحل مؤقت، سنفترض أنه ليس جوال. يمكنك تعديل هذا لاحقًا.
-    # if 'IS_MOBILE' not in st.session_state:
-    #     # يمكنك محاولة استخدام مكون مثل streamlit_js_eval للحصول على عرض الشاشة
-    #     try:
-    #         from streamlit_js_eval import streamlit_js_eval
-    #         screen_width = streamlit_js_eval(js_expressions='window.innerWidth', key = 'SCR_WIDTH')
-    #         st.session_state.IS_MOBILE = screen_width < 768 if screen_width else False
-    #     except ImportError:
-    #         st.session_state.IS_MOBILE = False # Fallback if component not installed
-    # return st.session_state.IS_MOBILE
     return False # قيمة افتراضية مؤقتة
 
 def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar"):
@@ -472,9 +458,8 @@ except Exception as e:
         "البرنامج": ["دكتوراه علوم القرآن", "بكالوريوس في القرآن وعلومه", "بكالوريوس القراءات"]
     })
 
-# --- المقاييس الرئيسية (بطاقات أساسية) ---
-# (نفس الكود الجديد)
-st.subheader("المؤشرات الرئيسية")
+# --- المقاييس الرئيسية (تم تغيير العنوان الفرعي) ---
+st.subheader("مؤشرات قسم القراءات") # تغيير النص هنا
 cols_metrics = st.columns(4)
 with cols_metrics[0]:
     st.metric("إجمالي الطلاب", f"{total_students:,}")
