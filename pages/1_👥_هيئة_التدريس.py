@@ -37,7 +37,7 @@ responsive_menu_html_css = """
     /* --- تنسيق شريط التنقل العلوي (للسطح المكتب) --- */
     .top-navbar {
         background-color: #f8f9fa; padding: 0.4rem 1rem; border-bottom: 1px solid #e7e7e7;
-        width: 100%; box-sizing: border-box; display: none;
+        width: 100%; box-sizing: border-box;
     }
     .top-navbar ul { list-style: none; padding: 0; margin: 0; display: flex; justify-content: flex-start; align-items: center; flex-wrap: wrap; }
     .top-navbar li { position: relative; margin-left: 1rem; margin-bottom: 0.2rem; }
@@ -187,25 +187,30 @@ responsive_menu_html_css = """
         border-right: 3px solid #1e88e5; 
         background-color: rgba(30, 136, 229, 0.1);
     }
-/* --- قواعد Media Query للتبديل بين القائمتين وتحسين عرض الجوال --- */
+
+    /* --- قواعد Media Query للتبديل بين القائمتين وتحسين عرض الجوال --- */
     @media only screen and (max-width: 768px) {
         .top-navbar { display: none; }
         .mobile-menu-trigger { display: block; }
         .main .block-container { padding-right: 0.8rem !important; padding-left: 0.8rem !important; padding-top: 40px !important; }
+
         /* تصغير الخطوط والهوامش للعناوين في الجوال */
         h1 { font-size: 1.3rem; margin-bottom: 15px; padding-bottom: 8px; }
         h2 { font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
         h3 { font-size: 1.0rem; margin-top: 18px; margin-bottom: 8px; }
+
         /* تصغير خطوط المقاييس في الجوال */
         [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
         [data-testid="stMetricLabel"] { font-size: 0.8rem !important; }
         .metric-card { padding: 10px; margin-bottom: 10px;}
+
         /* تصغير خطوط بطاقات هيئة التدريس والإنجازات في الجوال */
         .faculty-card h5 { font-size: 0.9rem !important; margin-bottom: 2px !important; }
         .faculty-card p { font-size: 0.8em !important; }
         .achievement-item p:first-of-type { font-size: 0.85em !important; margin-bottom: 1px !important; }
         .achievement-item p:nth-of-type(2) { font-size: 0.8em !important; margin-bottom: 1px !important; }
         .achievement-item p:last-of-type { font-size: 0.7em !important; }
+
          /* تصغير خطوط التبويبات */
         button[data-baseweb="tab"] {
             font-size: 0.85rem !important;
@@ -215,6 +220,7 @@ responsive_menu_html_css = """
          /* تصغير خط منتقي السنة والفلاتر الأخرى */
         .stSelectbox label { font-size: 0.9rem !important; }
         .stTextInput label { font-size: 0.9rem !important; } /* لفلتر البحث */
+
         /* تجاوب بطاقة العضو للشاشات الصغيرة */
         .faculty-profile-card {
             flex-direction: column;
@@ -235,21 +241,20 @@ responsive_menu_html_css = """
         .profile-metrics { flex-direction: row; gap: 8px; } /* جعل المقاييس أفقية مرة أخرى ولكن بفجوة أقل */
         .profile-metric-value { font-size: 1rem; } /* تصغير قيمة المقياس للجوال */
         .profile-metric-label { font-size: 0.7rem; } /* تصغير تسمية المقياس للجوال */
+
         /* تصغير خطوط بيانات التغييرات */
         .changes-container { padding: 8px; }
         .changes-title { font-size: 0.9rem; margin-bottom: 8px; }
         .changes-item { padding: 6px; margin-bottom: 6px; }
         .changes-item h4 { font-size: 0.85rem !important; margin: 0 !important; }
         .changes-item p { font-size: 0.75rem !important; margin: 2px 0 !important; }
-        /* جعل أعمدة الرسوم البيانية عمودًا واحدًا */
-        /* يتم التعامل مع هذا في كود Python أدناه */
     }
 
     @media only screen and (min-width: 769px) {
         .top-navbar { display: block; } /* إظهار القائمة العلوية في شاشات اللابتوب والأكبر */
         .mobile-menu-trigger, .mobile-menu, .mobile-menu-overlay, .mobile-menu-checkbox { display: none; }
     }
-    
+
     @media only screen and (min-width: 769px) and (max-width: 1024px) {
         h1 { font-size: 1.5rem; }
         h2, h3 { font-size: 1.1rem; }
@@ -326,6 +331,7 @@ st.markdown(responsive_menu_html_css, unsafe_allow_html=True)
 # --- العنوان الرئيسي للصفحة ---
 st.markdown("<h1>👥 هيئة التدريس</h1>", unsafe_allow_html=True)
 
+# --- دوال مساعدة ---
 # --- دوال مساعدة ---
 def is_mobile():
     """التحقق من كون العرض الحالي محتملاً أن يكون جهاز محمول"""
