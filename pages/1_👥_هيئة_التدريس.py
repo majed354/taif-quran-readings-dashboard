@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# القسم الأول: الاستيرادات وإعدادات الصفحة
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -14,6 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
+# القسم الثاني: CSS و HTML للقائمة المتجاوبة وزر العودة للأعلى
 # --- CSS و HTML للقائمة العلوية المتجاوبة (RTL) - مأخوذ من الكود الرئيسي ---
 # (نفس الكود المستخدم في Home.py لضمان التناسق)
 responsive_menu_html_css = """
@@ -157,9 +159,9 @@ responsive_menu_html_css = """
     .badge-red { background-color: rgba(231, 76, 60, 0.1); color: #E74C3C; }
 
     /* تنسيق الترقيات والأعضاء الجدد والمغادرين */
-    .changes-container { 
-        margin-top: 20px; 
-        padding: 10px; 
+    .changes-container {
+        margin-top: 20px;
+        padding: 10px;
         background-color: rgba(240, 240, 240, 0.3);
         border-radius: 8px;
         border: 1px solid #eee;
@@ -171,20 +173,20 @@ responsive_menu_html_css = """
         margin-bottom: 10px;
     }
     .changes-item {
-        padding: 8px; 
-        margin-bottom: 8px; 
+        padding: 8px;
+        margin-bottom: 8px;
         border-radius: 5px;
     }
     .new-member {
-        border-right: 3px solid #27AE60; 
+        border-right: 3px solid #27AE60;
         background-color: rgba(39, 174, 96, 0.1);
     }
     .departed-member {
-        border-right: 3px solid #E74C3C; 
+        border-right: 3px solid #E74C3C;
         background-color: rgba(231, 76, 60, 0.1);
     }
     .promotion-item {
-        border-right: 3px solid #1e88e5; 
+        border-right: 3px solid #1e88e5;
         background-color: rgba(30, 136, 229, 0.1);
     }
 
@@ -331,7 +333,7 @@ st.markdown(responsive_menu_html_css, unsafe_allow_html=True)
 # --- العنوان الرئيسي للصفحة ---
 st.markdown("<h1>👥 هيئة التدريس</h1>", unsafe_allow_html=True)
 
-# --- دوال مساعدة ---
+# القسم الثالث: الدوال المساعدة
 # --- دوال مساعدة ---
 def is_mobile():
     """التحقق من كون العرض الحالي محتملاً أن يكون جهاز محمول"""
@@ -424,6 +426,7 @@ def get_avatar_placeholder(name):
         initial = parts[0][0] if len(parts) > 0 and len(parts[0]) > 0 else "؟"
     return initial
 
+# القسم الرابع: دوال تحميل ومعالجة البيانات
 # --- دوال تحميل البيانات ---
 @st.cache_data(ttl=3600)
 def load_faculty_data(year=None):
@@ -572,6 +575,7 @@ def load_faculty_achievements():
 # --- تحديد عرض الجوال ---
 mobile_view = is_mobile()
 
+# القسم الخامس: منطق الصفحة الرئيسي (اختيار السنة، تحميل البيانات، المقاييس الإجمالية، ملخص التغييرات)
 # --- محتوى صفحة هيئة التدريس ---
 
 # --- إضافة منتقي السنة ---
@@ -596,19 +600,19 @@ if faculty_data.empty:
 else:
     # --- المقاييس الإجمالية (مع إضافة الدلتا للمقارنة مع السنة السابقة) ---
     st.subheader("نظرة عامة") # عنوان فرعي للمقاييس
-    
+
     # حساب قيم المقاييس الحالية
     total_faculty = len(faculty_data)
     male_count = len(faculty_data[faculty_data["الجنس"] == "ذكر"])
     female_count = len(faculty_data[faculty_data["الجنس"] == "أنثى"])
     total_research = faculty_data["عدد البحوث"].sum() if "عدد البحوث" in faculty_data.columns else 0
-    
+
     # حساب قيم السنة السابقة إذا كانت متوفرة
     prev_total_faculty = len(previous_year_data) if previous_year_data is not None else None
     prev_male_count = len(previous_year_data[previous_year_data["الجنس"] == "ذكر"]) if previous_year_data is not None else None
     prev_female_count = len(previous_year_data[previous_year_data["الجنس"] == "أنثى"]) if previous_year_data is not None else None
     prev_total_research = previous_year_data["عدد البحوث"].sum() if previous_year_data is not None and "عدد البحوث" in previous_year_data.columns else None
-    
+
     # حساب الفروقات (الدلتا)
     delta_total = total_faculty - prev_total_faculty if prev_total_faculty is not None else None
     delta_male = male_count - prev_male_count if prev_male_count is not None else None
@@ -625,26 +629,26 @@ else:
 
     # إضافة المقاييس مع الدلتا
     with metric_cols[0]:
-        st.metric("إجمالي الأعضاء", f"{total_faculty:,}", 
-                 delta=f"{delta_total:+}" if delta_total is not None else None)
+        st.metric("إجمالي الأعضاء", f"{total_faculty:,}",
+                  delta=f"{delta_total:+}" if delta_total is not None else None)
     with metric_cols[1]:
-        st.metric("أعضاء (ذكور)", f"{male_count:,}", 
-                 delta=f"{delta_male:+}" if delta_male is not None else None)
+        st.metric("أعضاء (ذكور)", f"{male_count:,}",
+                  delta=f"{delta_male:+}" if delta_male is not None else None)
     with metric_cols[2]:
-        st.metric("أعضاء (إناث)", f"{female_count:,}", 
-                 delta=f"{delta_female:+}" if delta_female is not None else None)
+        st.metric("أعضاء (إناث)", f"{female_count:,}",
+                  delta=f"{delta_female:+}" if delta_female is not None else None)
     with metric_cols[3]:
-        st.metric("إجمالي البحوث", f"{total_research:,}", 
-                 delta=f"{delta_research:+}" if delta_research is not None else None)
-    
+        st.metric("إجمالي البحوث", f"{total_research:,}",
+                  delta=f"{delta_research:+}" if delta_research is not None else None)
+
     # عرض ملخص التغييرات (الأعضاء الجدد والمغادرين والترقيات) في قسم مطوي
     if previous_year_data is not None:
         with st.expander("📊 عرض تفاصيل التغييرات عن العام السابق", expanded=False):
             # هنا نضع تفاصيل التغييرات
-            
+
             # حاوية للتغييرات
             st.markdown('<div class="changes-container">', unsafe_allow_html=True)
-            
+
             # عرض الترقيات
             if promotions and len(promotions) > 0:
                 st.markdown('<div class="changes-title">🔄 الترقيات الأكاديمية</div>', unsafe_allow_html=True)
@@ -655,7 +659,7 @@ else:
                         <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
                     </div>
                     """, unsafe_allow_html=True)
-            
+
             # عرض الأعضاء الجدد
             if new_members_data is not None and len(new_members_data) > 0:
                 st.markdown('<div class="changes-title">➕ الأعضاء الجدد</div>', unsafe_allow_html=True)
@@ -671,7 +675,7 @@ else:
                         <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
                     </div>
                     """, unsafe_allow_html=True)
-            
+
             # عرض الأعضاء المغادرين
             if departed_members_data is not None and len(departed_members_data) > 0:
                 st.markdown('<div class="changes-title">➖ الأعضاء المغادرون</div>', unsafe_allow_html=True)
@@ -687,14 +691,14 @@ else:
                         <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
                     </div>
                     """, unsafe_allow_html=True)
-            
+
             # إغلاق حاوية التغييرات
             st.markdown('</div>', unsafe_allow_html=True)
-            
+
             # عرض مقارنة التوزيع حسب الرتبة
             if "الرتبة" in faculty_data.columns and "الرتبة" in previous_year_data.columns:
                 st.markdown("### مقارنة التوزيع حسب الرتبة")
-                
+
                 current_rank_counts = faculty_data["الرتبة"].value_counts().reset_index()
                 current_rank_counts.columns = ["الرتبة", "العدد"]
                 current_rank_counts["السنة"] = selected_year
@@ -718,7 +722,7 @@ else:
                 )
                 fig_rank_compare = prepare_chart_layout(fig_rank_compare, "مقارنة حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_rank_compare, use_container_width=True, config={"displayModeBar": False})
-                
+
                 # مقارنة عدد الذكور والإناث
                 st.markdown("### مقارنة التوزيع حسب الجنس")
                 gender_comparison = pd.DataFrame({
@@ -739,6 +743,7 @@ else:
                 fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
 
+    # القسم السادس: تحليلات هيئة التدريس (الرسوم البيانية في التبويبات)
     # --- تحليلات هيئة التدريس ---
     st.subheader("توزيع أعضاء هيئة التدريس")
 
@@ -946,6 +951,7 @@ else:
         else:
             st.info("لا تتوفر بيانات كافية لعرض توزيع البحوث.")
 
+    # القسم السابع: فلاتر البحث وعرض قائمة الأعضاء
     # --- فلاتر البحث عن أعضاء هيئة التدريس ---
     st.subheader("بحث وتصفية أعضاء هيئة التدريس")
 
@@ -1108,6 +1114,7 @@ else:
     else:
         st.info("لا توجد بيانات مطابقة للفلاتر المختارة. يرجى تعديل الفلاتر للحصول على نتائج.")
 
+    # القسم الثامن: نصائح الاستخدام وتذييل الصفحة
     # --- نصائح للاستخدام ---
     with st.expander("💡 نصائح للاستخدام", expanded=False):
         st.markdown("""
