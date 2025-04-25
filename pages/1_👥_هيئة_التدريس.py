@@ -743,217 +743,16 @@ else:
                 fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
 
-    # القسم السادس: تحليلات هيئة التدريس (الرسوم البيانية في التبويبات)
-    # --- تحليلات هيئة التدريس ---
-    st.subheader("توزيع أعضاء هيئة التدريس")
+   # القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
+# --- إنشاء التبويبات الرئيسية الجديدة ---
+st.subheader("بيانات أعضاء هيئة التدريس")
 
-    # تحليل البيانات لتجهيز الرسوم
-    rank_distribution = None
-    specialization_distribution = None
-    status_distribution = None
-    nationality_distribution = None
+main_tabs = st.tabs(["قائمة الأعضاء", "التوزيعات", "البحوث"])
 
-    if "الرتبة" in faculty_data.columns:
-        rank_distribution = faculty_data["الرتبة"].value_counts().reset_index()
-        rank_distribution.columns = ["الرتبة", "العدد"]
-
-    if "التخصص" in faculty_data.columns:
-        specialization_distribution = faculty_data["التخصص"].value_counts().reset_index()
-        specialization_distribution.columns = ["التخصص", "العدد"]
-
-    if "حالة الموظف" in faculty_data.columns:
-        status_distribution = faculty_data["حالة الموظف"].value_counts().reset_index()
-        status_distribution.columns = ["حالة الموظف", "العدد"]
-
-    if "الجنسية" in faculty_data.columns:
-        nationality_distribution = faculty_data["الجنسية"].value_counts().reset_index()
-        nationality_distribution.columns = ["الجنسية", "العدد"]
-
-    # عرض الرسوم البيانية في تبويبات - تمت إزالة تبويب المقارنة السنوية
-    tabs = st.tabs(["توزيع الرتب", "التخصصات", "حالة الموظف", "توزيع البحوث"])
-
-    # التبويب 1: توزيع الرتب
-    with tabs[0]:
-        if rank_distribution is not None and not rank_distribution.empty:
-            # تحديد تخطيط الأعمدة بناءً على عرض الشاشة
-            if mobile_view:
-                # رسم دائري لتوزيع الرتب الأكاديمية
-                fig_rank_pie = px.pie(
-                    rank_distribution,
-                    values="العدد",
-                    names="الرتبة",
-                    title="توزيع الرتب الأكاديمية",
-                    color_discrete_sequence=px.colors.qualitative.Pastel
-                )
-                fig_rank_pie = prepare_chart_layout(fig_rank_pie, "توزيع الرتب الأكاديمية", is_mobile=mobile_view, chart_type="pie")
-                st.plotly_chart(fig_rank_pie, use_container_width=True, config={"displayModeBar": False})
-
-                st.markdown("---") # فاصل في الجوال
-
-                # رسم شريطي للرتب حسب الجنس (عمودي في الجوال)
-                if "الجنس" in faculty_data.columns:
-                    gender_rank_df = pd.crosstab(faculty_data['الرتبة'], faculty_data['الجنس'])
-                    fig_gender_rank = px.bar(
-                        gender_rank_df,
-                        barmode='group',
-                        title="توزيع الرتب حسب الجنس",
-                        labels={"value": "العدد", "الجنس": "الجنس", "الرتبة": "الرتبة"},
-                        color_discrete_sequence=["#1e88e5", "#E83E8C"]
-                    )
-                    fig_gender_rank = prepare_chart_layout(fig_gender_rank, "توزيع الرتب حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_gender_rank, use_container_width=True, config={"displayModeBar": False})
-
-            else: # عرض سطح المكتب
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    fig_rank_pie = px.pie(rank_distribution, values="العدد", names="الرتبة", title="توزيع الرتب الأكاديمية", color_discrete_sequence=px.colors.qualitative.Pastel)
-                    fig_rank_pie = prepare_chart_layout(fig_rank_pie, "توزيع الرتب الأكاديمية", is_mobile=mobile_view, chart_type="pie")
-                    st.plotly_chart(fig_rank_pie, use_container_width=True, config={"displayModeBar": False})
-                with col2:
-                    if "الجنس" in faculty_data.columns:
-                        gender_rank_df = pd.crosstab(faculty_data['الرتبة'], faculty_data['الجنس'])
-                        fig_gender_rank = px.bar(gender_rank_df, barmode='group', title="توزيع الرتب حسب الجنس", labels={"value": "العدد", "الجنس": "الجنس", "الرتبة": "الرتبة"}, color_discrete_sequence=["#1e88e5", "#E83E8C"])
-                        fig_gender_rank = prepare_chart_layout(fig_gender_rank, "توزيع الرتب حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                        st.plotly_chart(fig_gender_rank, use_container_width=True, config={"displayModeBar": False})
-        else:
-            st.info("لا تتوفر بيانات كافية لعرض توزيع الرتب.")
-
-    # التبويب 2: التخصصات
-    with tabs[1]:
-        if specialization_distribution is not None and not specialization_distribution.empty:
-            if mobile_view:
-                 # رسم دائري لتوزيع التخصصات
-                fig_spec_pie = px.pie(specialization_distribution, values="العدد", names="التخصص", title="توزيع التخصصات الدقيقة", color_discrete_sequence=px.colors.qualitative.Set2)
-                fig_spec_pie = prepare_chart_layout(fig_spec_pie, "توزيع التخصصات", is_mobile=mobile_view, chart_type="pie")
-                st.plotly_chart(fig_spec_pie, use_container_width=True, config={"displayModeBar": False})
-
-                st.markdown("---")
-
-                # رسم توزيع التخصصات حسب الجنس (عمودي في الجوال)
-                if "الجنس" in faculty_data.columns:
-                    spec_gender_df = pd.crosstab(faculty_data['التخصص'], faculty_data['الجنس'])
-                    fig_spec_gender = px.bar(spec_gender_df, barmode='group', title="التخصصات حسب الجنس", labels={"value": "العدد", "الجنس": "الجنس", "التخصص": "التخصص"}, color_discrete_sequence=["#1e88e5", "#E83E8C"])
-                    fig_spec_gender = prepare_chart_layout(fig_spec_gender, "التخصصات حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_spec_gender, use_container_width=True, config={"displayModeBar": False})
-            else: # عرض سطح المكتب
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    fig_spec_pie = px.pie(specialization_distribution, values="العدد", names="التخصص", title="توزيع التخصصات الدقيقة", color_discrete_sequence=px.colors.qualitative.Set2)
-                    fig_spec_pie = prepare_chart_layout(fig_spec_pie, "توزيع التخصصات", is_mobile=mobile_view, chart_type="pie")
-                    st.plotly_chart(fig_spec_pie, use_container_width=True, config={"displayModeBar": False})
-                with col2:
-                    if "الجنس" in faculty_data.columns:
-                        spec_gender_df = pd.crosstab(faculty_data['التخصص'], faculty_data['الجنس'])
-                        fig_spec_gender = px.bar(spec_gender_df, barmode='group', title="التخصصات حسب الجنس", labels={"value": "العدد", "الجنس": "الجنس", "التخصص": "التخصص"}, color_discrete_sequence=["#1e88e5", "#E83E8C"])
-                        fig_spec_gender = prepare_chart_layout(fig_spec_gender, "التخصصات حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                        st.plotly_chart(fig_spec_gender, use_container_width=True, config={"displayModeBar": False})
-        else:
-            st.info("لا تتوفر بيانات كافية لعرض توزيع التخصصات.")
-
-    # التبويب 3: حالة الموظف
-    with tabs[2]:
-        if status_distribution is not None and not status_distribution.empty:
-            if mobile_view:
-                # رسم شريطي عمودي لتوزيع الأعضاء حسب حالة الموظف في الجوال
-                fig_status_bar = px.bar(
-                    status_distribution.sort_values("العدد", ascending=False),
-                    x="حالة الموظف",
-                    y="العدد",
-                    title="توزيع الأعضاء حسب حالة الموظف",
-                    color="العدد",
-                    color_continuous_scale="Blues"
-                )
-                fig_status_bar = prepare_chart_layout(fig_status_bar, "توزيع الأعضاء حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_status_bar, use_container_width=True, config={"displayModeBar": False})
-
-                st.markdown("---")
-
-                # رسم توزيع الرتب في كل حالة موظف (عمودي مكدس في الجوال)
-                if rank_distribution is not None:
-                    status_rank_df = pd.crosstab(faculty_data['حالة الموظف'], faculty_data['الرتبة'])
-                    fig_status_rank = px.bar(
-                        status_rank_df,
-                        barmode='stack',
-                        title="الرتب الأكاديمية حسب حالة الموظف",
-                        labels={"value": "العدد", "الرتبة": "الرتبة", "حالة الموظف": "حالة الموظف"},
-                        color_discrete_sequence=px.colors.qualitative.Pastel
-                    )
-                    fig_status_rank = prepare_chart_layout(fig_status_rank, "الرتب حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_status_rank, use_container_width=True, config={"displayModeBar": False})
-
-            else: # عرض سطح المكتب
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    # رسم شريطي أفقي لتوزيع الأعضاء حسب حالة الموظف
-                    fig_status_bar = px.bar(status_distribution.sort_values("العدد", ascending=True), y="حالة الموظف", x="العدد", title="توزيع الأعضاء حسب حالة الموظف", color="العدد", orientation='h', color_continuous_scale="Blues")
-                    fig_status_bar = prepare_chart_layout(fig_status_bar, "توزيع الأعضاء حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_status_bar, use_container_width=True, config={"displayModeBar": False})
-                with col2:
-                     # رسم توزيع الرتب في كل حالة موظف
-                    if rank_distribution is not None:
-                        status_rank_df = pd.crosstab(faculty_data['حالة الموظف'], faculty_data['الرتبة'])
-                        fig_status_rank = px.bar(status_rank_df, barmode='stack', title="الرتب الأكاديمية حسب حالة الموظف", labels={"value": "العدد", "الرتبة": "الرتبة", "حالة الموظف": "حالة الموظف"}, color_discrete_sequence=px.colors.qualitative.Pastel)
-                        fig_status_rank = prepare_chart_layout(fig_status_rank, "الرتب حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
-                        st.plotly_chart(fig_status_rank, use_container_width=True, config={"displayModeBar": False})
-        else:
-            st.info("لا تتوفر بيانات كافية لعرض توزيع حالة الموظف.")
-
-    # التبويب 4: توزيع البحوث
-    with tabs[3]:
-        if "عدد البحوث" in faculty_data.columns:
-            if mobile_view:
-                 # رسم شريطي عمودي لمتوسط البحوث حسب الرتبة في الجوال
-                research_by_rank = faculty_data.groupby("الرتبة")["عدد البحوث"].mean().reset_index()
-                research_by_rank.columns = ["الرتبة", "متوسط عدد البحوث"]
-                fig_research_rank = px.bar(research_by_rank.sort_values("متوسط عدد البحوث", ascending=False), x="الرتبة", y="متوسط عدد البحوث", title="متوسط البحوث حسب الرتبة", color="متوسط عدد البحوث", color_continuous_scale="Greens")
-                fig_research_rank = prepare_chart_layout(fig_research_rank, "متوسط البحوث حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_research_rank, use_container_width=True, config={"displayModeBar": False})
-
-                st.markdown("---")
-
-                # رسم شريطي عمودي لإجمالي البحوث حسب الجنس في الجوال
-                research_by_gender = faculty_data.groupby("الجنس")["عدد البحوث"].sum().reset_index()
-                research_by_gender.columns = ["الجنس", "إجمالي البحوث"]
-                fig_research_gender = px.bar(research_by_gender, x="الجنس", y="إجمالي البحوث", title="إجمالي البحوث حسب الجنس", color="إجمالي البحوث", color_continuous_scale="Greens")
-                fig_research_gender = prepare_chart_layout(fig_research_gender, "إجمالي البحوث حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_research_gender, use_container_width=True, config={"displayModeBar": False})
-
-                st.markdown("---")
-
-                 # رسم توزيع حجم البحوث (الهستوجرام)
-                fig_research_hist = px.histogram(faculty_data, x="عدد البحوث", title="توزيع عدد البحوث للأعضاء", color_discrete_sequence=["#1e88e5"])
-                fig_research_hist.update_layout(bargap=0.2)
-                fig_research_hist = prepare_chart_layout(fig_research_hist, "توزيع عدد البحوث", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_research_hist, use_container_width=True, config={"displayModeBar": False})
-
-            else: # عرض سطح المكتب
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    # رسم شريطي لمتوسط البحوث حسب الرتبة
-                    research_by_rank = faculty_data.groupby("الرتبة")["عدد البحوث"].mean().reset_index()
-                    research_by_rank.columns = ["الرتبة", "متوسط عدد البحوث"]
-                    fig_research_rank = px.bar(research_by_rank.sort_values("متوسط عدد البحوث", ascending=True), y="الرتبة", x="متوسط عدد البحوث", title="متوسط البحوث حسب الرتبة", color="متوسط عدد البحوث", orientation='h', color_continuous_scale="Greens")
-                    fig_research_rank = prepare_chart_layout(fig_research_rank, "متوسط البحوث حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_research_rank, use_container_width=True, config={"displayModeBar": False})
-                with col2:
-                    # رسم شريطي لإجمالي البحوث حسب الجنس
-                    research_by_gender = faculty_data.groupby("الجنس")["عدد البحوث"].sum().reset_index()
-                    research_by_gender.columns = ["الجنس", "إجمالي البحوث"]
-                    fig_research_gender = px.bar(research_by_gender, y="الجنس", x="إجمالي البحوث", title="إجمالي البحوث حسب الجنس", color="إجمالي البحوث", orientation='h', color_continuous_scale="Greens")
-                    fig_research_gender = prepare_chart_layout(fig_research_gender, "إجمالي البحوث حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_research_gender, use_container_width=True, config={"displayModeBar": False})
-
-                # رسم توزيع حجم البحوث (الهستوجرام) تحت الأعمدة
-                fig_research_hist = px.histogram(faculty_data, x="عدد البحوث", title="توزيع عدد البحوث للأعضاء", color_discrete_sequence=["#1e88e5"])
-                fig_research_hist.update_layout(bargap=0.2)
-                fig_research_hist = prepare_chart_layout(fig_research_hist, "توزيع عدد البحوث", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_research_hist, use_container_width=True, config={"displayModeBar": False})
-        else:
-            st.info("لا تتوفر بيانات كافية لعرض توزيع البحوث.")
-
-    # القسم السابع: فلاتر البحث وعرض قائمة الأعضاء
+# التبويب الأول: قائمة الأعضاء
+with main_tabs[0]:
     # --- فلاتر البحث عن أعضاء هيئة التدريس ---
-    st.subheader("بحث وتصفية أعضاء هيئة التدريس")
+    st.markdown("### تصفية وبحث")
 
     # إنشاء صف للفلاتر (أو عمود في الجوال)
     if mobile_view:
@@ -1001,6 +800,9 @@ else:
                 selected_gender = st.selectbox("الجنس", all_genders, key="gender_desktop")
             else: selected_gender = "الكل"
 
+    # فلتر البحث بالنص (الاسم)
+    search_query = st.text_input("البحث بالاسم", placeholder="ادخل اسم عضو هيئة التدريس...")
+
     # تطبيق الفلاتر
     filtered_data = faculty_data.copy()
 
@@ -1016,14 +818,12 @@ else:
     if selected_gender != "الكل" and "الجنس" in filtered_data.columns:
         filtered_data = filtered_data[filtered_data["الجنس"] == selected_gender]
 
-    # فلتر البحث بالنص (الاسم)
-    search_query = st.text_input("البحث بالاسم", placeholder="ادخل اسم عضو هيئة التدريس...")
     if search_query and "الاسم" in filtered_data.columns:
         filtered_data = filtered_data[filtered_data["الاسم"].str.contains(search_query, case=False, na=False)]
 
     # --- عرض قائمة أعضاء هيئة التدريس ---
     if len(filtered_data) > 0:
-        st.subheader(f"قائمة الأعضاء ({len(filtered_data)})")
+        st.markdown(f"### قائمة الأعضاء ({len(filtered_data)})")
 
         # معاملات تقييم النشاط البحثي
         filtered_data["تصنيف_البحوث"] = ""
@@ -1114,6 +914,434 @@ else:
     else:
         st.info("لا توجد بيانات مطابقة للفلاتر المختارة. يرجى تعديل الفلاتر للحصول على نتائج.")
 
+# التبويب الثاني: التوزيعات
+with main_tabs[1]:
+    st.markdown("### توزيعات أعضاء هيئة التدريس")
+
+    # تحليل البيانات لتجهيز الرسوم
+    rank_distribution = None
+    specialization_distribution = None
+    status_distribution = None
+    nationality_distribution = None
+
+    if "الرتبة" in faculty_data.columns:
+        rank_distribution = faculty_data["الرتبة"].value_counts().reset_index()
+        rank_distribution.columns = ["الرتبة", "العدد"]
+
+    if "التخصص" in faculty_data.columns:
+        specialization_distribution = faculty_data["التخصص"].value_counts().reset_index()
+        specialization_distribution.columns = ["التخصص", "العدد"]
+
+    if "حالة الموظف" in faculty_data.columns:
+        status_distribution = faculty_data["حالة الموظف"].value_counts().reset_index()
+        status_distribution.columns = ["حالة الموظف", "العدد"]
+
+    if "الجنسية" in faculty_data.columns:
+        nationality_distribution = faculty_data["الجنسية"].value_counts().reset_index()
+        nationality_distribution.columns = ["الجنسية", "العدد"]
+
+    # إنشاء تقسيم لعرض الرسوم البيانية
+    # سنقسم الرسوم إلى مجموعات منطقية باستخدام expander
+    
+    # --- مجموعة 1: توزيع الرتب ---
+    with st.expander("🎓 توزيع الرتب الأكاديمية", expanded=True):
+        if rank_distribution is not None and not rank_distribution.empty:
+            # تحديد تخطيط الأعمدة بناءً على عرض الشاشة
+            if mobile_view:
+                # رسم دائري لتوزيع الرتب الأكاديمية
+                fig_rank_pie = px.pie(
+                    rank_distribution,
+                    values="العدد",
+                    names="الرتبة",
+                    title="توزيع الرتب الأكاديمية",
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_rank_pie = prepare_chart_layout(fig_rank_pie, "توزيع الرتب الأكاديمية", is_mobile=mobile_view, chart_type="pie")
+                st.plotly_chart(fig_rank_pie, use_container_width=True, config={"displayModeBar": False})
+
+                st.markdown("---") # فاصل في الجوال
+
+                # رسم شريطي للرتب حسب الجنس (عمودي في الجوال)
+                if "الجنس" in faculty_data.columns:
+                    gender_rank_df = pd.crosstab(faculty_data['الرتبة'], faculty_data['الجنس'])
+                    fig_gender_rank = px.bar(
+                        gender_rank_df,
+                        barmode='group',
+                        title="توزيع الرتب حسب الجنس",
+                        labels={"value": "العدد", "الجنس": "الجنس", "الرتبة": "الرتبة"},
+                        color_discrete_sequence=["#1e88e5", "#E83E8C"]
+                    )
+                    fig_gender_rank = prepare_chart_layout(fig_gender_rank, "توزيع الرتب حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                    st.plotly_chart(fig_gender_rank, use_container_width=True, config={"displayModeBar": False})
+
+            else: # عرض سطح المكتب
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    fig_rank_pie = px.pie(rank_distribution, values="العدد", names="الرتبة", title="توزيع الرتب الأكاديمية", color_discrete_sequence=px.colors.qualitative.Pastel)
+                    fig_rank_pie = prepare_chart_layout(fig_rank_pie, "توزيع الرتب الأكاديمية", is_mobile=mobile_view, chart_type="pie")
+                    st.plotly_chart(fig_rank_pie, use_container_width=True, config={"displayModeBar": False})
+                with col2:
+                    if "الجنس" in faculty_data.columns:
+                        gender_rank_df = pd.crosstab(faculty_data['الرتبة'], faculty_data['الجنس'])
+                        fig_gender_rank = px.bar(gender_rank_df, barmode='group', title="توزيع الرتب حسب الجنس", labels={"value": "العدد", "الجنس": "الجنس", "الرتبة": "الرتبة"}, color_discrete_sequence=["#1e88e5", "#E83E8C"])
+                        fig_gender_rank = prepare_chart_layout(fig_gender_rank, "توزيع الرتب حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                        st.plotly_chart(fig_gender_rank, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("لا تتوفر بيانات كافية لعرض توزيع الرتب.")
+
+    # --- مجموعة 2: التخصصات ---
+    with st.expander("📚 التخصصات الدقيقة", expanded=True):
+        if specialization_distribution is not None and not specialization_distribution.empty:
+            if mobile_view:
+                 # رسم دائري لتوزيع التخصصات
+                fig_spec_pie = px.pie(specialization_distribution, values="العدد", names="التخصص", title="توزيع التخصصات الدقيقة", color_discrete_sequence=px.colors.qualitative.Set2)
+                fig_spec_pie = prepare_chart_layout(fig_spec_pie, "توزيع التخصصات", is_mobile=mobile_view, chart_type="pie")
+                st.plotly_chart(fig_spec_pie, use_container_width=True, config={"displayModeBar": False})
+
+                st.markdown("---")
+
+                # رسم توزيع التخصصات حسب الجنس (عمودي في الجوال)
+                if "الجنس" in faculty_data.columns:
+                    spec_gender_df = pd.crosstab(faculty_data['التخصص'], faculty_data['الجنس'])
+                    fig_spec_gender = px.bar(spec_gender_df, barmode='group', title="التخصصات حسب الجنس", labels={"value": "العدد", "الجنس": "الجنس", "التخصص": "التخصص"}, color_discrete_sequence=["#1e88e5", "#E83E8C"])
+                    fig_spec_gender = prepare_chart_layout(fig_spec_gender, "التخصصات حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                    st.plotly_chart(fig_spec_gender, use_container_width=True, config={"displayModeBar": False})
+            else: # عرض سطح المكتب
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    fig_spec_pie = px.pie(specialization_distribution, values="العدد", names="التخصص", title="توزيع التخصصات الدقيقة", color_discrete_sequence=px.colors.qualitative.Set2)
+                    fig_spec_pie = prepare_chart_layout(fig_spec_pie, "توزيع التخصصات", is_mobile=mobile_view, chart_type="pie")
+                    st.plotly_chart(fig_spec_pie, use_container_width=True, config={"displayModeBar": False})
+                with col2:
+                    if "الجنس" in faculty_data.columns:
+                        spec_gender_df = pd.crosstab(faculty_data['التخصص'], faculty_data['الجنس'])
+                        fig_spec_gender = px.bar(spec_gender_df, barmode='group', title="التخصصات حسب الجنس", labels={"value": "العدد", "الجنس": "الجنس", "التخصص": "التخصص"}, color_discrete_sequence=["#1e88e5", "#E83E8C"])
+                        fig_spec_gender = prepare_chart_layout(fig_spec_gender, "التخصصات حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                        st.plotly_chart(fig_spec_gender, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("لا تتوفر بيانات كافية لعرض توزيع التخصصات.")
+
+    # --- مجموعة 3: حالة الموظف ---
+    with st.expander("👤 حالة الموظف", expanded=True):
+        if status_distribution is not None and not status_distribution.empty:
+            if mobile_view:
+                # رسم شريطي عمودي لتوزيع الأعضاء حسب حالة الموظف في الجوال
+                fig_status_bar = px.bar(
+                    status_distribution.sort_values("العدد", ascending=False),
+                    x="حالة الموظف",
+                    y="العدد",
+                    title="توزيع الأعضاء حسب حالة الموظف",
+                    color="العدد",
+                    color_continuous_scale="Blues"
+                )
+                fig_status_bar = prepare_chart_layout(fig_status_bar, "توزيع الأعضاء حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_status_bar, use_container_width=True, config={"displayModeBar": False})
+
+                st.markdown("---")
+
+                # رسم توزيع الرتب في كل حالة موظف (عمودي مكدس في الجوال)
+                if rank_distribution is not None:
+                    status_rank_df = pd.crosstab(faculty_data['حالة الموظف'], faculty_data['الرتبة'])
+                    fig_status_rank = px.bar(
+                        status_rank_df,
+                        barmode='stack',
+                        title="الرتب الأكاديمية حسب حالة الموظف",
+                        labels={"value": "العدد", "الرتبة": "الرتبة", "حالة الموظف": "حالة الموظف"},
+                        color_discrete_sequence=px.colors.qualitative.Pastel
+                    )
+                    fig_status_rank = prepare_chart_layout(fig_status_rank, "الرتب حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
+                    st.plotly_chart(fig_status_rank, use_container_width=True, config={"displayModeBar": False})
+
+            else: # عرض سطح المكتب
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    # رسم شريطي أفقي لتوزيع الأعضاء حسب حالة الموظف
+                    fig_status_bar = px.bar(status_distribution.sort_values("العدد", ascending=True), y="حالة الموظف", x="العدد", title="توزيع الأعضاء حسب حالة الموظف", color="العدد", orientation='h', color_continuous_scale="Blues")
+                    fig_status_bar = prepare_chart_layout(fig_status_bar, "توزيع الأعضاء حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
+                    st.plotly_chart(fig_status_bar, use_container_width=True, config={"displayModeBar": False})
+                with col2:
+                     # رسم توزيع الرتب في كل حالة موظف
+                    if rank_distribution is not None:
+                        status_rank_df = pd.crosstab(faculty_data['حالة الموظف'], faculty_data['الرتبة'])
+                        fig_status_rank = px.bar(status_rank_df, barmode='stack', title="الرتب الأكاديمية حسب حالة الموظف", labels={"value": "العدد", "الرتبة": "الرتبة", "حالة الموظف": "حالة الموظف"}, color_discrete_sequence=px.colors.qualitative.Pastel)
+                        fig_status_rank = prepare_chart_layout(fig_status_rank, "الرتب حسب حالة الموظف", is_mobile=mobile_view, chart_type="bar")
+                        st.plotly_chart(fig_status_rank, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("لا تتوفر بيانات كافية لعرض توزيع حالة الموظف.")
+
+    # --- مجموعة 4: توزيع الجنسيات ---
+    if nationality_distribution is not None and not nationality_distribution.empty:
+        with st.expander("🌍 توزيع الجنسيات", expanded=True):
+            if mobile_view:
+                fig_nationality = px.pie(
+                    nationality_distribution,
+                    values="العدد",
+                    names="الجنسية",
+                    title="توزيع الجنسيات",
+                    color_discrete_sequence=px.colors.qualitative.Pastel1
+                )
+                fig_nationality = prepare_chart_layout(fig_nationality, "توزيع الجنسيات", is_mobile=mobile_view, chart_type="pie")
+                st.plotly_chart(fig_nationality, use_container_width=True, config={"displayModeBar": False})
+            else:
+                # في سطح المكتب نعرض رسمين
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    fig_nationality_pie = px.pie(
+                        nationality_distribution,
+                        values="العدد",
+                        names="الجنسية",
+                        title="توزيع الجنسيات",
+                        color_discrete_sequence=px.colors.qualitative.Pastel1
+                    )
+                    fig_nationality_pie = prepare_chart_layout(fig_nationality_pie, "توزيع الجنسيات", is_mobile=mobile_view, chart_type="pie")
+                    st.plotly_chart(fig_nationality_pie, use_container_width=True, config={"displayModeBar": False})
+                with col2:
+                    # رسم شريطي أفقي للجنسيات
+                    fig_nationality_bar = px.bar(
+                        nationality_distribution.sort_values("العدد", ascending=True),
+                        y="الجنسية",
+                        x="العدد",
+                        title="توزيع الجنسيات",
+                        color="العدد",
+                        orientation='h',
+                        color_continuous_scale="Viridis"
+                    )
+                    fig_nationality_bar = prepare_chart_layout(fig_nationality_bar, "توزيع الجنسيات", is_mobile=mobile_view, chart_type="bar")
+                    st.plotly_chart(fig_nationality_bar, use_container_width=True, config={"displayModeBar": False})
+
+# التبويب الثالث: البحوث
+with main_tabs[2]:
+    st.markdown("### تحليل البحوث العلمية")
+
+    if "عدد البحوث" in faculty_data.columns:
+        # --- القسم 1: إجماليات ومعدلات البحوث ---
+        st.subheader("معدلات وإجماليات النشر العلمي")
+        
+        # صف لإظهار البطاقات الإحصائية
+        if mobile_view:
+            row1_research = st.columns(2)
+            row2_research = st.columns(2)
+            research_metric_cols = [row1_research[0], row1_research[1], row2_research[0], row2_research[1]]
+        else:
+            research_metric_cols = st.columns(4)
+            
+        # حساب المؤشرات الرئيسية للبحوث
+        total_research = faculty_data["عدد البحوث"].sum()
+        avg_research = faculty_data["عدد البحوث"].mean()
+        max_research = faculty_data["عدد البحوث"].max()
+        active_researchers = len(faculty_data[faculty_data["عدد البحوث"] >= 5])
+        
+        # عرض البطاقات الإحصائية
+        with research_metric_cols[0]:
+            st.metric("إجمالي البحوث", f"{total_research:,}")
+        with research_metric_cols[1]:
+            st.metric("متوسط البحوث للعضو", f"{avg_research:.1f}")
+        with research_metric_cols[2]:
+            st.metric("أعلى عدد بحوث", f"{max_research:,}")
+        with research_metric_cols[3]:
+            percent_active = (active_researchers / len(faculty_data)) * 100 if len(faculty_data) > 0 else 0
+            st.metric("% الأعضاء النشطين بحثياً", f"{percent_active:.1f}%")
+        
+        # --- القسم 2: مخططات توزيع البحوث ---
+        if mobile_view:
+            # رسم شريطي عمودي لمتوسط البحوث حسب الرتبة في الجوال
+            research_by_rank = faculty_data.groupby("الرتبة")["عدد البحوث"].mean().reset_index()
+            research_by_rank.columns = ["الرتبة", "متوسط عدد البحوث"]
+            fig_research_rank = px.bar(research_by_rank.sort_values("متوسط عدد البحوث", ascending=False), 
+                                      x="الرتبة", 
+                                      y="متوسط عدد البحوث", 
+                                      title="متوسط البحوث حسب الرتبة الأكاديمية", 
+                                      color="متوسط عدد البحوث", 
+                                      color_continuous_scale="Greens")
+            fig_research_rank = prepare_chart_layout(fig_research_rank, "متوسط البحوث حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
+            st.plotly_chart(fig_research_rank, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown("---")
+
+            # رسم شريطي عمودي لإجمالي البحوث حسب الجنس في الجوال
+            research_by_gender = faculty_data.groupby("الجنس")["عدد البحوث"].sum().reset_index()
+            research_by_gender.columns = ["الجنس", "إجمالي البحوث"]
+            fig_research_gender = px.bar(research_by_gender, 
+                                        x="الجنس", 
+                                        y="إجمالي البحوث", 
+                                        title="إجمالي البحوث حسب الجنس", 
+                                        color="إجمالي البحوث", 
+                                        color_continuous_scale="Greens")
+            fig_research_gender = prepare_chart_layout(fig_research_gender, "إجمالي البحوث حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+            st.plotly_chart(fig_research_gender, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown("---")
+
+            # رسم التوزيع حسب التخصص للجوال
+            research_by_specialization = faculty_data.groupby("التخصص")["عدد البحوث"].mean().reset_index()
+            research_by_specialization.columns = ["التخصص", "متوسط عدد البحوث"]
+            fig_research_spec = px.bar(
+                research_by_specialization.sort_values("متوسط عدد البحوث", ascending=False),
+                x="التخصص",
+                y="متوسط عدد البحوث",
+                title="متوسط البحوث حسب التخصص",
+                color="متوسط عدد البحوث",
+                color_continuous_scale="Greens"
+            )
+            fig_research_spec = prepare_chart_layout(fig_research_spec, "متوسط البحوث حسب التخصص", is_mobile=mobile_view, chart_type="bar")
+            st.plotly_chart(fig_research_spec, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown("---")
+
+            # رسم توزيع حجم البحوث (الهستوجرام)
+            fig_research_hist = px.histogram(faculty_data, 
+                                            x="عدد البحوث", 
+                                            title="توزيع عدد البحوث بين الأعضاء", 
+                                            color_discrete_sequence=["#1e88e5"])
+            fig_research_hist.update_layout(bargap=0.2)
+            fig_research_hist = prepare_chart_layout(fig_research_hist, "توزيع عدد البحوث", is_mobile=mobile_view, chart_type="bar")
+            st.plotly_chart(fig_research_hist, use_container_width=True, config={"displayModeBar": False})
+            
+        else: # عرض سطح المكتب
+            # صف أول للمخططات
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                # رسم شريطي لمتوسط البحوث حسب الرتبة
+                research_by_rank = faculty_data.groupby("الرتبة")["عدد البحوث"].mean().reset_index()
+                research_by_rank.columns = ["الرتبة", "متوسط عدد البحوث"]
+                fig_research_rank = px.bar(research_by_rank.sort_values("متوسط عدد البحوث", ascending=True), 
+                                          y="الرتبة", 
+                                          x="متوسط عدد البحوث", 
+                                          title="متوسط البحوث حسب الرتبة الأكاديمية", 
+                                          color="متوسط عدد البحوث", 
+                                          orientation='h', 
+                                          color_continuous_scale="Greens")
+                fig_research_rank = prepare_chart_layout(fig_research_rank, "متوسط البحوث حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_research_rank, use_container_width=True, config={"displayModeBar": False})
+            with col2:
+                # رسم شريطي لإجمالي البحوث حسب الجنس
+                research_by_gender = faculty_data.groupby("الجنس")["عدد البحوث"].sum().reset_index()
+                research_by_gender.columns = ["الجنس", "إجمالي البحوث"]
+                fig_research_gender = px.bar(research_by_gender, 
+                                            y="الجنس", 
+                                            x="إجمالي البحوث", 
+                                            title="إجمالي البحوث حسب الجنس", 
+                                            color="إجمالي البحوث", 
+                                            orientation='h', 
+                                            color_continuous_scale="Greens")
+                fig_research_gender = prepare_chart_layout(fig_research_gender, "إجمالي البحوث حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_research_gender, use_container_width=True, config={"displayModeBar": False})
+            
+            # صف ثاني للمخططات
+            col3, col4 = st.columns([1, 1])
+            with col3:
+                # رسم توزيع البحوث حسب التخصص
+                research_by_specialization = faculty_data.groupby("التخصص")["عدد البحوث"].mean().reset_index()
+                research_by_specialization.columns = ["التخصص", "متوسط عدد البحوث"]
+                fig_research_spec = px.bar(
+                    research_by_specialization.sort_values("متوسط عدد البحوث", ascending=True),
+                    y="التخصص",
+                    x="متوسط عدد البحوث",
+                    title="متوسط البحوث حسب التخصص",
+                    color="متوسط عدد البحوث",
+                    orientation='h',
+                    color_continuous_scale="Greens"
+                )
+                fig_research_spec = prepare_chart_layout(fig_research_spec, "متوسط البحوث حسب التخصص", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_research_spec, use_container_width=True, config={"displayModeBar": False})
+            with col4:
+                # رسم توزيع حجم البحوث (الهستوجرام)
+                fig_research_hist = px.histogram(faculty_data, 
+                                                x="عدد البحوث", 
+                                                title="توزيع عدد البحوث بين الأعضاء", 
+                                                color_discrete_sequence=["#1e88e5"])
+                fig_research_hist.update_layout(bargap=0.2)
+                fig_research_hist = prepare_chart_layout(fig_research_hist, "توزيع عدد البحوث", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_research_hist, use_container_width=True, config={"displayModeBar": False})
+        
+        # --- القسم 3: قائمة الأعضاء الأكثر نشاطًا بحثيًا ---
+        st.subheader("الأعضاء الأكثر نشاطًا بحثيًا")
+        # فرز الأعضاء حسب عدد البحوث تنازليًا
+        top_researchers = faculty_data.sort_values("عدد البحوث", ascending=False).head(10)
+        
+        # إنشاء رسم شريطي للعشرة الأوائل
+        fig_top_researchers = px.bar(
+            top_researchers,
+            y="الاسم",
+            x="عدد البحوث",
+            title="أعلى 10 أعضاء من حيث عدد البحوث",
+            color="عدد البحوث",
+            orientation='h',
+            color_continuous_scale="Blues",
+            labels={"عدد البحوث": "عدد البحوث", "الاسم": "اسم العضو"}
+        )
+        fig_top_researchers = prepare_chart_layout(fig_top_researchers, "أعلى 10 أعضاء من حيث عدد البحوث", is_mobile=mobile_view, chart_type="bar")
+        st.plotly_chart(fig_top_researchers, use_container_width=True, config={"displayModeBar": False})
+        
+        # عرض الجدول التفصيلي للباحثين المتميزين
+        with st.expander("عرض تفاصيل الباحثين المتميزين", expanded=False):
+            cols_to_display = ["الاسم", "الرتبة", "التخصص", "عدد البحوث"]
+            if "نقاط_الإنجازات" in top_researchers.columns:
+                cols_to_display.append("نقاط_الإنجازات")
+            
+            st.dataframe(
+                top_researchers[cols_to_display],
+                hide_index=True,
+                use_container_width=True
+            )
+            
+        # --- القسم 4: تصنيف النشاط البحثي ---
+        st.subheader("تصنيف النشاط البحثي")
+        
+        # حساب عدد الأعضاء في كل تصنيف
+        research_classification = faculty_data["تصنيف_البحوث"].value_counts().reset_index()
+        research_classification.columns = ["التصنيف", "العدد"]
+        
+        # ترتيب التصنيفات ترتيباً منطقياً
+        classification_order = ["نشط جداً", "نشط", "متوسط", "محدود"]
+        research_classification["order"] = research_classification["التصنيف"].map({
+            val: i for i, val in enumerate(classification_order)
+        })
+        research_classification = research_classification.sort_values("order").drop("order", axis=1)
+        
+        # رسم شريطي لتوزيع التصنيفات
+        colors = {"نشط جداً": "#27AE60", "نشط": "#1e88e5", "متوسط": "#F39C12", "محدود": "#E74C3C"}
+        fig_classification = px.bar(
+            research_classification,
+            x="التصنيف" if mobile_view else "العدد",
+            y="العدد" if mobile_view else "التصنيف",
+            title="توزيع الأعضاء حسب تصنيف النشاط البحثي",
+            orientation='v' if mobile_view else 'h',
+            color="التصنيف",
+            color_discrete_map=colors
+        )
+        fig_classification = prepare_chart_layout(fig_classification, "توزيع الأعضاء حسب تصنيف النشاط البحثي", is_mobile=mobile_view, chart_type="bar")
+        st.plotly_chart(fig_classification, use_container_width=True, config={"displayModeBar": False})
+        
+        # عرض تفسير التصنيفات
+        with st.expander("تفسير تصنيفات النشاط البحثي", expanded=False):
+            st.markdown("""
+            **معايير تصنيف النشاط البحثي:**
+            - <span class="badge badge-green">نشط جداً</span>: 15 بحث أو أكثر
+            - <span class="badge badge-blue">نشط</span>: 10-14 بحث
+            - <span class="badge badge-orange">متوسط</span>: 5-9 بحوث
+            - <span class="badge badge-red">محدود</span>: أقل من 5 بحوث
+            """, unsafe_allow_html=True)
+            
+            # عرض نسب كل تصنيف من إجمالي الأعضاء
+            total_faculty_count = research_classification["العدد"].sum()
+            st.markdown("### نسب التصنيفات")
+            
+            for _, row in research_classification.iterrows():
+                classification = row["التصنيف"]
+                count = row["العدد"]
+                percentage = (count / total_faculty_count) * 100
+                badge_class = colors.get(classification, "badge-blue").replace("#", "").lower()
+                
+                st.markdown(f"""
+                <div style="margin-bottom: 10px;">
+                    <span class="badge badge-{badge_class}">{classification}</span>: 
+                    <strong>{count}</strong> عضو ({percentage:.1f}% من إجمالي أعضاء هيئة التدريس)
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("لا تتوفر بيانات كافية لعرض تحليلات البحوث. يرجى التأكد من وجود عمود 'عدد البحوث' في بيانات أعضاء هيئة التدريس.")
+        
     # القسم الثامن: نصائح الاستخدام وتذييل الصفحة
     # --- نصائح للاستخدام ---
     with st.expander("💡 نصائح للاستخدام", expanded=False):
