@@ -156,6 +156,38 @@ responsive_menu_html_css = """
     .badge-orange { background-color: rgba(243, 156, 18, 0.1); color: #F39C12; }
     .badge-red { background-color: rgba(231, 76, 60, 0.1); color: #E74C3C; }
 
+    /* تنسيق الترقيات والأعضاء الجدد والمغادرين */
+    .changes-container { 
+        margin-top: 20px; 
+        padding: 10px; 
+        background-color: rgba(240, 240, 240, 0.3);
+        border-radius: 8px;
+        border: 1px solid #eee;
+    }
+    .changes-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 10px;
+    }
+    .changes-item {
+        padding: 8px; 
+        margin-bottom: 8px; 
+        border-radius: 5px;
+    }
+    .new-member {
+        border-right: 3px solid #27AE60; 
+        background-color: rgba(39, 174, 96, 0.1);
+    }
+    .departed-member {
+        border-right: 3px solid #E74C3C; 
+        background-color: rgba(231, 76, 60, 0.1);
+    }
+    .promotion-item {
+        border-right: 3px solid #1e88e5; 
+        background-color: rgba(30, 136, 229, 0.1);
+    }
+
     /* --- قواعد Media Query للتبديل بين القائمتين وتحسين عرض الجوال --- */
     @media only screen and (max-width: 768px) {
         .top-navbar { display: none; }
@@ -209,6 +241,13 @@ responsive_menu_html_css = """
         .profile-metrics { flex-direction: row; gap: 8px; } /* جعل المقاييس أفقية مرة أخرى ولكن بفجوة أقل */
         .profile-metric-value { font-size: 1rem; } /* تصغير قيمة المقياس للجوال */
         .profile-metric-label { font-size: 0.7rem; } /* تصغير تسمية المقياس للجوال */
+
+        /* تصغير خطوط بيانات التغييرات */
+        .changes-container { padding: 8px; }
+        .changes-title { font-size: 0.9rem; margin-bottom: 8px; }
+        .changes-item { padding: 6px; margin-bottom: 6px; }
+        .changes-item h4 { font-size: 0.85rem !important; margin: 0 !important; }
+        .changes-item p { font-size: 0.75rem !important; margin: 2px 0 !important; }
 
         /* جعل أعمدة الرسوم البيانية عمودًا واحدًا */
         /* يتم التعامل مع هذا في كود Python أدناه */
@@ -450,7 +489,8 @@ def load_previous_year_data(current_year):
             df["year"] = previous_year # إضافة عمود السنة
             return df
         else:
-            return None
+            # توليد بيانات تجريبية للسنة السابقة إذا لم توجد
+            return generate_sample_faculty_data(previous_year)
     except Exception as e:
         st.error(f"خطأ في تحميل بيانات السنة السابقة: {e}")
         return None
@@ -538,17 +578,40 @@ selected_year = st.selectbox("اختر السنة", YEAR_LIST[::-1], index=0) # 
 
 # --- تحميل البيانات ---
 faculty_data = load_faculty_data(selected_year)
+
+# تحميل بيانات السنة السابقة للمقارنة
+previous_year = selected_year - 1
+previous_year_data = load_previous_year_data(selected_year)
+
+# تحليل التغييرات بين السنتين (إذا كانت البيانات السابقة متوفرة)
+new_members_data, departed_members_data, promotions, research_increase = analyze_faculty_changes(faculty_data, previous_year_data)
+
+# تحميل بيانات الإنجازات
 faculty_achievements = load_faculty_achievements()
 
 if faculty_data.empty:
     st.warning("لا تتوفر بيانات أعضاء هيئة التدريس. يرجى التحقق من مصدر البيانات.")
 else:
-    # --- المقاييس الإجمالية ---
+    # --- المقاييس الإجمالية (مع إضافة الدلتا للمقارنة مع السنة السابقة) ---
     st.subheader("نظرة عامة") # عنوان فرعي للمقاييس
+    
+    # حساب قيم المقاييس الحالية
     total_faculty = len(faculty_data)
     male_count = len(faculty_data[faculty_data["الجنس"] == "ذكر"])
     female_count = len(faculty_data[faculty_data["الجنس"] == "أنثى"])
     total_research = faculty_data["عدد البحوث"].sum() if "عدد البحوث" in faculty_data.columns else 0
+    
+    # حساب قيم السنة السابقة إذا كانت متوفرة
+    prev_total_faculty = len(previous_year_data) if previous_year_data is not None else None
+    prev_male_count = len(previous_year_data[previous_year_data["الجنس"] == "ذكر"]) if previous_year_data is not None else None
+    prev_female_count = len(previous_year_data[previous_year_data["الجنس"] == "أنثى"]) if previous_year_data is not None else None
+    prev_total_research = previous_year_data["عدد البحوث"].sum() if previous_year_data is not None and "عدد البحوث" in previous_year_data.columns else None
+    
+    # حساب الفروقات (الدلتا)
+    delta_total = total_faculty - prev_total_faculty if prev_total_faculty is not None else None
+    delta_male = male_count - prev_male_count if prev_male_count is not None else None
+    delta_female = female_count - prev_female_count if prev_female_count is not None else None
+    delta_research = total_research - prev_total_research if prev_total_research is not None else None
 
     # عرض المقاييس في صف (أو 2x2 في الجوال)
     if mobile_view:
@@ -558,14 +621,121 @@ else:
     else:
         metric_cols = st.columns(4)
 
+    # إضافة المقاييس مع الدلتا
     with metric_cols[0]:
-        st.metric("إجمالي الأعضاء", f"{total_faculty:,}")
+        st.metric("إجمالي الأعضاء", f"{total_faculty:,}", 
+                 delta=f"{delta_total:+}" if delta_total is not None else None)
     with metric_cols[1]:
-        st.metric("أعضاء (ذكور)", f"{male_count:,}")
+        st.metric("أعضاء (ذكور)", f"{male_count:,}", 
+                 delta=f"{delta_male:+}" if delta_male is not None else None)
     with metric_cols[2]:
-        st.metric("أعضاء (إناث)", f"{female_count:,}")
+        st.metric("أعضاء (إناث)", f"{female_count:,}", 
+                 delta=f"{delta_female:+}" if delta_female is not None else None)
     with metric_cols[3]:
-        st.metric("إجمالي البحوث", f"{total_research:,}")
+        st.metric("إجمالي البحوث", f"{total_research:,}", 
+                 delta=f"{delta_research:+}" if delta_research is not None else None)
+    
+    # عرض ملخص التغييرات (الأعضاء الجدد والمغادرين والترقيات) في قسم مطوي
+    if previous_year_data is not None:
+        with st.expander("📊 عرض تفاصيل التغييرات عن العام السابق", expanded=False):
+            # هنا نضع تفاصيل التغييرات
+            
+            # حاوية للتغييرات
+            st.markdown('<div class="changes-container">', unsafe_allow_html=True)
+            
+            # عرض الترقيات
+            if promotions and len(promotions) > 0:
+                st.markdown('<div class="changes-title">🔄 الترقيات الأكاديمية</div>', unsafe_allow_html=True)
+                for promotion in promotions:
+                    st.markdown(f"""
+                    <div class="changes-item promotion-item">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{promotion["الاسم"]}</h4>
+                        <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # عرض الأعضاء الجدد
+            if new_members_data is not None and len(new_members_data) > 0:
+                st.markdown('<div class="changes-title">➕ الأعضاء الجدد</div>', unsafe_allow_html=True)
+                for _, row in new_members_data.iterrows():
+                    name = row.get("الاسم", "غير متوفر")
+                    gender = row.get("الجنس", "")
+                    rank = row.get("الرتبة", "")
+                    spec = row.get("التخصص", "")
+
+                    st.markdown(f"""
+                    <div class="changes-item new-member">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: #27AE60;">{name}</h4>
+                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # عرض الأعضاء المغادرين
+            if departed_members_data is not None and len(departed_members_data) > 0:
+                st.markdown('<div class="changes-title">➖ الأعضاء المغادرون</div>', unsafe_allow_html=True)
+                for _, row in departed_members_data.iterrows():
+                    name = row.get("الاسم", "غير متوفر")
+                    gender = row.get("الجنس", "")
+                    rank = row.get("الرتبة", "")
+                    spec = row.get("التخصص", "")
+
+                    st.markdown(f"""
+                    <div class="changes-item departed-member">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: #E74C3C;">{name}</h4>
+                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # إغلاق حاوية التغييرات
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # عرض مقارنة التوزيع حسب الرتبة
+            if "الرتبة" in faculty_data.columns and "الرتبة" in previous_year_data.columns:
+                st.markdown("### مقارنة التوزيع حسب الرتبة")
+                
+                current_rank_counts = faculty_data["الرتبة"].value_counts().reset_index()
+                current_rank_counts.columns = ["الرتبة", "العدد"]
+                current_rank_counts["السنة"] = selected_year
+
+                previous_rank_counts = previous_year_data["الرتبة"].value_counts().reset_index()
+                previous_rank_counts.columns = ["الرتبة", "العدد"]
+                previous_rank_counts["السنة"] = previous_year
+
+                # دمج البيانات للمقارنة
+                rank_comparison = pd.concat([previous_rank_counts, current_rank_counts])
+
+                # رسم بياني للمقارنة
+                fig_rank_compare = px.bar(
+                    rank_comparison,
+                    x="الرتبة",
+                    y="العدد",
+                    color="السنة",
+                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الرتبة",
+                    barmode="group",
+                    color_discrete_sequence=["#777777", "#1e88e5"]
+                )
+                fig_rank_compare = prepare_chart_layout(fig_rank_compare, "مقارنة حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_rank_compare, use_container_width=True, config={"displayModeBar": False})
+                
+                # مقارنة عدد الذكور والإناث
+                st.markdown("### مقارنة التوزيع حسب الجنس")
+                gender_comparison = pd.DataFrame({
+                    "السنة": [previous_year, selected_year],
+                    "ذكور": [prev_male_count, male_count],
+                    "إناث": [prev_female_count, female_count]
+                })
+
+                # رسم بياني للمقارنة
+                fig_gender_compare = px.bar(
+                    gender_comparison,
+                    x="السنة",
+                    y=["ذكور", "إناث"],
+                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الجنس",
+                    barmode="group",
+                    color_discrete_sequence=["#1e88e5", "#E83E8C"]
+                )
+                fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
 
     # --- تحليلات هيئة التدريس ---
     st.subheader("توزيع أعضاء هيئة التدريس")
@@ -592,8 +762,8 @@ else:
         nationality_distribution = faculty_data["الجنسية"].value_counts().reset_index()
         nationality_distribution.columns = ["الجنسية", "العدد"]
 
-    # عرض الرسوم البيانية في تبويبات
-    tabs = st.tabs(["توزيع الرتب", "التخصصات", "حالة الموظف", "توزيع البحوث", "المقارنة السنوية"])
+    # عرض الرسوم البيانية في تبويبات - تمت إزالة تبويب المقارنة السنوية
+    tabs = st.tabs(["توزيع الرتب", "التخصصات", "حالة الموظف", "توزيع البحوث"])
 
     # التبويب 1: توزيع الرتب
     with tabs[0]:
@@ -774,145 +944,6 @@ else:
         else:
             st.info("لا تتوفر بيانات كافية لعرض توزيع البحوث.")
 
-    # التبويب 5: المقارنة السنوية
-    with tabs[4]:
-        # تحميل بيانات السنة السابقة للمقارنة
-        previous_year = selected_year - 1
-        previous_year_data = load_previous_year_data(selected_year)
-
-        # إذا توفرت بيانات السنة السابقة، قم بتحليل التغييرات
-        if previous_year_data is not None:
-            # تحليل التغييرات
-            new_members_data, departed_members_data, promotions, research_increase = analyze_faculty_changes(faculty_data, previous_year_data)
-
-            # عرض ملخص التغييرات
-            st.subheader(f"ملخص التغييرات بين {previous_year} و {selected_year}")
-
-            # استخدام شبكة 2x2 للمقاييس في الجوال
-            if mobile_view:
-                 row1_comp_cols = st.columns(2)
-                 row2_comp_cols = st.columns(2)
-                 summary_cols = [row1_comp_cols[0], row1_comp_cols[1], row2_comp_cols[0], row2_comp_cols[1]]
-            else:
-                 summary_cols = st.columns(4)
-
-            with summary_cols[0]:
-                st.metric("أعضاء جدد", len(new_members_data) if new_members_data is not None else 0,
-                          delta=f"+{len(new_members_data)}" if new_members_data is not None and len(new_members_data) > 0 else "0")
-            with summary_cols[1]:
-                st.metric("أعضاء مغادرون", len(departed_members_data) if departed_members_data is not None else 0,
-                          delta=f"-{len(departed_members_data)}" if departed_members_data is not None and len(departed_members_data) > 0 else "0", delta_color="inverse")
-            with summary_cols[2]:
-                st.metric("إجمالي التغيير",
-                          len(faculty_data) - len(previous_year_data),
-                          delta=f"{len(faculty_data) - len(previous_year_data)}")
-            with summary_cols[3]:
-                st.metric("زيادة البحوث",
-                          research_increase,
-                          delta=f"+{research_increase}" if research_increase > 0 else f"{research_increase}")
-
-            # عرض الترقيات
-            if promotions and len(promotions) > 0:
-                st.subheader("الترقيات الأكاديمية")
-                promotions_df = pd.DataFrame(promotions)
-                st.dataframe(
-                    promotions_df,
-                    hide_index=True,
-                    column_config={
-                        "الاسم": st.column_config.TextColumn("الاسم"),
-                        "الرتبة السابقة": st.column_config.TextColumn("الرتبة السابقة"),
-                        "الرتبة الحالية": st.column_config.TextColumn("الرتبة الحالية")
-                    },
-                    use_container_width=True
-                )
-
-            # عرض الأعضاء الجدد
-            if new_members_data is not None and len(new_members_data) > 0:
-                st.subheader("الأعضاء الجدد")
-                for _, row in new_members_data.iterrows():
-                    name = row.get("الاسم", "غير متوفر")
-                    gender = row.get("الجنس", "")
-                    rank = row.get("الرتبة", "")
-                    spec = row.get("التخصص", "")
-
-                    st.markdown(f"""
-                    <div style="padding: 8px; border-right: 3px solid #27AE60; background-color: rgba(39, 174, 96, 0.1); margin-bottom: 8px; border-radius: 5px;">
-                        <h4 style="color: #27AE60; margin: 0; font-size: 0.9rem;">{name}</h4>
-                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
-                    </div>
-                    """, unsafe_allow_html=True) # تصغير الخطوط
-
-            # عرض الأعضاء المغادرين
-            if departed_members_data is not None and len(departed_members_data) > 0:
-                st.subheader("الأعضاء المغادرون")
-                for _, row in departed_members_data.iterrows():
-                    name = row.get("الاسم", "غير متوفر")
-                    gender = row.get("الجنس", "")
-                    rank = row.get("الرتبة", "")
-                    spec = row.get("التخصص", "")
-
-                    st.markdown(f"""
-                    <div style="padding: 8px; border-right: 3px solid #E74C3C; background-color: rgba(231, 76, 60, 0.1); margin-bottom: 8px; border-radius: 5px;">
-                        <h4 style="color: #E74C3C; margin: 0; font-size: 0.9rem;">{name}</h4>
-                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
-                    </div>
-                    """, unsafe_allow_html=True) # تصغير الخطوط
-
-            # مقارنة الإحصائيات العامة
-            st.subheader("مقارنة الإحصائيات العامة")
-
-            # مقارنة عدد الذكور والإناث
-            current_male = len(faculty_data[faculty_data["الجنس"] == "ذكر"])
-            current_female = len(faculty_data[faculty_data["الجنس"] == "أنثى"])
-            previous_male = len(previous_year_data[previous_year_data["الجنس"] == "ذكر"])
-            previous_female = len(previous_year_data[previous_year_data["الجنس"] == "أنثى"])
-
-            gender_comparison = pd.DataFrame({
-                "السنة": [previous_year, selected_year],
-                "ذكور": [previous_male, current_male],
-                "إناث": [previous_female, current_female]
-            })
-
-            # رسم بياني للمقارنة
-            fig_gender_compare = px.bar(
-                gender_comparison,
-                x="السنة",
-                y=["ذكور", "إناث"],
-                title="مقارنة أعداد أعضاء هيئة التدريس حسب الجنس",
-                barmode="group",
-                color_discrete_sequence=["#1e88e5", "#E83E8C"]
-            )
-            fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-            st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
-
-            # مقارنة التوزيع حسب الرتبة
-            if "الرتبة" in faculty_data.columns and "الرتبة" in previous_year_data.columns:
-                current_rank_counts = faculty_data["الرتبة"].value_counts().reset_index()
-                current_rank_counts.columns = ["الرتبة", "العدد"]
-                current_rank_counts["السنة"] = selected_year
-
-                previous_rank_counts = previous_year_data["الرتبة"].value_counts().reset_index()
-                previous_rank_counts.columns = ["الرتبة", "العدد"]
-                previous_rank_counts["السنة"] = previous_year
-
-                # دمج البيانات للمقارنة
-                rank_comparison = pd.concat([previous_rank_counts, current_rank_counts])
-
-                # رسم بياني للمقارنة
-                fig_rank_compare = px.bar(
-                    rank_comparison,
-                    x="الرتبة",
-                    y="العدد",
-                    color="السنة",
-                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الرتبة",
-                    barmode="group",
-                    color_discrete_sequence=["#777777", "#1e88e5"]
-                )
-                fig_rank_compare = prepare_chart_layout(fig_rank_compare, "مقارنة حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_rank_compare, use_container_width=True, config={"displayModeBar": False})
-        else:
-            st.info(f"لا تتوفر بيانات للسنة السابقة ({previous_year}) للمقارنة. يرجى التأكد من وجود ملف البيانات لتلك السنة.")
-
     # --- فلاتر البحث عن أعضاء هيئة التدريس ---
     st.subheader("بحث وتصفية أعضاء هيئة التدريس")
 
@@ -1033,6 +1064,14 @@ else:
             # الحصول على نقاط الإنجازات إذا كانت متاحة
             achievement_points = int(row.get("نقاط_الإنجازات", 0)) if has_achievements else 0
 
+            # إضافة تمييز للأعضاء الجدد
+            is_new_member = new_members_data is not None and name in new_members_data["الاسم"].values
+            new_member_tag = '<span class="badge badge-green">جديد</span>' if is_new_member else ''
+
+            # إضافة تمييز للأعضاء المُرقين
+            is_promoted = promotions is not None and any(p["الاسم"] == name for p in promotions)
+            promoted_tag = '<span class="badge badge-blue">ترقية</span>' if is_promoted else ''
+
             # عرض بطاقة العضو (تم تطبيق التنسيقات عبر CSS)
             st.markdown(f"""
             <div class="faculty-profile-card">
@@ -1040,7 +1079,7 @@ else:
                     {get_avatar_placeholder(name)}
                 </div>
                 <div class="profile-info">
-                    <div class="profile-name">{name}</div>
+                    <div class="profile-name">{name} {new_member_tag} {promoted_tag}</div>
                     <div class="profile-title">{rank} - {spec}</div>
                     <div class="profile-details">
                         <span class="profile-detail-item">{"👨" if gender == "ذكر" else "👩"} {gender}</span>
@@ -1071,7 +1110,8 @@ else:
     with st.expander("💡 نصائح للاستخدام", expanded=False):
         st.markdown("""
         - **منتقي السنة:** يمكنك اختيار السنة لعرض بيانات أعضاء هيئة التدريس لتلك السنة.
-        - **تبويبة المقارنة السنوية:** تعرض التغييرات والفروقات بين السنة المحددة والسنة السابقة.
+        - **مؤشرات المقارنة:** الأسهم بجانب الأرقام توضح التغيير مقارنة بالسنة السابقة (زيادة أو نقصان).
+        - **تفاصيل التغييرات:** انقر على "عرض تفاصيل التغييرات عن العام السابق" لمشاهدة معلومات عن الأعضاء الجدد والمغادرين والترقيات.
         - **شريط التنقل العلوي:** يعرض الأقسام الرئيسية والبرامج الأكاديمية مباشرة بشكل أفقي على الشاشات الكبيرة.
         - **على الجوال:** تظهر نفس القائمة بشكل رأسي عند النقر على أيقونة القائمة (☰).
         - **الفلاتر المتعددة:** يمكنك تطبيق أكثر من فلتر في نفس الوقت للوصول إلى بيانات محددة.
