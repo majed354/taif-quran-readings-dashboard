@@ -1,0 +1,103 @@
+/* ملف ستايل عام للتطبيق */
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap');
+
+* {
+    font-family: 'Tajawal', sans-serif !important;
+}
+
+/* تفعيل RTL */
+.stApp {
+    direction: rtl;
+    text-align: right;
+}
+
+/* إخفاء عناصر Streamlit الافتراضية */
+[data-testid="stToolbar"], #MainMenu, header, footer,
+[class^="viewerBadge_"], [id^="GithubIcon"],
+[data-testid="stThumbnailsChipContainer"], .stProgress,
+[data-testid="stBottomNavBar"], [data-testid*="bottomNav"],
+[aria-label*="community"], [aria-label*="profile"],
+[title*="community"], [title*="profile"],
+h1 > div > a, h2 > div > a, h3 > div > a,
+h4 > div > a, h5 > div > a, h6 > div > a { 
+    display: none !important; 
+    visibility: hidden !important; 
+}
+
+[data-testid="stSidebar"], [data-testid="stSidebarNavToggler"], 
+[data-testid="stSidebarCollapseButton"] { 
+    display: none !important; 
+}
+
+/* تنسيق العناوين */
+h1, h2, h3 { 
+    color: #1e88e5; 
+    font-weight: 600; 
+}
+
+h1 { 
+    padding-bottom: 15px; 
+    border-bottom: 2px solid #1e88e5; 
+    margin-bottom: 30px; 
+    font-size: calc(1.2rem + 1vw); 
+}
+
+.main-title {
+    text-align: center;
+    color: #1e88e5;
+    margin-bottom: 20px;
+    border-bottom: none;
+}
+
+/* تنسيق روابط التنقل */
+[data-testid="StyledLinkIconContainer"] > div > a {
+    background-color: #f8f9fa;
+    color: #333;
+    display: block;
+    padding: 10px;
+    border-radius: 10px;
+    text-decoration: none;
+    margin-bottom: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 1px solid #e7e7e7;
+    text-align: center;
+}
+
+[data-testid="StyledLinkIconContainer"] > div > a:hover {
+    background-color: #1e88e5;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* تنسيقات عامة للبطاقات */
+.metric-card { 
+    background-color: white; 
+    border-radius: 10px; 
+    padding: 15px; 
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); 
+    text-align: center; 
+    margin-bottom: 15px; 
+}
+
+.chart-container { 
+    background-color: white; 
+    border-radius: 10px; 
+    padding: 10px; 
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); 
+    margin-bottom: 20px; 
+    width: 100%; 
+    overflow: hidden; 
+}
+
+/* تنسيقات للشاشات المختلفة */
+@media only screen and (max-width: 768px) {
+    [data-testid="StyledLinkIconContainer"] > div > a {
+        padding: 6px;
+        font-size: 0.8rem;
+    }
+    
+    .main-title {
+        font-size: 1.2rem;
+    }
+}
