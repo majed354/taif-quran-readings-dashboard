@@ -37,34 +37,50 @@ responsive_menu_html_css = """
 
     /* --- تنسيق شريط التنقل العلوي (للسطح المكتب) --- */
     .top-navbar {
-        background-color: #f8f9fa; padding: 0.4rem 1rem; border-bottom: 1px solid #e7e7e7;
-        width: 100%; box-sizing: border-box; display: none;
+        background-color: #f8f9fa; padding: 0.4rem 1rem; /* تقليل الحشو العمودي */ border-bottom: 1px solid #e7e7e7;
+        width: 100%; box-sizing: border-box; display: none; /* Hidden by default on mobile */
     }
-    .top-navbar ul { list-style: none; padding: 0; margin: 0; display: flex; justify-content: flex-start; align-items: center; flex-wrap: wrap; }
-    .top-navbar li { position: relative; margin-left: 1rem; margin-bottom: 0.2rem; }
+    .top-navbar ul {
+        list-style: none; padding: 0; margin: 0; display: flex;
+        justify-content: flex-start; align-items: center;
+        flex-wrap: wrap; /* Allow wrapping on smaller desktop screens */
+    }
+    .top-navbar li {
+        position: relative; margin-left: 1rem; /* تقليل الهامش الأفقي */
+        margin-bottom: 0.2rem; /* تقليل الهامش السفلي عند الالتفاف */
+    }
     .top-navbar li:first-child { margin-right: 0; }
-    .top-navbar a { text-decoration: none; color: #333; padding: 0.3rem 0.1rem; display: block; font-weight: 500; white-space: nowrap; font-size: 0.9rem; }
+    .top-navbar a {
+        text-decoration: none; color: #333; padding: 0.3rem 0.1rem; /* تقليل الحشو العمودي للروابط */
+        display: block; font-weight: 500; white-space: nowrap; /* Prevent wrapping within link */
+        font-size: 0.9rem; /* تصغير حجم خط القائمة العلوية */
+    }
     .top-navbar a:hover { color: #1e88e5; }
 
     /* --- تنسيق زر وقائمة البرجر (للجوال) --- */
     .mobile-menu-trigger {
-        display: none; position: fixed; top: 8px; right: 12px; z-index: 1001;
+        display: none; /* Hidden by default on desktop */
+        position: fixed; top: 8px; right: 12px; z-index: 1001; /* تعديل الموضع قليلاً */
         cursor: pointer; background-color: #1e88e5; color: white;
-        padding: 5px 9px; border-radius: 5px; font-size: 1.2rem; line-height: 1;
+        padding: 5px 9px; border-radius: 5px; font-size: 1.2rem; line-height: 1; /* تصغير الزر قليلاً */
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     .mobile-menu-checkbox { display: none; }
     .mobile-menu {
         display: none; position: fixed; top: 0; right: 0;
-        width: 230px; height: 100%; background-color: #f8f9fa;
-        z-index: 1000; padding: 50px 15px 15px 15px;
+        width: 230px; /* تصغير عرض القائمة الجانبية */ height: 100%; background-color: #f8f9fa;
+        z-index: 1000; padding: 50px 15px 15px 15px; /* تعديل الحشو */
         box-shadow: -2px 0 5px rgba(0,0,0,0.1);
         transition: transform 0.3s ease-in-out;
         transform: translateX(100%); overflow-y: auto;
     }
     .mobile-menu ul { list-style: none; padding: 0; margin: 0; }
-    .mobile-menu li { margin-bottom: 0.3rem; }
-    .mobile-menu a { text-decoration: none; color: #333; padding: 8px 5px; display: block; font-weight: 500; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    .mobile-menu li { margin-bottom: 0.3rem; } /* تقليل الهامش بين العناصر */
+    .mobile-menu a {
+        text-decoration: none; color: #333; padding: 8px 5px; /* تقليل الحشو */
+        display: block; font-weight: 500; border-bottom: 1px solid #eee;
+        font-size: 0.9rem; /* تصغير خط القائمة الجانبية */
+    }
     .mobile-menu a:hover { color: #1e88e5; background-color: #eee; }
 
     /* --- إظهار قائمة البرجر عند تفعيل الـ checkbox --- */
@@ -72,71 +88,46 @@ responsive_menu_html_css = """
     .mobile-menu-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 999; }
     .mobile-menu-checkbox:checked ~ .mobile-menu-overlay { display: block; }
 
-    /* --- تنسيقات عامة --- */
+    /* --- قواعد Media Query للتبديل بين القائمتين --- */
+    @media only screen and (max-width: 768px) {
+        .top-navbar { display: none; }
+        .mobile-menu-trigger { display: block; }
+        .main .block-container { padding-right: 1rem !important; padding-left: 1rem !important; padding-top: 45px !important; } /* تقليل الحشو العلوي */
+    }
+    @media only screen and (min-width: 769px) {
+        .top-navbar { display: block; }
+        .mobile-menu-trigger, .mobile-menu, .mobile-menu-overlay, .mobile-menu-checkbox { display: none; }
+    }
+
+    /* --- تنسيقات عامة أخرى (من الكود القديم) --- */
     h1,h2,h3 { color: #1e88e5; font-weight: 600; }
-    h1 { padding-bottom: 10px; border-bottom: 1px solid #1e88e5; margin-bottom: 20px; font-size: calc(1rem + 0.6vw); }
-    h2 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.4vw); }
-    h3 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.1vw); }
-    .metric-card { background-color: white; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); text-align: center; margin-bottom: 12px; }
-    .chart-container { background-color: white; border-radius: 8px; padding: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); margin-bottom: 15px; width: 100%; overflow: hidden; }
-    .faculty-card { background: linear-gradient(135deg, #f5f7fa 0%, #e3e6f0 100%); border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); }
-    .achievement-item { padding: 8px; border-right: 3px solid #1e88e5; margin-bottom: 8px; background-color: rgba(30, 136, 229, 0.05); }
-    .stSelectbox label, .stMultiselect label { font-weight: 500; font-size: 0.95rem; }
-    .back-to-top { position: fixed; bottom: 15px; left: 15px; width: 35px; height: 35px; background-color: #1e88e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 998; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: scale(0); }
+    /* تصغير حجم الخط للعنوان الرئيسي H1 وتغيير الهامش السفلي */
+    h1 { padding-bottom: 10px; border-bottom: 1px solid #1e88e5; margin-bottom: 20px; font-size: calc(1rem + 0.6vw); } /* تصغير الخط والهامش */
+    h2 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.4vw); } /* تصغير الخط */
+    h3 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.1vw); } /* تصغير الخط */
+    .metric-card { background-color: white; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); text-align: center; margin-bottom: 12px; } /* تعديل الظل والحشو */
+    .chart-container { background-color: white; border-radius: 8px; padding: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); margin-bottom: 15px; width: 100%; overflow: hidden; } /* تعديل الظل والحشو */
+    .faculty-card { background: linear-gradient(135deg, #f5f7fa 0%, #e3e6f0 100%); border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); } /* تعديل الظل والحشو */
+    .achievement-item { padding: 8px; border-right: 3px solid #1e88e5; margin-bottom: 8px; background-color: rgba(30, 136, 229, 0.05); } /* تعديل الحشو والهامش */
+    .stSelectbox label, .stMultiselect label { font-weight: 500; font-size: 0.95rem; } /* تصغير خط التسميات */
+    .back-to-top { position: fixed; bottom: 15px; left: 15px; width: 35px; height: 35px; background-color: #1e88e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 998; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: scale(0); } /* تصغير الزر */
     .back-to-top.visible { opacity: 1; transform: scale(1); }
-    .back-to-top span { font-size: 1rem; }
+    .back-to-top span { font-size: 1rem; } /* تصغير السهم */
+
+    @media only screen and (min-width: 769px) and (max-width: 1024px) {
+        h1 { font-size: 1.5rem; } /* تصغير إضافي للشاشات المتوسطة */
+        h2, h3 { font-size: 1.1rem; }
+        .top-navbar a { font-size: 0.85rem; } /* تصغير إضافي للشاشات المتوسطة */
+    }
 
     /* تلوين البطاقات حسب قيمة المؤشر */
     .metric-card.positive { background-color: rgba(39, 174, 96, 0.1); }
     .metric-card.warning { background-color: rgba(241, 196, 15, 0.1); }
     .metric-card.negative { background-color: rgba(231, 76, 60, 0.1); }
 
-    /* خطوط المقاييس داخل البطاقات */
-    [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
-    [data-testid="stMetricLabel"] { font-size: 0.85rem !important; }
-
-    /* --- قواعد Media Query للتبديل بين القائمتين وتحسين عرض الجوال --- */
-    @media only screen and (max-width: 768px) {
-        .top-navbar { display: none; }
-        .mobile-menu-trigger { display: block; }
-        .main .block-container { padding-right: 0.8rem !important; padding-left: 0.8rem !important; padding-top: 40px !important; } /* تقليل الحشو أكثر */
-
-        /* تصغير الخطوط والهوامش للعناوين في الجوال */
-        h1 { font-size: 1.3rem; margin-bottom: 15px; padding-bottom: 8px; }
-        h2 { font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
-        h3 { font-size: 1.0rem; margin-top: 18px; margin-bottom: 8px; }
-
-        /* تصغير خطوط المقاييس في الجوال */
-        [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
-        [data-testid="stMetricLabel"] { font-size: 0.8rem !important; }
-        .metric-card { padding: 10px; margin-bottom: 10px;} /* تقليل حشو وهوامش بطاقات المقاييس */
-
-        /* تصغير خطوط بطاقات هيئة التدريس والإنجازات في الجوال */
-        .faculty-card h5 { font-size: 0.9rem !important; margin-bottom: 2px !important; }
-        .faculty-card p { font-size: 0.8em !important; }
-        .achievement-item p:first-of-type { font-size: 0.85em !important; margin-bottom: 1px !important; }
-        .achievement-item p:nth-of-type(2) { font-size: 0.8em !important; margin-bottom: 1px !important; }
-        .achievement-item p:last-of-type { font-size: 0.7em !important; }
-
-        /* جعل أعمدة هيئة التدريس والإنجازات عمودًا واحدًا */
-        /* هذا يتطلب تعديل كود Python لاستخدام st.container بدلاً من st.columns في الجوال */
-        /* سنقوم بتطبيق هذا التعديل لاحقًا في كود Python */
-
-         /* تصغير خطوط التبويبات */
-        button[data-baseweb="tab"] {
-            font-size: 0.85rem !important;
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
-        }
-         /* تصغير خط منتقي السنة */
-        .stSelectbox label { font-size: 0.9rem !important; }
-    }
-
-    @media only screen and (min-width: 769px) and (max-width: 1024px) {
-        h1 { font-size: 1.5rem; }
-        h2, h3 { font-size: 1.1rem; }
-        .top-navbar a { font-size: 0.85rem; }
-    }
+    /* تصغير خطوط المقاييس داخل البطاقات */
+    [data-testid="stMetricValue"] { font-size: 1.5rem !important; } /* تصغير قيمة المقياس */
+    [data-testid="stMetricLabel"] { font-size: 0.85rem !important; } /* تصغير تسمية المقياس */
 
 </style>
 
@@ -210,13 +201,10 @@ st.markdown(responsive_menu_html_css, unsafe_allow_html=True)
 st.markdown("<h1>🏠 الرئيسية</h1>", unsafe_allow_html=True) # تغيير النص وتصغير الخط عبر CSS
 
 # --- دوال مساعدة ---
+# (نفس دوال الكود الجديد)
 def is_mobile():
     """التحقق من كون العرض الحالي محتملاً أن يكون جهاز محمول"""
-    # ملاحظة: هذه الدالة تحتاج إلى طريقة لتحديد عرض الشاشة بشكل فعلي.
-    # يمكنك استخدام مكون مثل streamlit_js_eval أو اختبار العرض يدويًا بتغيير حجم المتصفح.
-    # حاليًا، ستُرجع False دائمًا.
-    # يمكنك تغييرها إلى True مؤقتًا لاختبار تنسيقات الجوال.
-    return False # غير القيمة إلى True لاختبار تنسيقات الجوال
+    return False # قيمة افتراضية مؤقتة
 
 def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar"):
     """تطبيق تنسيق موحد على مخططات Plotly مع الاستجابة للجوال"""
@@ -239,42 +227,38 @@ def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar"):
             }
         }
 
-        # تعديلات خاصة بالجوال (تم تحسينها)
+        # تعديلات خاصة بالجوال
         if is_mobile:
             mobile_settings = {
-                "height": 260 if chart_type != "heatmap" else 300, # تصغير الارتفاع أكثر
-                "margin": {"t": 30, "b": 60, "l": 5, "r": 5, "pad": 0}, # تقليل الهوامش أكثر
-                "font": {"size": 8}, # تصغير الخط أكثر
-                "title": {"font": {"size": 10}}, # تصغير خط العنوان أكثر
-                "legend": {"y": -0.3, "font": {"size": 7}} # تصغير خط وسيلة الإيضاح وتحريكها
+                "height": 280 if chart_type != "heatmap" else 320, # تصغير ارتفاع المخطط للجوال
+                "margin": {"t": 35, "b": 80, "l": 5, "r": 5, "pad": 0}, # تعديل الهوامش
+                "font": {"size": 9}, # تصغير خط المخطط
+                "title": {"font": {"size": 11}}, # تصغير خط العنوان
+                "legend": {"y": -0.45, "font": {"size": 8}} # تصغير خط وسيلة الإيضاح
             }
             layout_settings.update(mobile_settings)
 
             # تعديلات خاصة بنوع المخطط للجوال
             if chart_type == "pie":
                 layout_settings["showlegend"] = False
-                fig.update_traces(textfont_size=8) # تصغير خط النص داخل الدائري
+                fig.update_traces(textfont_size=9) # تصغير خط النص داخل الدائري
             elif chart_type == "line":
-                fig.update_traces(marker=dict(size=3)) # تصغير حجم العلامات
+                fig.update_traces(marker=dict(size=4)) # تصغير حجم العلامات
             elif chart_type == "bar":
-                fig.update_xaxes(tickangle=0, tickfont={"size": 6}) # تصغير خط المحور السيني
-                fig.update_yaxes(tickfont={"size": 6}) # تصغير خط المحور الصادي
-            elif chart_type == "heatmap":
-                 fig.update_traces(textfont={"size": 8}) # تصغير خط النص داخل الخريطة الحرارية
-                 fig.update_yaxes(tickfont=dict(size=7)) # تصغير خط المحور الصادي للخريطة الحرارية
+                fig.update_xaxes(tickangle=0, tickfont={"size": 7}) # تصغير خط المحور السيني
+                fig.update_yaxes(tickfont={"size": 7}) # تصغير خط المحور الصادي
         else:
             # إعدادات سطح المكتب
             desktop_settings = {
-                "height": 400 if chart_type != "heatmap" else 380,
-                "margin": {"t": 40, "b": 80, "l": 25, "r": 25, "pad": 4},
-                "legend": {"y": -0.2, "font": {"size": 9}},
-                "title": {"font": {"size": 14}},
-                "font": {"size": 10}
+                "height": 400 if chart_type != "heatmap" else 380, # تصغير ارتفاع المخطط
+                "margin": {"t": 40, "b": 80, "l": 25, "r": 25, "pad": 4}, # تعديل الهوامش
+                "legend": {"y": -0.2, "font": {"size": 9}}, # تصغير خط وسيلة الإيضاح
+                "title": {"font": {"size": 14}}, # تصغير خط العنوان
+                "font": {"size": 10} # تصغير الخط العام للمخطط
             }
             layout_settings.update(desktop_settings)
             if chart_type == "heatmap":
-                 fig.update_traces(textfont={"size": 10})
-                 fig.update_yaxes(tickfont=dict(size=9))
+                 fig.update_traces(textfont={"size": 10}) # تصغير خط النص داخل الخريطة الحرارية
 
         fig.update_layout(**layout_settings)
     except Exception as e:
@@ -283,6 +267,7 @@ def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar"):
     return fig
 
 # --- تحديد قاموس رموز البرامج ---
+# (نفس قواميس الكود الجديد)
 PROGRAM_MAP = {
     "بكالوريوس في القرآن وعلومه": "bachelor_quran",
     "بكالوريوس القراءات": "bachelor_readings",
@@ -302,6 +287,7 @@ SHORT_PROGRAM_MAP = {
 }
 
 # --- دوال تحميل البيانات ---
+# (نفس دوال الكود الجديد)
 @st.cache_data(ttl=3600)
 def load_department_summary():
     """تحميل بيانات ملخص القسم الكلية"""
@@ -402,6 +388,7 @@ def load_top_faculty():
         return pd.DataFrame()
 
 # --- محتوى لوحة المعلومات الرئيسية ---
+# (نفس محتوى الكود الجديد)
 
 # تحديد عرض الجوال
 mobile_view = is_mobile()
@@ -410,7 +397,7 @@ mobile_view = is_mobile()
 YEAR_LIST = list(range(2022, 2026))
 selected_year = st.selectbox("اختر السنة", YEAR_LIST[::-1]) # عرض السنوات بترتيب تنازلي
 
-# تحميل البيانات (مع معالجة الأخطاء والبيانات التجريبية)
+# تحميل البيانات (مع معالجة الأخطاء والبيانات التجريبية كما في الكود الجديد)
 try:
     dept_data = load_department_summary()
     total_students = dept_data["عدد الطلاب"].sum() if "عدد الطلاب" in dept_data.columns else 0
@@ -435,7 +422,7 @@ try:
 except Exception as e:
     st.error(f"خطأ في تحميل أو تهيئة البيانات: {e}")
     st.warning("استخدام بيانات تجريبية.")
-    # إعداد بيانات تجريبية عند الخطأ
+    # إعداد بيانات تجريبية عند الخطأ (نفس الكود الجديد)
     total_students = 1000
     total_faculty = 56
     total_programs = 6
@@ -473,43 +460,23 @@ except Exception as e:
 
 # --- المقاييس الرئيسية (تم تغيير العنوان الفرعي) ---
 st.subheader("مؤشرات قسم القراءات") # تغيير النص هنا
-
-# عرض المقاييس الرئيسية - تعديل لعرض الجوال (2x2)
-# ملاحظة: هذا يتطلب التحقق من mobile_view. إذا كانت True، نستخدم شبكة 2x2.
-if mobile_view:
-    row1_cols = st.columns(2)
-    row2_cols = st.columns(2)
-    metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1]]
-else:
-    metric_cols = st.columns(4)
-
-with metric_cols[0]:
+cols_metrics = st.columns(4)
+with cols_metrics[0]:
     st.metric("إجمالي الطلاب", f"{total_students:,}")
-with metric_cols[1]:
+with cols_metrics[1]:
     st.metric("أعضاء هيئة التدريس", f"{total_faculty:,}")
-with metric_cols[2]:
+with cols_metrics[2]:
     st.metric("البرامج الأكاديمية", f"{total_programs}")
 
-# تحديد المؤشر الرابع وعرضه
 indicators_to_plot = []
-fourth_metric_available = False
 if not latest_year_data.empty and "نسبة الاستبقاء" in latest_year_data.columns:
     avg_retention = latest_year_data["نسبة الاستبقاء"].mean()
     indicators_to_plot.append("نسبة الاستبقاء")
-    with metric_cols[3]:
-        st.metric("متوسط الاستبقاء", f"{avg_retention:.0f}%")
-    fourth_metric_available = True
+    cols_metrics[3].metric("متوسط الاستبقاء", f"{avg_retention:.0f}%")
 elif not latest_year_data.empty and "نسبة النجاح" in latest_year_data.columns:
     avg_success = latest_year_data["نسبة النجاح"].mean()
     indicators_to_plot.append("نسبة النجاح")
-    with metric_cols[3]:
-        st.metric("متوسط النجاح", f"{avg_success:.0f}%")
-    fourth_metric_available = True
-
-# إذا لم يكن هناك مؤشر رابع، يمكن ترك العمود فارغًا أو إضافة عنصر نائب
-if not fourth_metric_available and len(metric_cols) > 3:
-     with metric_cols[3]:
-         pass # أو st.empty()
+    cols_metrics[3].metric("متوسط النجاح", f"{avg_success:.0f}%")
 
 if not latest_year_data.empty:
     for column in ["معدل الرضا", "نسبة التوظيف"]:
@@ -517,6 +484,7 @@ if not latest_year_data.empty:
             indicators_to_plot.append(column)
 
 # --- تحليل البرامج ---
+# (نفس الكود الجديد)
 if not latest_year_data.empty and "البرنامج" in latest_year_data.columns and "عدد الطلاب" in latest_year_data.columns:
     st.subheader("تحليل البرامج الأكاديمية")
     display_data = latest_year_data.copy()
@@ -529,28 +497,15 @@ if not latest_year_data.empty and "البرنامج" in latest_year_data.columns
     tabs = st.tabs(tab_labels)
 
     with tabs[0]: # توزيع الطلاب
-        # تعديل لعرض الجوال: عمود واحد بدلاً من اثنين
-        if mobile_view:
+        col1_tab1, col2_tab1 = st.columns([1, 1])
+        with col1_tab1:
             fig_pie = px.pie(display_data, values="عدد الطلاب", names="البرنامج_المختصر", title="توزيع الطلاب حسب البرامج", color_discrete_sequence=px.colors.qualitative.Pastel)
             fig_pie = prepare_chart_layout(fig_pie, "توزيع الطلاب", is_mobile=mobile_view, chart_type="pie")
             st.plotly_chart(fig_pie, use_container_width=True, config={"displayModeBar": False})
-
-            st.markdown("---") # فاصل
-
-            fig_bar = px.bar(display_data.sort_values("عدد الطلاب", ascending=False), x="البرنامج_المختصر", y="عدد الطلاب", title="عدد الطلاب لكل برنامج", color="عدد الطلاب", color_continuous_scale="Blues") # تغيير الاتجاه لعمودي في الجوال
+        with col2_tab1:
+            fig_bar = px.bar(display_data.sort_values("عدد الطلاب", ascending=True), y="البرنامج_المختصر", x="عدد الطلاب", title="عدد الطلاب لكل برنامج", color="عدد الطلاب", orientation='h', color_continuous_scale="Blues")
             fig_bar = prepare_chart_layout(fig_bar, "عدد الطلاب لكل برنامج", is_mobile=mobile_view, chart_type="bar")
             st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
-        else:
-            col1_tab1, col2_tab1 = st.columns([1, 1])
-            with col1_tab1:
-                fig_pie = px.pie(display_data, values="عدد الطلاب", names="البرنامج_المختصر", title="توزيع الطلاب حسب البرامج", color_discrete_sequence=px.colors.qualitative.Pastel)
-                fig_pie = prepare_chart_layout(fig_pie, "توزيع الطلاب", is_mobile=mobile_view, chart_type="pie")
-                st.plotly_chart(fig_pie, use_container_width=True, config={"displayModeBar": False})
-            with col2_tab1:
-                fig_bar = px.bar(display_data.sort_values("عدد الطلاب", ascending=True), y="البرنامج_المختصر", x="عدد الطلاب", title="عدد الطلاب لكل برنامج", color="عدد الطلاب", orientation='h', color_continuous_scale="Blues")
-                fig_bar = prepare_chart_layout(fig_bar, "عدد الطلاب لكل برنامج", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
-
 
     with tabs[1]: # مقارنة المؤشرات
         if indicators_to_plot:
@@ -564,7 +519,7 @@ if not latest_year_data.empty and "البرنامج" in latest_year_data.columns
         if not yearly_data.empty and "البرنامج" in yearly_data.columns:
             unique_programs_full = yearly_data["البرنامج"].unique()
             program_options_display = {SHORT_PROGRAM_MAP.get(p, p): p for p in unique_programs_full}
-            selected_display_program = st.selectbox("اختر البرنامج لعرض تطوره:", options=list(program_options_display.keys()), key="trend_prog_select") # إضافة مفتاح فريد
+            selected_display_program = st.selectbox("اختر البرنامج لعرض تطوره:", options=list(program_options_display.keys()))
             selected_program_full = program_options_display[selected_display_program]
             program_data = yearly_data[yearly_data["البرنامج"] == selected_program_full].copy()
 
@@ -585,29 +540,12 @@ else:
     st.info("لا توجد بيانات كافية لعرض الرسوم البيانية للبرامج.")
 
 # --- قسم أعضاء هيئة التدريس والإنجازات ---
+# (نفس الكود الجديد)
 st.subheader("أعضاء هيئة التدريس والإنجازات")
-
-# تعديل لعرض الجوال: استخدام حاوية واحدة بدلاً من عمودين
-faculty_container = st.container()
-
 if not top_faculty.empty or not faculty_achievements.empty:
-    # تحديد الأعمدة فقط إذا لم يكن عرض الجوال
-    if not mobile_view:
-        col1_faculty, col2_faculty = faculty_container.columns([1, 1])
-    else:
-        # في عرض الجوال، استخدم الحاوية مباشرة لكل قسم
-        col1_faculty = faculty_container
-        col2_faculty = faculty_container
-
-
-    # أعضاء هيئة التدريس المتميزون
-    with col1_faculty:
-        # إضافة فاصل في الجوال قبل القسم الثاني إذا كان القسم الأول موجودًا
-        if mobile_view and not top_faculty.empty:
-             st.markdown("#### 🏆 المميزون")
-        elif not mobile_view:
-             st.markdown("#### 🏆 المميزون")
-
+    col1_faculty, col2_faculty = st.columns([1, 1])
+    with col1_faculty: # المميزون
+        st.markdown("#### 🏆 المميزون")
         if not top_faculty.empty:
             num_to_display = min(len(top_faculty), 3)
             for _, member in top_faculty.head(num_to_display).iterrows():
@@ -615,24 +553,13 @@ if not top_faculty.empty or not faculty_achievements.empty:
                 badge = member.get('الشارة', '')
                 title = member.get('اللقب', '')
                 points = member.get('النقاط', '')
-                # تصغير خطوط بطاقة العضو المميز (تم تطبيق CSS)
+                # تصغير خطوط بطاقة العضو المميز
                 st.markdown(f"""<div class='faculty-card'><h5 style="margin-bottom: 3px; font-size: 0.95rem;">{badge} {name}</h5><p style="font-size: 0.85em; margin: 2px 0;">{title} ({points} نقطة)</p></div>""", unsafe_allow_html=True)
-            st.markdown("<a href='/هيئة_التدريس' target='_top' style='font-size: 0.85em;'>عرض الكل...</a>", unsafe_allow_html=True)
+            st.markdown("<a href='/هيئة_التدريس' target='_top' style='font-size: 0.85em;'>عرض الكل...</a>", unsafe_allow_html=True) # تأكد من أن الرابط يعمل
         else:
             st.info("لا توجد بيانات لأعضاء هيئة التدريس المتميزين.")
-        # إضافة فاصل في الجوال بعد القسم الأول
-        if mobile_view and not top_faculty.empty and not faculty_achievements.empty:
-            st.markdown("---")
-
-
-    # أحدث الإنجازات
-    with col2_faculty:
-        # التأكد من عدم تكرار العنوان في الجوال
-        if mobile_view and not faculty_achievements.empty:
-            st.markdown("#### 🌟 أحدث الإنجازات")
-        elif not mobile_view:
-            st.markdown("#### 🌟 أحدث الإنجازات")
-
+    with col2_faculty: # أحدث الإنجازات
+        st.markdown("#### 🌟 أحدث الإنجازات")
         if not faculty_achievements.empty:
             num_to_display = min(len(faculty_achievements), 3)
             if 'التاريخ' in faculty_achievements.columns:
@@ -645,18 +572,16 @@ if not top_faculty.empty or not faculty_achievements.empty:
                 desc = achievement.get('الإنجاز', 'لا يوجد وصف')
                 date_str = achievement.get('التاريخ', None)
                 formatted_date = date_str.strftime("%Y/%m/%d") if pd.notna(date_str) else ""
-                # تصغير خطوط بطاقة الإنجاز (تم تطبيق CSS)
+                # تصغير خطوط بطاقة الإنجاز
                 st.markdown(f"""<div class='achievement-item'><p style="font-size: 0.9em; margin-bottom: 2px;"><strong>{member_name}</strong></p><p style="font-size: 0.85em; margin-bottom: 2px;">{desc}</p>{f'<p style="font-size: 0.75em; color: grey; margin-bottom: 0;">{formatted_date}</p>' if formatted_date else ''}</div>""", unsafe_allow_html=True)
-            st.markdown("<a href='/إنجاز_المهام' target='_top' style='font-size: 0.85em;'>عرض الكل...</a>", unsafe_allow_html=True)
+            st.markdown("<a href='/إنجاز_المهام' target='_top' style='font-size: 0.85em;'>عرض الكل...</a>", unsafe_allow_html=True) # تأكد من أن الرابط يعمل
         else:
-            # التأكد من عدم عرض الرسالة مرتين في الجوال
-            if not mobile_view:
-                st.info("لا توجد بيانات لأحدث الإنجازات.")
-
+            st.info("لا توجد بيانات لأحدث الإنجازات.")
 else:
     st.info("لا تتوفر بيانات أعضاء هيئة التدريس أو الإنجازات حاليًا.")
 
 # --- عرض الخريطة الحرارية للمؤشرات ---
+# (نفس الكود الجديد)
 if not latest_year_data.empty and "البرنامج_المختصر" in display_data.columns and indicators_to_plot:
     st.subheader("نظرة عامة على المؤشرات")
     try:
@@ -664,11 +589,11 @@ if not latest_year_data.empty and "البرنامج_المختصر" in display_d
         fig_heatmap = go.Figure(data=go.Heatmap(
             z=heatmap_plot_data.values, x=heatmap_plot_data.columns, y=heatmap_plot_data.index,
             colorscale="Blues", text=heatmap_plot_data.values, texttemplate="%{text:.0f}",
-            textfont={"size": 8 if mobile_view else 10}, # تصغير الخط للجوال
+            textfont={"size": 10 if mobile_view else 10}, # تم توحيد حجم الخط هنا
             hoverongaps=False
         ))
         fig_heatmap = prepare_chart_layout(fig_heatmap, "مقارنة المؤشرات الرئيسية", is_mobile=mobile_view, chart_type="heatmap")
-        # تم نقل التعديلات الخاصة بالخطوط والهوامش إلى prepare_chart_layout
+        fig_heatmap.update_layout(xaxis_title="المؤشر", yaxis_title="البرنامج", yaxis=dict(tickfont=dict(size=8 if mobile_view else 9)), margin=dict(l=80)) # تعديل الهامش الأيسر وتصغير خط المحور
         st.plotly_chart(fig_heatmap, use_container_width=True, config={"displayModeBar": False})
     except Exception as heatmap_error:
         st.warning(f"لم يتمكن من إنشاء المخطط الحراري: {heatmap_error}")
@@ -676,6 +601,7 @@ elif not latest_year_data.empty:
     st.info("لا تتوفر بيانات مؤشرات كافية لإنشاء المخطط الحراري.")
 
 # --- جدول خلاصة البرامج ---
+# (نفس الكود الجديد)
 if not dept_data.empty and "البرنامج" in dept_data.columns:
     st.subheader("خلاصة البرامج")
     summary_table = dept_data.copy()
@@ -701,6 +627,7 @@ if not dept_data.empty and "البرنامج" in dept_data.columns:
     )
 
 # --- نصائح للاستخدام ---
+# (نفس الكود الجديد)
 with st.expander("💡 نصائح للاستخدام", expanded=False):
     st.markdown("""
     - **شريط التنقل العلوي:** يعرض الأقسام الرئيسية والبرامج الأكاديمية مباشرة بشكل أفقي على الشاشات الكبيرة.
@@ -713,6 +640,7 @@ with st.expander("💡 نصائح للاستخدام", expanded=False):
     """)
 
 # --- إضافة نص تذييل الصفحة ---
+# (نفس الكود الجديد)
 st.markdown("""
 <div style="margin-top: 40px; text-align: center; color: #888; font-size: 0.75em;"> © كلية القرآن الكريم والدراسات الإسلامية - جامعة الطائف {0}
 </div>
