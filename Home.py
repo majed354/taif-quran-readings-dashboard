@@ -37,7 +37,7 @@ responsive_menu_html_css = """
 
     /* --- تنسيق شريط التنقل العلوي (للسطح المكتب) --- */
     .top-navbar {
-        background-color: #f8f9fa; padding: 0.5rem 1rem; border-bottom: 1px solid #e7e7e7;
+        background-color: #f8f9fa; padding: 0.4rem 1rem; /* تقليل الحشو العمودي */ border-bottom: 1px solid #e7e7e7;
         width: 100%; box-sizing: border-box; display: none; /* Hidden by default on mobile */
     }
     .top-navbar ul {
@@ -46,33 +46,41 @@ responsive_menu_html_css = """
         flex-wrap: wrap; /* Allow wrapping on smaller desktop screens */
     }
     .top-navbar li {
-        position: relative; margin-left: 1.2rem; /* Reduced margin */
-        margin-bottom: 0.3rem; /* Add margin if wraps */
+        position: relative; margin-left: 1rem; /* تقليل الهامش الأفقي */
+        margin-bottom: 0.2rem; /* تقليل الهامش السفلي عند الالتفاف */
     }
     .top-navbar li:first-child { margin-right: 0; }
-    .top-navbar a { text-decoration: none; color: #333; padding: 0.5rem 0.1rem; display: block; font-weight: 500; white-space: nowrap; /* Prevent wrapping within link */ }
+    .top-navbar a {
+        text-decoration: none; color: #333; padding: 0.3rem 0.1rem; /* تقليل الحشو العمودي للروابط */
+        display: block; font-weight: 500; white-space: nowrap; /* Prevent wrapping within link */
+        font-size: 0.9rem; /* تصغير حجم خط القائمة العلوية */
+    }
     .top-navbar a:hover { color: #1e88e5; }
 
     /* --- تنسيق زر وقائمة البرجر (للجوال) --- */
     .mobile-menu-trigger {
         display: none; /* Hidden by default on desktop */
-        position: fixed; top: 10px; right: 15px; z-index: 1001;
+        position: fixed; top: 8px; right: 12px; z-index: 1001; /* تعديل الموضع قليلاً */
         cursor: pointer; background-color: #1e88e5; color: white;
-        padding: 6px 10px; border-radius: 5px; font-size: 1.3rem; line-height: 1;
+        padding: 5px 9px; border-radius: 5px; font-size: 1.2rem; line-height: 1; /* تصغير الزر قليلاً */
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     .mobile-menu-checkbox { display: none; }
     .mobile-menu {
         display: none; position: fixed; top: 0; right: 0;
-        width: 250px; height: 100%; background-color: #f8f9fa;
-        z-index: 1000; padding: 60px 20px 20px 20px;
+        width: 230px; /* تصغير عرض القائمة الجانبية */ height: 100%; background-color: #f8f9fa;
+        z-index: 1000; padding: 50px 15px 15px 15px; /* تعديل الحشو */
         box-shadow: -2px 0 5px rgba(0,0,0,0.1);
         transition: transform 0.3s ease-in-out;
         transform: translateX(100%); overflow-y: auto;
     }
     .mobile-menu ul { list-style: none; padding: 0; margin: 0; }
-    .mobile-menu li { margin-bottom: 0.5rem; }
-    .mobile-menu a { text-decoration: none; color: #333; padding: 10px 5px; display: block; font-weight: 500; border-bottom: 1px solid #eee; }
+    .mobile-menu li { margin-bottom: 0.3rem; } /* تقليل الهامش بين العناصر */
+    .mobile-menu a {
+        text-decoration: none; color: #333; padding: 8px 5px; /* تقليل الحشو */
+        display: block; font-weight: 500; border-bottom: 1px solid #eee;
+        font-size: 0.9rem; /* تصغير خط القائمة الجانبية */
+    }
     .mobile-menu a:hover { color: #1e88e5; background-color: #eee; }
 
     /* --- إظهار قائمة البرجر عند تفعيل الـ checkbox --- */
@@ -84,7 +92,7 @@ responsive_menu_html_css = """
     @media only screen and (max-width: 768px) {
         .top-navbar { display: none; }
         .mobile-menu-trigger { display: block; }
-        .main .block-container { padding-right: 1rem !important; padding-left: 1rem !important; padding-top: 55px !important; }
+        .main .block-container { padding-right: 1rem !important; padding-left: 1rem !important; padding-top: 45px !important; } /* تقليل الحشو العلوي */
     }
     @media only screen and (min-width: 769px) {
         .top-navbar { display: block; }
@@ -93,23 +101,34 @@ responsive_menu_html_css = """
 
     /* --- تنسيقات عامة أخرى (من الكود القديم) --- */
     h1,h2,h3 { color: #1e88e5; font-weight: 600; }
-    /* تم تعديل تنسيق h1 أدناه ليتوافق مع الكود الجديد */
-    h1 { padding-bottom: 15px; border-bottom: 2px solid #1e88e5; margin-bottom: 30px; font-size: calc(1.2rem + 1vw); }
-    h2 { margin-top: 30px; margin-bottom: 20px; font-size: calc(1rem + 0.5vw); }
-    h3 { margin-top: 30px; margin-bottom: 20px; font-size: calc(1rem + 0.2vw); }
-    .metric-card { background-color: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); text-align: center; margin-bottom: 15px; }
-    .chart-container { background-color: white; border-radius: 10px; padding: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); margin-bottom: 20px; width: 100%; overflow: hidden; }
-    .faculty-card { background: linear-gradient(135deg, #f5f7fa 0%, #e3e6f0 100%); border-radius: 10px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-    .achievement-item { padding: 10px; border-right: 3px solid #1e88e5; margin-bottom: 10px; background-color: rgba(30, 136, 229, 0.05); }
-    .stSelectbox label, .stMultiselect label { font-weight: 500; }
-    .back-to-top { position: fixed; bottom: 20px; left: 20px; width: 40px; height: 40px; background-color: #1e88e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 998; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: scale(0); }
+    /* تصغير حجم الخط للعنوان الرئيسي H1 */
+    h1 { padding-bottom: 12px; border-bottom: 2px solid #1e88e5; margin-bottom: 25px; font-size: calc(1.1rem + 0.8vw); } /* تصغير الخط */
+    h2 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.4vw); } /* تصغير الخط */
+    h3 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.1vw); } /* تصغير الخط */
+    .metric-card { background-color: white; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); text-align: center; margin-bottom: 12px; } /* تعديل الظل والحشو */
+    .chart-container { background-color: white; border-radius: 8px; padding: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); margin-bottom: 15px; width: 100%; overflow: hidden; } /* تعديل الظل والحشو */
+    .faculty-card { background: linear-gradient(135deg, #f5f7fa 0%, #e3e6f0 100%); border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); } /* تعديل الظل والحشو */
+    .achievement-item { padding: 8px; border-right: 3px solid #1e88e5; margin-bottom: 8px; background-color: rgba(30, 136, 229, 0.05); } /* تعديل الحشو والهامش */
+    .stSelectbox label, .stMultiselect label { font-weight: 500; font-size: 0.95rem; } /* تصغير خط التسميات */
+    .back-to-top { position: fixed; bottom: 15px; left: 15px; width: 35px; height: 35px; background-color: #1e88e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 998; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: scale(0); } /* تصغير الزر */
     .back-to-top.visible { opacity: 1; transform: scale(1); }
-    @media only screen and (min-width: 769px) and (max-width: 1024px) { h1 { font-size: 1.7rem; } h2, h3 { font-size: 1.2rem; } }
+    .back-to-top span { font-size: 1rem; } /* تصغير السهم */
+
+    @media only screen and (min-width: 769px) and (max-width: 1024px) {
+        h1 { font-size: 1.6rem; }
+        h2, h3 { font-size: 1.1rem; }
+        .top-navbar a { font-size: 0.85rem; } /* تصغير إضافي للشاشات المتوسطة */
+    }
 
     /* تلوين البطاقات حسب قيمة المؤشر */
     .metric-card.positive { background-color: rgba(39, 174, 96, 0.1); }
     .metric-card.warning { background-color: rgba(241, 196, 15, 0.1); }
     .metric-card.negative { background-color: rgba(231, 76, 60, 0.1); }
+
+    /* تصغير خطوط المقاييس داخل البطاقات */
+    [data-testid="stMetricValue"] { font-size: 1.5rem !important; } /* تصغير قيمة المقياس */
+    [data-testid="stMetricLabel"] { font-size: 0.85rem !important; } /* تصغير تسمية المقياس */
+
 </style>
 
 <nav class="top-navbar">
@@ -225,29 +244,35 @@ def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar"):
         # تعديلات خاصة بالجوال
         if is_mobile:
             mobile_settings = {
-                "height": 300 if chart_type != "heatmap" else 350,
-                "margin": {"t": 40, "b": 100, "l": 10, "r": 10, "pad": 0},
-                "font": {"size": 10},
-                "title": {"font": {"size": 13}},
-                "legend": {"y": -0.4, "font": {"size": 9}}
+                "height": 280 if chart_type != "heatmap" else 320, # تصغير ارتفاع المخطط للجوال
+                "margin": {"t": 35, "b": 80, "l": 5, "r": 5, "pad": 0}, # تعديل الهوامش
+                "font": {"size": 9}, # تصغير خط المخطط
+                "title": {"font": {"size": 11}}, # تصغير خط العنوان
+                "legend": {"y": -0.45, "font": {"size": 8}} # تصغير خط وسيلة الإيضاح
             }
             layout_settings.update(mobile_settings)
 
             # تعديلات خاصة بنوع المخطط للجوال
             if chart_type == "pie":
                 layout_settings["showlegend"] = False
+                fig.update_traces(textfont_size=9) # تصغير خط النص داخل الدائري
             elif chart_type == "line":
-                fig.update_traces(marker=dict(size=5))
+                fig.update_traces(marker=dict(size=4)) # تصغير حجم العلامات
             elif chart_type == "bar":
-                fig.update_xaxes(tickangle=0, tickfont={"size": 8})
+                fig.update_xaxes(tickangle=0, tickfont={"size": 7}) # تصغير خط المحور السيني
+                fig.update_yaxes(tickfont={"size": 7}) # تصغير خط المحور الصادي
         else:
             # إعدادات سطح المكتب
             desktop_settings = {
-                "height": 450 if chart_type != "heatmap" else 400,
-                "margin": {"t": 50, "b": 90, "l": 30, "r": 30, "pad": 4},
-                "legend": {"y": -0.25, "font": {"size": 10}}
+                "height": 400 if chart_type != "heatmap" else 380, # تصغير ارتفاع المخطط
+                "margin": {"t": 40, "b": 80, "l": 25, "r": 25, "pad": 4}, # تعديل الهوامش
+                "legend": {"y": -0.2, "font": {"size": 9}}, # تصغير خط وسيلة الإيضاح
+                "title": {"font": {"size": 14}}, # تصغير خط العنوان
+                "font": {"size": 10} # تصغير الخط العام للمخطط
             }
             layout_settings.update(desktop_settings)
+            if chart_type == "heatmap":
+                 fig.update_traces(textfont={"size": 10}) # تصغير خط النص داخل الخريطة الحرارية
 
         fig.update_layout(**layout_settings)
     except Exception as e:
@@ -543,8 +568,9 @@ if not top_faculty.empty or not faculty_achievements.empty:
                 badge = member.get('الشارة', '')
                 title = member.get('اللقب', '')
                 points = member.get('النقاط', '')
-                st.markdown(f"""<div class='faculty-card'><h5 style="margin-bottom: 5px;">{badge} {name}</h5><p style="font-size: 0.9em; margin: 2px 0;">{title} ({points} نقطة)</p></div>""", unsafe_allow_html=True)
-            st.markdown("<a href='/هيئة_التدريس' target='_top' style='font-size: 0.9em;'>عرض الكل...</a>", unsafe_allow_html=True) # تأكد من أن الرابط يعمل
+                # تصغير خطوط بطاقة العضو المميز
+                st.markdown(f"""<div class='faculty-card'><h5 style="margin-bottom: 3px; font-size: 0.95rem;">{badge} {name}</h5><p style="font-size: 0.85em; margin: 2px 0;">{title} ({points} نقطة)</p></div>""", unsafe_allow_html=True)
+            st.markdown("<a href='/هيئة_التدريس' target='_top' style='font-size: 0.85em;'>عرض الكل...</a>", unsafe_allow_html=True) # تأكد من أن الرابط يعمل
         else:
             st.info("لا توجد بيانات لأعضاء هيئة التدريس المتميزين.")
     with col2_faculty: # أحدث الإنجازات
@@ -561,8 +587,9 @@ if not top_faculty.empty or not faculty_achievements.empty:
                 desc = achievement.get('الإنجاز', 'لا يوجد وصف')
                 date_str = achievement.get('التاريخ', None)
                 formatted_date = date_str.strftime("%Y/%m/%d") if pd.notna(date_str) else ""
-                st.markdown(f"""<div class='achievement-item'><p style="font-size: 0.95em; margin-bottom: 3px;"><strong>{member_name}</strong></p><p style="font-size: 0.9em; margin-bottom: 3px;">{desc}</p>{f'<p style="font-size: 0.8em; color: grey; margin-bottom: 0;">{formatted_date}</p>' if formatted_date else ''}</div>""", unsafe_allow_html=True)
-            st.markdown("<a href='/إنجاز_المهام' target='_top' style='font-size: 0.9em;'>عرض الكل...</a>", unsafe_allow_html=True) # تأكد من أن الرابط يعمل
+                # تصغير خطوط بطاقة الإنجاز
+                st.markdown(f"""<div class='achievement-item'><p style="font-size: 0.9em; margin-bottom: 2px;"><strong>{member_name}</strong></p><p style="font-size: 0.85em; margin-bottom: 2px;">{desc}</p>{f'<p style="font-size: 0.75em; color: grey; margin-bottom: 0;">{formatted_date}</p>' if formatted_date else ''}</div>""", unsafe_allow_html=True)
+            st.markdown("<a href='/إنجاز_المهام' target='_top' style='font-size: 0.85em;'>عرض الكل...</a>", unsafe_allow_html=True) # تأكد من أن الرابط يعمل
         else:
             st.info("لا توجد بيانات لأحدث الإنجازات.")
 else:
@@ -577,10 +604,11 @@ if not latest_year_data.empty and "البرنامج_المختصر" in display_d
         fig_heatmap = go.Figure(data=go.Heatmap(
             z=heatmap_plot_data.values, x=heatmap_plot_data.columns, y=heatmap_plot_data.index,
             colorscale="Blues", text=heatmap_plot_data.values, texttemplate="%{text:.0f}",
-            textfont={"size": 10 if mobile_view else 12}, hoverongaps=False
+            textfont={"size": 10 if mobile_view else 10}, # تم توحيد حجم الخط هنا
+            hoverongaps=False
         ))
         fig_heatmap = prepare_chart_layout(fig_heatmap, "مقارنة المؤشرات الرئيسية", is_mobile=mobile_view, chart_type="heatmap")
-        fig_heatmap.update_layout(xaxis_title="المؤشر", yaxis_title="البرنامج", yaxis=dict(tickfont=dict(size=9 if mobile_view else 10)), margin=dict(l=100))
+        fig_heatmap.update_layout(xaxis_title="المؤشر", yaxis_title="البرنامج", yaxis=dict(tickfont=dict(size=8 if mobile_view else 9)), margin=dict(l=80)) # تعديل الهامش الأيسر وتصغير خط المحور
         st.plotly_chart(fig_heatmap, use_container_width=True, config={"displayModeBar": False})
     except Exception as heatmap_error:
         st.warning(f"لم يتمكن من إنشاء المخطط الحراري: {heatmap_error}")
@@ -629,7 +657,7 @@ with st.expander("💡 نصائح للاستخدام", expanded=False):
 # --- إضافة نص تذييل الصفحة ---
 # (نفس الكود الجديد)
 st.markdown("""
-<div style="margin-top: 50px; text-align: center; color: #666; font-size: 0.8em;">
-    © كلية القرآن الكريم والدراسات الإسلامية - جامعة الطائف {0}
+<div style="margin-top: 40px; text-align: center; color: #888; font-size: 0.75em;"> © كلية القرآن الكريم والدراسات الإسلامية - جامعة الطائف {0}
 </div>
 """.format(datetime.now().year), unsafe_allow_html=True)
+
