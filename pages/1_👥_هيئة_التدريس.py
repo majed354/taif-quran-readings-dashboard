@@ -574,7 +574,6 @@ def load_faculty_achievements():
 
 # --- تحديد عرض الجوال ---
 mobile_view = is_mobile()
-
 # القسم الخامس: منطق المنتقي الزمني المعدل
 
 # --- تحديد قاموس رموز البرامج ---
@@ -834,7 +833,55 @@ else:
     # إذا كانت السنة المختارة هي أقدم سنة، نعرض إشعارًا
     if is_oldest_year and len(AVAILABLE_YEARS) > 1:
         st.info(f"سنة {selected_year} هي أقدم سنة متوفرة. لا يمكن إجراء مقارنة مع سنة سابقة.")
-   # القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
+
+# --- حساب قيم المقاييس الحالية ---
+if faculty_data.empty:
+    st.warning("لا تتوفر بيانات أعضاء هيئة التدريس. يرجى التحقق من مصدر البيانات.")
+else:
+    # --- المقاييس الإجمالية (مع إضافة الدلتا للمقارنة مع السنة السابقة) ---
+    st.subheader("نظرة عامة") # عنوان فرعي للمقاييس
+
+    # حساب قيم المقاييس الحالية
+    total_faculty = len(faculty_data)
+    male_count = len(faculty_data[faculty_data["الجنس"] == "ذكر"]) if "الجنس" in faculty_data.columns else 0
+    female_count = len(faculty_data[faculty_data["الجنس"] == "أنثى"]) if "الجنس" in faculty_data.columns else 0
+    total_research = faculty_data["عدد البحوث"].sum() if "عدد البحوث" in faculty_data.columns else 0
+
+    # حساب قيم السنة السابقة إذا كانت متوفرة
+    prev_total_faculty = len(previous_year_data) if previous_year_data is not None else None
+    prev_male_count = len(previous_year_data[previous_year_data["الجنس"] == "ذكر"]) if previous_year_data is not None and "الجنس" in previous_year_data.columns else None
+    prev_female_count = len(previous_year_data[previous_year_data["الجنس"] == "أنثى"]) if previous_year_data is not None and "الجنس" in previous_year_data.columns else None
+    prev_total_research = previous_year_data["عدد البحوث"].sum() if previous_year_data is not None and "عدد البحوث" in previous_year_data.columns else None
+
+    # حساب الفروقات (الدلتا)
+    delta_total = total_faculty - prev_total_faculty if prev_total_faculty is not None else None
+    delta_male = male_count - prev_male_count if prev_male_count is not None else None
+    delta_female = female_count - prev_female_count if prev_female_count is not None else None
+    delta_research = total_research - prev_total_research if prev_total_research is not None else None
+
+    # عرض المقاييس في صف (أو 2x2 في الجوال)
+    if mobile_view:
+        row1_cols = st.columns(2)
+        row2_cols = st.columns(2)
+        metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1]]
+    else:
+        metric_cols = st.columns(4)
+
+    # إضافة المقاييس مع الدلتا
+    with metric_cols[0]:
+        st.metric("إجمالي الأعضاء", f"{total_faculty:,}",
+                delta=f"{delta_total:+}" if delta_total is not None else None)
+    with metric_cols[1]:
+        st.metric("أعضاء (ذكور)", f"{male_count:,}",
+                delta=f"{delta_male:+}" if delta_male is not None else None)
+    with metric_cols[2]:
+        st.metric("أعضاء (إناث)", f"{female_count:,}",
+                delta=f"{delta_female:+}" if delta_female is not None else None)
+    with metric_cols[3]:
+        st.metric("إجمالي البحوث", f"{total_research:,}",
+                delta=f"{delta_research:+}" if delta_research is not None else None)
+
+# القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
 # --- إنشاء التبويبات الرئيسية الجديدة ---
 st.subheader("بيانات أعضاء هيئة التدريس")
 
