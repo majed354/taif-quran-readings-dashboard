@@ -910,14 +910,14 @@ else:
     delta_research = total_research - prev_total_research if prev_total_research is not None else None
     delta_active = active_count - prev_active_count if prev_active_count is not None else None
 
-    # عرض المقاييس في صف (أو 2x2 في الجوال ومع صف ثالث)
+    # عرض المقاييس في صف (أو 3x2 في الجوال)
     if mobile_view:
         row1_cols = st.columns(2)
         row2_cols = st.columns(2)
         row3_cols = st.columns(2)
-        metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1], row3_cols[0]]
+        metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1], row3_cols[0], row3_cols[1]]
     else:
-        metric_cols = st.columns(5)
+        metric_cols = st.columns(6)
 
     # إضافة المقاييس مع الدلتا
     with metric_cols[0]:
@@ -939,6 +939,18 @@ else:
             status_change_delta = None
         st.metric("إلى رأس العمل", status_change_value, delta=status_change_delta)
     with metric_cols[4]:
+        # مؤشر جديد للترقيات الأكاديمية
+        if has_comparison_data and promotions:
+            promotions_count = len(promotions)
+            promotions_value = f"{promotions_count}"
+            # عرض ترقيات أستاذ مساعد/مشارك/أستاذ بألوان مختلفة
+            prof_promotions = sum(1 for p in promotions if "أستاذ" in p["الرتبة الحالية"])
+            promotions_delta = f"{prof_promotions} عضو هيئة تدريس" if prof_promotions > 0 else None
+        else:
+            promotions_value = "-"
+            promotions_delta = None
+        st.metric("الترقيات", promotions_value, delta=promotions_delta)
+    with metric_cols[5]:
         st.metric("إجمالي البحوث", f"{total_research:,}",
                 delta=f"{delta_research:+}" if delta_research is not None else None)
     
@@ -1003,13 +1015,106 @@ else:
             # عرض الترقيات
             if promotions and len(promotions) > 0:
                 st.markdown('<div class="changes-title">🔄 الترقيات الأكاديمية</div>', unsafe_allow_html=True)
+                
+                # فرز الترقيات حسب النوع
+                professor_promotions = []
+                associate_promotions = []
+                assistant_promotions = []
+                other_promotions = []
+                
                 for promotion in promotions:
-                    st.markdown(f"""
-                    <div class="changes-item promotion-item">
-                        <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{promotion["الاسم"]}</h4>
-                        <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    if "أستاذ" == promotion["الرتبة الحالية"]:
+                        professor_promotions.append(promotion)
+                    elif "أستاذ مشارك" == promotion["الرتبة الحالية"]:
+                        associate_promotions.append(promotion)
+                    elif "أستاذ مساعد" == promotion["الرتبة الحالية"]:
+                        assistant_promotions.append(promotion)
+                    else:
+                        other_promotions.append(promotion)
+                
+                # عرض الترقيات إلى أستاذ
+                if professor_promotions:
+                    st.markdown('<div style="margin-top: 10px; font-weight: 500;">🌟 ترقية إلى رتبة أستاذ</div>', unsafe_allow_html=True)
+                    for promotion in professor_promotions:
+                        # الحصول على المعلومات الإضافية إذا كانت متوفرة
+                        additional_info = ""
+                        name = promotion["الاسم"]
+                        member_data = faculty_data[faculty_data["الاسم"] == name]
+                        if not member_data.empty:
+                            gender = member_data["الجنس"].iloc[0] if "الجنس" in member_data.columns else ""
+                            specialization = member_data["التخصص"].iloc[0] if "التخصص" in member_data.columns else ""
+                            if gender or specialization:
+                                additional_info = f" ({specialization} - {gender})" if specialization and gender else (f" ({specialization})" if specialization else f" ({gender})")
+                        
+                        st.markdown(f"""
+                        <div class="changes-item promotion-item" style="border-right: 4px solid gold;">
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{name}{additional_info}</h4>
+                            <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # عرض الترقيات إلى أستاذ مشارك
+                if associate_promotions:
+                    st.markdown('<div style="margin-top: 10px; font-weight: 500;">⭐ ترقية إلى رتبة أستاذ مشارك</div>', unsafe_allow_html=True)
+                    for promotion in associate_promotions:
+                        # الحصول على المعلومات الإضافية إذا كانت متوفرة
+                        additional_info = ""
+                        name = promotion["الاسم"]
+                        member_data = faculty_data[faculty_data["الاسم"] == name]
+                        if not member_data.empty:
+                            gender = member_data["الجنس"].iloc[0] if "الجنس" in member_data.columns else ""
+                            specialization = member_data["التخصص"].iloc[0] if "التخصص" in member_data.columns else ""
+                            if gender or specialization:
+                                additional_info = f" ({specialization} - {gender})" if specialization and gender else (f" ({specialization})" if specialization else f" ({gender})")
+                        
+                        st.markdown(f"""
+                        <div class="changes-item promotion-item" style="border-right: 4px solid silver;">
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{name}{additional_info}</h4>
+                            <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # عرض الترقيات إلى أستاذ مساعد
+                if assistant_promotions:
+                    st.markdown('<div style="margin-top: 10px; font-weight: 500;">✨ ترقية إلى رتبة أستاذ مساعد</div>', unsafe_allow_html=True)
+                    for promotion in assistant_promotions:
+                        # الحصول على المعلومات الإضافية إذا كانت متوفرة
+                        additional_info = ""
+                        name = promotion["الاسم"]
+                        member_data = faculty_data[faculty_data["الاسم"] == name]
+                        if not member_data.empty:
+                            gender = member_data["الجنس"].iloc[0] if "الجنس" in member_data.columns else ""
+                            specialization = member_data["التخصص"].iloc[0] if "التخصص" in member_data.columns else ""
+                            if gender or specialization:
+                                additional_info = f" ({specialization} - {gender})" if specialization and gender else (f" ({specialization})" if specialization else f" ({gender})")
+                        
+                        st.markdown(f"""
+                        <div class="changes-item promotion-item" style="border-right: 4px solid #CD7F32;">
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{name}{additional_info}</h4>
+                            <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # عرض الترقيات الأخرى
+                if other_promotions:
+                    st.markdown('<div style="margin-top: 10px; font-weight: 500;">📈 ترقيات أخرى</div>', unsafe_allow_html=True)
+                    for promotion in other_promotions:
+                        # الحصول على المعلومات الإضافية إذا كانت متوفرة
+                        additional_info = ""
+                        name = promotion["الاسم"]
+                        member_data = faculty_data[faculty_data["الاسم"] == name]
+                        if not member_data.empty:
+                            gender = member_data["الجنس"].iloc[0] if "الجنس" in member_data.columns else ""
+                            specialization = member_data["التخصص"].iloc[0] if "التخصص" in member_data.columns else ""
+                            if gender or specialization:
+                                additional_info = f" ({specialization} - {gender})" if specialization and gender else (f" ({specialization})" if specialization else f" ({gender})")
+                        
+                        st.markdown(f"""
+                        <div class="changes-item promotion-item">
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{name}{additional_info}</h4>
+                            <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
             # عرض الأعضاء الجدد
             if new_members_data is not None and len(new_members_data) > 0:
@@ -1093,8 +1198,6 @@ else:
                 )
                 fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
-
-
 
 # القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
 # --- إنشاء التبويبات الرئيسية الجديدة ---
