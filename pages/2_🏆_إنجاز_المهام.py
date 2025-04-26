@@ -1401,6 +1401,7 @@ with main_tabs[2]:
         st.info("لا توجد بيانات كافية لعرض إنجازات الأعضاء.")
 
 # =========================================
+# =========================================
 # القسم 14: تبويب المهام الحالية والمخطط لها
 # =========================================
 with main_tabs[3]:
@@ -1433,7 +1434,8 @@ with main_tabs[3]:
                 
                 for i, task in in_progress_tasks.iterrows():
                     task_name = task.get("اسم المهمة", "مهمة غير محددة")
-                    member_name = task.get("العضو المسؤول", "غير محدد")
+                    member_name = task.get("العضو المسؤول", "")
+                    member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
                     start_date = task.get("تاريخ البدء", "")
                     due_date = task.get("تاريخ الاستحقاق", "")
                     category = task.get("الفئة", "غير مصنفة")
@@ -1462,7 +1464,7 @@ with main_tabs[3]:
                         <div class="timeline-date">{formatted_due}</div>
                         <div class="timeline-content {timeline_class}">
                             <h4>{task_name}</h4>
-                            <p>{member_name} • {category}</p>
+                            <p>{member_display} • {category}</p>
                             <div class="timeline-meta">
                                 <div class="timeline-meta-item">
                                     <span class="badge {priority_class}">{priority}</span>
@@ -1479,7 +1481,11 @@ with main_tabs[3]:
                 
                 # إضافة رسم بياني لتوزيع المهام قيد التنفيذ حسب العضو المسؤول
                 if "العضو المسؤول" in in_progress_tasks.columns:
-                    member_counts = in_progress_tasks["العضو المسؤول"].value_counts().reset_index()
+                    # التعامل مع العضو الغير معين
+                    in_progress_tasks["العضو المعروض"] = in_progress_tasks["العضو المسؤول"].apply(
+                        lambda x: "غير معين" if pd.isna(x) or x.strip() == "" else x
+                    )
+                    member_counts = in_progress_tasks["العضو المعروض"].value_counts().reset_index()
                     member_counts.columns = ["العضو المسؤول", "عدد المهام"]
                     
                     fig_members = px.bar(member_counts, y="العضو المسؤول", x="عدد المهام", 
@@ -1495,20 +1501,37 @@ with main_tabs[3]:
             planned_tasks = tasks_data[tasks_data["الحالة"] == "مخطط لها"].copy()
             
             if not planned_tasks.empty:
+                # إضافة تبويب جديد للتصفية بين "المهام المعينة" و"المهام غير المعينة"
+                assignment_tabs = st.radio(
+                    "عرض المهام المخطط لها",
+                    ["جميع المهام", "المهام المعينة", "المهام غير المعينة"],
+                    horizontal=True
+                )
+                
+                # تطبيق الفلتر حسب التعيين
+                filtered_planned = planned_tasks.copy()
+                if assignment_tabs == "المهام المعينة":
+                    filtered_planned = filtered_planned[filtered_planned["العضو المسؤول"].notna() & 
+                                                     (filtered_planned["العضو المسؤول"].str.strip() != "")]
+                elif assignment_tabs == "المهام غير المعينة":
+                    filtered_planned = filtered_planned[filtered_planned["العضو المسؤول"].isna() | 
+                                                      (filtered_planned["العضو المسؤول"].str.strip() == "")]
+                
                 # حاول ترتيب المهام حسب تاريخ البدء المخطط له إذا كان متاحًا
-                if "تاريخ البدء" in planned_tasks.columns:
-                    planned_tasks["تاريخ البدء"] = pd.to_datetime(planned_tasks["تاريخ البدء"], errors='coerce')
-                    planned_tasks = planned_tasks.sort_values("تاريخ البدء")
+                if "تاريخ البدء" in filtered_planned.columns:
+                    filtered_planned["تاريخ البدء"] = pd.to_datetime(filtered_planned["تاريخ البدء"], errors='coerce')
+                    filtered_planned = filtered_planned.sort_values("تاريخ البدء")
                 
                 # عنوان وعرض عدد المهام
-                st.markdown(f"#### المهام المخطط لها ({len(planned_tasks)})")
+                st.markdown(f"#### المهام المخطط لها ({len(filtered_planned)})")
                 
                 # عرض مخطط زمني للمهام المخطط لها
                 st.markdown('<div class="achievements-timeline">', unsafe_allow_html=True)
                 
-                for i, task in planned_tasks.iterrows():
+                for i, task in filtered_planned.iterrows():
                     task_name = task.get("اسم المهمة", "مهمة غير محددة")
-                    member_name = task.get("العضو المسؤول", "غير محدد")
+                    member_name = task.get("العضو المسؤول", "")
+                    member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
                     start_date = task.get("تاريخ البدء", "")
                     due_date = task.get("تاريخ الاستحقاق", "")
                     category = task.get("الفئة", "غير مصنفة")
@@ -1525,7 +1548,7 @@ with main_tabs[3]:
                         <div class="timeline-date">{formatted_start}</div>
                         <div class="timeline-content planned">
                             <h4>{task_name}</h4>
-                            <p>{member_name} • {category}</p>
+                            <p>{member_display} • {category}</p>
                             <div class="timeline-meta">
                                 <div class="timeline-meta-item">
                                     <span class="badge {priority_class}">{priority}</span>
@@ -1541,8 +1564,8 @@ with main_tabs[3]:
                 st.markdown('</div>', unsafe_allow_html=True)
                 
                 # إضافة رسم بياني لتوزيع المهام المخطط لها حسب الفئة
-                if "الفئة" in planned_tasks.columns:
-                    category_counts = planned_tasks["الفئة"].value_counts().reset_index()
+                if "الفئة" in filtered_planned.columns:
+                    category_counts = filtered_planned["الفئة"].value_counts().reset_index()
                     category_counts.columns = ["الفئة", "عدد المهام"]
                     
                     fig_categories = px.pie(category_counts, values="عدد المهام", names="الفئة", 
@@ -1563,7 +1586,7 @@ with main_tabs[3]:
                 st.markdown(f"#### جميع المهام غير المكتملة ({len(incomplete_tasks)})")
                 
                 # إضافة فلتر بسيط
-                filter_options = ["جميع المهام", "الأولوية العالية", "المهام المتأخرة", "قيد التنفيذ فقط", "مخطط لها فقط"]
+                filter_options = ["جميع المهام", "الأولوية العالية", "المهام المتأخرة", "قيد التنفيذ فقط", "مخطط لها فقط", "غير معينة"]
                 selected_filter = st.selectbox("تصفية المهام", filter_options, key="incomplete_filter")
                 
                 # تطبيق الفلتر المختار
@@ -1579,6 +1602,9 @@ with main_tabs[3]:
                     filtered_incomplete = filtered_incomplete[filtered_incomplete["الحالة"] == "قيد التنفيذ"]
                 elif selected_filter == "مخطط لها فقط":
                     filtered_incomplete = filtered_incomplete[filtered_incomplete["الحالة"] == "مخطط لها"]
+                elif selected_filter == "غير معينة":
+                    filtered_incomplete = filtered_incomplete[filtered_incomplete["العضو المسؤول"].isna() | 
+                                                           (filtered_incomplete["العضو المسؤول"].str.strip() == "")]
                 
                 # ترتيب المهام حسب الحالة ثم تاريخ الاستحقاق
                 if "تاريخ الاستحقاق" in filtered_incomplete.columns:
@@ -1601,7 +1627,8 @@ with main_tabs[3]:
                     
                     for _, task in filtered_incomplete.iterrows():
                         task_name = task.get("اسم المهمة", "مهمة غير محددة")
-                        member_name = task.get("العضو المسؤول", "غير محدد")
+                        member_name = task.get("العضو المسؤول", "")
+                        member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
                         category = task.get("الفئة", "غير مصنفة")
                         due_date = format_date(task.get("تاريخ الاستحقاق", ""))
                         status = task.get("الحالة", "غير محدد")
@@ -1619,7 +1646,7 @@ with main_tabs[3]:
                         st.markdown(f"""
                         <tr style="{row_style}">
                             <td>{task_name}</td>
-                            <td>{member_name}</td>
+                            <td>{member_display}</td>
                             <td>{category}</td>
                             <td>{due_date}</td>
                             <td><span class="badge {status_class}">{status}</span></td>
@@ -1634,8 +1661,7 @@ with main_tabs[3]:
                 st.info("جميع المهام منجزة!")
     else:
         st.info("لا توجد بيانات كافية لعرض المهام الحالية والمخطط لها.")
-
-# =========================================
+        
 # =========================================
 # القسم 15: تبويب تحليل الإنجازات
 # =========================================
