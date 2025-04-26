@@ -574,6 +574,7 @@ def load_faculty_achievements():
 
 # --- تحديد عرض الجوال ---
 mobile_view = is_mobile()
+
 # القسم الخامس: منطق المنتقي الزمني المعدل
 
 # --- تحديد قاموس رموز البرامج ---
@@ -822,11 +823,56 @@ if not is_oldest_year and previous_year in AVAILABLE_YEARS:
 # تحليل التغييرات بين السنتين (فقط إذا كانت بيانات السنة السابقة متوفرة)
 if previous_year_data is not None:
     new_members_data, departed_members_data, promotions, research_increase = analyze_faculty_changes(faculty_data, previous_year_data)
+    
+    # تحديد الأعضاء الذين تغيرت حالتهم إلى/من "رأس العمل"
+    to_active_duty = []
+    from_active_duty = []
+    
+    if "حالة الموظف" in faculty_data.columns and "حالة الموظف" in previous_year_data.columns:
+        # الأعضاء المستمرين (موجودين في كلا السنتين)
+        continuing_members = set(faculty_data["الاسم"]).intersection(set(previous_year_data["الاسم"]))
+        
+        for member in continuing_members:
+            try:
+                # الحصول على حالة الموظف في السنة الحالية والسابقة
+                current_member_data = faculty_data[faculty_data["الاسم"] == member]
+                previous_member_data = previous_year_data[previous_year_data["الاسم"] == member]
+                
+                if not current_member_data.empty and not previous_member_data.empty:
+                    current_status = current_member_data["حالة الموظف"].iloc[0]
+                    previous_status = previous_member_data["حالة الموظف"].iloc[0]
+                    
+                    # التحقق مما إذا تغيرت الحالة
+                    if current_status != previous_status:
+                        if current_status == "رأس العمل":
+                            # تحول إلى رأس العمل
+                            to_active_duty.append({
+                                "الاسم": member,
+                                "الحالة السابقة": previous_status,
+                                "بيانات_كاملة": current_member_data.iloc[0]
+                            })
+                        elif previous_status == "رأس العمل":
+                            # تحول من رأس العمل
+                            from_active_duty.append({
+                                "الاسم": member,
+                                "الحالة الحالية": current_status,
+                                "بيانات_كاملة": current_member_data.iloc[0]
+                            })
+            except Exception as e:
+                st.error(f"خطأ في معالجة تغيير حالة الموظف للعضو {member}: {e}")
+                continue
+    
     # تخزين حالة وجود المقارنة للاستخدام في واجهة المستخدم
     has_comparison_data = True
+    
+    # حساب عدد حالات تغيير الحالة
+    to_active_count = len(to_active_duty)
+    from_active_count = len(from_active_duty)
 else:
     # إذا كانت بيانات السنة السابقة غير متوفرة، نجعل كل المتغيرات None
     new_members_data, departed_members_data, promotions, research_increase = None, None, None, 0
+    to_active_duty, from_active_duty = [], []
+    to_active_count, from_active_count = 0, 0
     # تخزين حالة عدم وجود المقارنة للاستخدام في واجهة المستخدم
     has_comparison_data = False
     
@@ -846,26 +892,32 @@ else:
     male_count = len(faculty_data[faculty_data["الجنس"] == "ذكر"]) if "الجنس" in faculty_data.columns else 0
     female_count = len(faculty_data[faculty_data["الجنس"] == "أنثى"]) if "الجنس" in faculty_data.columns else 0
     total_research = faculty_data["عدد البحوث"].sum() if "عدد البحوث" in faculty_data.columns else 0
+    
+    # حساب عدد الأعضاء على رأس العمل
+    active_count = len(faculty_data[faculty_data["حالة الموظف"] == "رأس العمل"]) if "حالة الموظف" in faculty_data.columns else 0
 
     # حساب قيم السنة السابقة إذا كانت متوفرة
     prev_total_faculty = len(previous_year_data) if previous_year_data is not None else None
     prev_male_count = len(previous_year_data[previous_year_data["الجنس"] == "ذكر"]) if previous_year_data is not None and "الجنس" in previous_year_data.columns else None
     prev_female_count = len(previous_year_data[previous_year_data["الجنس"] == "أنثى"]) if previous_year_data is not None and "الجنس" in previous_year_data.columns else None
     prev_total_research = previous_year_data["عدد البحوث"].sum() if previous_year_data is not None and "عدد البحوث" in previous_year_data.columns else None
+    prev_active_count = len(previous_year_data[previous_year_data["حالة الموظف"] == "رأس العمل"]) if previous_year_data is not None and "حالة الموظف" in previous_year_data.columns else None
 
     # حساب الفروقات (الدلتا)
     delta_total = total_faculty - prev_total_faculty if prev_total_faculty is not None else None
     delta_male = male_count - prev_male_count if prev_male_count is not None else None
     delta_female = female_count - prev_female_count if prev_female_count is not None else None
     delta_research = total_research - prev_total_research if prev_total_research is not None else None
+    delta_active = active_count - prev_active_count if prev_active_count is not None else None
 
-    # عرض المقاييس في صف (أو 2x2 في الجوال)
+    # عرض المقاييس في صف (أو 2x2 في الجوال ومع صف ثالث)
     if mobile_view:
         row1_cols = st.columns(2)
         row2_cols = st.columns(2)
-        metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1]]
+        row3_cols = st.columns(2)
+        metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1], row3_cols[0]]
     else:
-        metric_cols = st.columns(4)
+        metric_cols = st.columns(5)
 
     # إضافة المقاييس مع الدلتا
     with metric_cols[0]:
@@ -878,8 +930,171 @@ else:
         st.metric("أعضاء (إناث)", f"{female_count:,}",
                 delta=f"{delta_female:+}" if delta_female is not None else None)
     with metric_cols[3]:
+        # مؤشر جديد لعرض تغير حالة الموظف
+        if has_comparison_data:
+            status_change_value = f"↑{to_active_count} ↓{from_active_count}"
+            status_change_delta = f"{to_active_count - from_active_count:+}" if (to_active_count > 0 or from_active_count > 0) else None
+        else:
+            status_change_value = "-"
+            status_change_delta = None
+        st.metric("إلى رأس العمل", status_change_value, delta=status_change_delta)
+    with metric_cols[4]:
         st.metric("إجمالي البحوث", f"{total_research:,}",
                 delta=f"{delta_research:+}" if delta_research is not None else None)
+    
+    # عرض ملخص التغييرات (الأعضاء الجدد والمغادرين والترقيات) في قسم مطوي
+    if has_comparison_data:
+        with st.expander("📊 عرض تفاصيل التغييرات عن العام السابق", expanded=False):
+            # هنا نضع تفاصيل التغييرات
+
+            # حاوية للتغييرات
+            st.markdown('<div class="changes-container">', unsafe_allow_html=True)
+
+            # عرض تغييرات حالة الموظف
+            if (to_active_duty and len(to_active_duty) > 0) or (from_active_duty and len(from_active_duty) > 0):
+                st.markdown('<div class="changes-title">👤 تغييرات حالة الموظف</div>', unsafe_allow_html=True)
+                
+                # الأعضاء الذين تحولوا إلى رأس العمل
+                if to_active_duty and len(to_active_duty) > 0:
+                    st.markdown('<div style="margin-top: 10px; font-weight: 500;">↩️ تحول إلى رأس العمل</div>', unsafe_allow_html=True)
+                    for member in to_active_duty:
+                        name = member["الاسم"]
+                        prev_status = member["الحالة السابقة"]
+                        
+                        # تحديد معلومات إضافية إذا كانت متاحة
+                        additional_info = ""
+                        if "بيانات_كاملة" in member:
+                            data = member["بيانات_كاملة"]
+                            rank = data.get("الرتبة", "")
+                            gender = data.get("الجنس", "")
+                            if rank and gender:
+                                additional_info = f" ({rank} - {gender})"
+                        
+                        st.markdown(f"""
+                        <div class="changes-item promotion-item">
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #27AE60;">{name}{additional_info}</h4>
+                            <p style="margin: 3px 0; font-size: 0.8rem;">تحول من "{prev_status}" إلى "رأس العمل"</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # الأعضاء الذين تحولوا من رأس العمل
+                if from_active_duty and len(from_active_duty) > 0:
+                    st.markdown('<div style="margin-top: 10px; font-weight: 500;">↪️ تحول من رأس العمل</div>', unsafe_allow_html=True)
+                    for member in from_active_duty:
+                        name = member["الاسم"]
+                        current_status = member["الحالة الحالية"]
+                        
+                        # تحديد معلومات إضافية إذا كانت متاحة
+                        additional_info = ""
+                        if "بيانات_كاملة" in member:
+                            data = member["بيانات_كاملة"]
+                            rank = data.get("الرتبة", "")
+                            gender = data.get("الجنس", "")
+                            if rank and gender:
+                                additional_info = f" ({rank} - {gender})"
+                        
+                        st.markdown(f"""
+                        <div class="changes-item departed-member">
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #E74C3C;">{name}{additional_info}</h4>
+                            <p style="margin: 3px 0; font-size: 0.8rem;">تحول من "رأس العمل" إلى "{current_status}"</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+            # عرض الترقيات
+            if promotions and len(promotions) > 0:
+                st.markdown('<div class="changes-title">🔄 الترقيات الأكاديمية</div>', unsafe_allow_html=True)
+                for promotion in promotions:
+                    st.markdown(f"""
+                    <div class="changes-item promotion-item">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{promotion["الاسم"]}</h4>
+                        <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # عرض الأعضاء الجدد
+            if new_members_data is not None and len(new_members_data) > 0:
+                st.markdown('<div class="changes-title">➕ الأعضاء الجدد</div>', unsafe_allow_html=True)
+                for _, row in new_members_data.iterrows():
+                    name = row.get("الاسم", "غير متوفر")
+                    gender = row.get("الجنس", "")
+                    rank = row.get("الرتبة", "")
+                    spec = row.get("التخصص", "")
+
+                    st.markdown(f"""
+                    <div class="changes-item new-member">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: #27AE60;">{name}</h4>
+                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # عرض الأعضاء المغادرين
+            if departed_members_data is not None and len(departed_members_data) > 0:
+                st.markdown('<div class="changes-title">➖ الأعضاء المغادرون</div>', unsafe_allow_html=True)
+                for _, row in departed_members_data.iterrows():
+                    name = row.get("الاسم", "غير متوفر")
+                    gender = row.get("الجنس", "")
+                    rank = row.get("الرتبة", "")
+                    spec = row.get("التخصص", "")
+
+                    st.markdown(f"""
+                    <div class="changes-item departed-member">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: #E74C3C;">{name}</h4>
+                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # إغلاق حاوية التغييرات
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # عرض مقارنة التوزيع حسب الرتبة
+            if "الرتبة" in faculty_data.columns and "الرتبة" in previous_year_data.columns:
+                st.markdown("### مقارنة التوزيع حسب الرتبة")
+
+                current_rank_counts = faculty_data["الرتبة"].value_counts().reset_index()
+                current_rank_counts.columns = ["الرتبة", "العدد"]
+                current_rank_counts["السنة"] = selected_year
+
+                previous_rank_counts = previous_year_data["الرتبة"].value_counts().reset_index()
+                previous_rank_counts.columns = ["الرتبة", "العدد"]
+                previous_rank_counts["السنة"] = previous_year
+
+                # دمج البيانات للمقارنة
+                rank_comparison = pd.concat([previous_rank_counts, current_rank_counts])
+
+                # رسم بياني للمقارنة
+                fig_rank_compare = px.bar(
+                    rank_comparison,
+                    x="الرتبة",
+                    y="العدد",
+                    color="السنة",
+                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الرتبة",
+                    barmode="group",
+                    color_discrete_sequence=["#777777", "#1e88e5"]
+                )
+                fig_rank_compare = prepare_chart_layout(fig_rank_compare, "مقارنة حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_rank_compare, use_container_width=True, config={"displayModeBar": False})
+
+                # مقارنة عدد الذكور والإناث
+                st.markdown("### مقارنة التوزيع حسب الجنس")
+                gender_comparison = pd.DataFrame({
+                    "السنة": [previous_year, selected_year],
+                    "ذكور": [prev_male_count, male_count],
+                    "إناث": [prev_female_count, female_count]
+                })
+
+                # رسم بياني للمقارنة
+                fig_gender_compare = px.bar(
+                    gender_comparison,
+                    x="السنة",
+                    y=["ذكور", "إناث"],
+                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الجنس",
+                    barmode="group",
+                    color_discrete_sequence=["#1e88e5", "#E83E8C"]
+                )
+                fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
+
+
 
 # القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
 # --- إنشاء التبويبات الرئيسية الجديدة ---
