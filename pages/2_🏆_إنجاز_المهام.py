@@ -1629,6 +1629,7 @@ with main_tabs[3]:
         st.info("لا توجد بيانات كافية لعرض المهام الحالية والمخطط لها.")
 
 # =========================================
+# =========================================
 # القسم 15: تبويب تحليل الإنجازات
 # =========================================
 with main_tabs[4]:
@@ -1731,18 +1732,20 @@ with main_tabs[4]:
             achievements_data["الشهر"] = achievements_data["التاريخ"].dt.to_period("M").astype(str)
             achievements_data["السنة"] = achievements_data["التاريخ"].dt.year
             
-            # تحليل الإنجازات حسب السنة
+            # تحليل الإنجازات حسب السنة - مع تسمية واضحة للأعمدة
             yearly_data = achievements_data.groupby("السنة").agg({
                 "النقاط": "sum",
                 "الساعات الافتراضية": "sum"
             }).reset_index()
+            # إعادة تسمية الأعمدة بشكل واضح
+            yearly_data.columns = ["السنة", "مجموع النقاط", "مجموع الساعات"]
             
             yearly_counts = achievements_data.groupby("السنة").size().reset_index()
             yearly_counts.columns = ["السنة", "عدد الإنجازات"]
             
             yearly_analysis = pd.merge(yearly_data, yearly_counts, on="السنة", how="left")
             
-            # رسم بياني للإنجازات السنوية
+            # رسم بياني للإنجازات السنوية مع الأسماء الصحيحة للأعمدة
             fig_yearly = px.bar(yearly_analysis, x="السنة", y=["عدد الإنجازات", "مجموع النقاط", "مجموع الساعات"], 
                               title="تطور الإنجازات السنوية",
                               barmode="group", color_discrete_sequence=["#1e88e5", "#27AE60", "#F39C12"])
@@ -1759,11 +1762,14 @@ with main_tabs[4]:
             year_data = achievements_data[achievements_data["السنة"] == selected_analysis_year]
             
             if not year_data.empty:
-                # تجميع البيانات حسب الشهر
+                # تجميع البيانات حسب الشهر - مع تسمية واضحة للأعمدة
                 monthly_data = year_data.groupby("الشهر").agg({
                     "النقاط": "sum",
                     "الساعات الافتراضية": "sum"
                 }).reset_index()
+                
+                # إعادة تسمية الأعمدة بشكل واضح
+                monthly_data.columns = ["الشهر", "مجموع النقاط", "مجموع الساعات"]
                 
                 monthly_counts = year_data.groupby("الشهر").size().reset_index()
                 monthly_counts.columns = ["الشهر", "عدد الإنجازات"]
@@ -1775,7 +1781,7 @@ with main_tabs[4]:
                 monthly_analysis = monthly_analysis.sort_values("sort_date").reset_index(drop=True)
                 monthly_analysis = monthly_analysis.drop("sort_date", axis=1)
                 
-                # رسم بياني للإنجازات الشهرية
+                # رسم بياني لعدد الإنجازات حسب الشهر
                 fig_monthly = px.bar(monthly_analysis, x="الشهر", y="عدد الإنجازات", 
                                    title=f"عدد الإنجازات الشهرية لعام {selected_analysis_year}",
                                    color="عدد الإنجازات", color_continuous_scale="Blues")
@@ -1783,7 +1789,7 @@ with main_tabs[4]:
                 st.plotly_chart(fig_monthly, use_container_width=True, config={"displayModeBar": False})
                 
                 # رسم بياني للنقاط الشهرية
-                fig_monthly_points = px.line(monthly_analysis, x="الشهر", y=["النقاط", "الساعات الافتراضية"], 
+                fig_monthly_points = px.line(monthly_analysis, x="الشهر", y=["مجموع النقاط", "مجموع الساعات"], 
                                           title=f"تطور النقاط والساعات الشهرية لعام {selected_analysis_year}",
                                           markers=True, color_discrete_sequence=["#1e88e5", "#27AE60"])
                 fig_monthly_points = prepare_chart_layout(fig_monthly_points, f"نقاط {selected_analysis_year}", is_mobile=mobile_view, chart_type="line")
@@ -1838,7 +1844,6 @@ with main_tabs[4]:
             st.info("لا توجد بيانات كافية لتحليل العلاقة بين الساعات الافتراضية والنقاط.")
     else:
         st.info("لا توجد بيانات كافية لإجراء تحليل الإنجازات.")
-
 # =========================================
 # القسم 16: نصائح الاستخدام وتذييل الصفحة
 # =========================================
