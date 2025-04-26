@@ -1081,6 +1081,7 @@ with main_tabs[0]:
         st.info("لا توجد بيانات كافية لعرض التحليل الزمني للإنجازات.")
 
 # =========================================
+# =========================================
 # القسم 12: تبويب قائمة المهام
 # =========================================
 with main_tabs[1]:
@@ -1103,7 +1104,7 @@ with main_tabs[1]:
             else: selected_category = "الكل"
 
             if "العضو المسؤول" in tasks_data.columns:
-                all_members = ["الكل"] + sorted(tasks_data["العضو المسؤول"].unique().tolist())
+                all_members = ["الكل", "غير معين"] + sorted(tasks_data["العضو المسؤول"].dropna().unique().tolist())
                 selected_member = st.selectbox("العضو المسؤول", all_members, key="member_mobile")
             else: selected_member = "الكل"
 
@@ -1125,7 +1126,7 @@ with main_tabs[1]:
             else: selected_category = "الكل"
         with filter_cols[2]:
             if "العضو المسؤول" in tasks_data.columns:
-                all_members = ["الكل"] + sorted(tasks_data["العضو المسؤول"].unique().tolist())
+                all_members = ["الكل", "غير معين"] + sorted(tasks_data["العضو المسؤول"].dropna().unique().tolist())
                 selected_member = st.selectbox("العضو المسؤول", all_members, key="member_desktop")
             else: selected_member = "الكل"
         with filter_cols[3]:
@@ -1144,7 +1145,12 @@ with main_tabs[1]:
     if selected_category != "الكل" and "الفئة" in filtered_tasks.columns: 
         filtered_tasks = filtered_tasks[filtered_tasks["الفئة"] == selected_category]
     if selected_member != "الكل" and "العضو المسؤول" in filtered_tasks.columns: 
-        filtered_tasks = filtered_tasks[filtered_tasks["العضو المسؤول"] == selected_member]
+        if selected_member == "غير معين":
+            filtered_tasks = filtered_tasks[filtered_tasks["العضو المسؤول"].isna() | 
+                                            (filtered_tasks["العضو المسؤول"] == "") |
+                                            (filtered_tasks["العضو المسؤول"] == "غير معين")]
+        else:
+            filtered_tasks = filtered_tasks[filtered_tasks["العضو المسؤول"] == selected_member]
     if selected_priority != "الكل" and "الأولوية" in filtered_tasks.columns: 
         filtered_tasks = filtered_tasks[filtered_tasks["الأولوية"] == selected_priority]
     if search_query:
@@ -1165,7 +1171,8 @@ with main_tabs[1]:
             task_id = task.get("رقم المهمة", i+1)
             task_name = task.get("اسم المهمة", "مهمة غير محددة")
             task_description = task.get("الوصف", "")
-            member_name = task.get("العضو المسؤول", "غير محدد")
+            member_name = task.get("العضو المسؤول", "")
+            member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
             category = task.get("الفئة", "غير مصنفة")
             start_date = format_date(task.get("تاريخ البدء", ""))
             due_date = format_date(task.get("تاريخ الاستحقاق", ""))
@@ -1182,12 +1189,13 @@ with main_tabs[1]:
             status_class = get_status_class(status)
             status_badge = get_status_badge(status)
             
+            # تصحيح الهيكل HTML للبطاقة - إصلاح المشكلة التي تظهر الكود HTML
             st.markdown(f"""
             <div class="task-card {status_class}">
                 <div class="task-header">
                     <div>
                         <div class="task-title">{task_name}</div>
-                        <div style="font-size: 0.85rem; color: #666;">{member_name}</div>
+                        <div style="font-size: 0.85rem; color: #666;">{member_display}</div>
                     </div>
                     <div>
                         <span class="badge {status_badge}">{status}</span>
@@ -1215,7 +1223,6 @@ with main_tabs[1]:
             """, unsafe_allow_html=True)
     else:
         st.info("لا توجد مهام مطابقة للفلاتر المحددة.")
-
 # =========================================
 # القسم 13: تبويب إنجازات الأعضاء
 # =========================================
