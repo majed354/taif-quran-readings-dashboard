@@ -1684,6 +1684,7 @@ with main_tabs[3]:
         st.info("لا توجد بيانات كافية لعرض المهام الحالية والمخطط لها.")
         
 # =========================================
+# =========================================
 # القسم 15: تبويب تحليل الإنجازات
 # =========================================
 with main_tabs[4]:
@@ -1737,9 +1738,30 @@ with main_tabs[4]:
                     fig_points = prepare_chart_layout(fig_points, "توزيع النقاط", is_mobile=mobile_view, chart_type="pie")
                     st.plotly_chart(fig_points, use_container_width=True, config={"displayModeBar": False})
             
-            # جدول تفصيلي للفئات
+            # جدول تفصيلي للفئات (مع تعديل ترتيب الأعمدة وضمان المساواة)
             st.markdown("""
-            <table class="achievements-table">
+            <style>
+                /* تنسيق خاص للجدول لضمان المحاذاة الصحيحة */
+                .aligned-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 15px 0;
+                    direction: rtl;
+                }
+                .aligned-table th, .aligned-table td {
+                    border: 1px solid #e7e7e7;
+                    text-align: center;
+                    padding: 8px;
+                }
+                .aligned-table th {
+                    background-color: #f0f2f6;
+                    font-weight: 600;
+                }
+                .aligned-table tr:nth-child(even) {
+                    background-color: #f8f9fa;
+                }
+            </style>
+            <table class="aligned-table">
                 <tr>
                     <th>الفئة</th>
                     <th>عدد الإنجازات</th>
@@ -1898,7 +1920,7 @@ with main_tabs[4]:
             st.info("لا توجد بيانات كافية لتحليل العلاقة بين الساعات الافتراضية والنقاط.")
     else:
         st.info("لا توجد بيانات كافية لإجراء تحليل الإنجازات.")
-# =========================================
+
 # القسم 16: نصائح الاستخدام وتذييل الصفحة
 # =========================================
 with st.expander("💡 نصائح للاستخدام", expanded=False):
