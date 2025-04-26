@@ -1082,10 +1082,83 @@ with main_tabs[0]:
 
 # =========================================
 # =========================================
+# =========================================
 # القسم 12: تبويب قائمة المهام
 # =========================================
 with main_tabs[1]:
     st.markdown("### قائمة المهام")
+    
+    # دالة لعرض بطاقة المهمة بشكل صحيح
+    def render_task_card(task, i):
+        """تقوم بإنشاء بطاقة مهمة بطريقة مختلفة تضمن عرض HTML بشكل صحيح"""
+        task_id = task.get("رقم المهمة", i+1)
+        task_name = task.get("اسم المهمة", "مهمة غير محددة")
+        task_description = task.get("الوصف", "")
+        member_name = task.get("العضو المسؤول", "")
+        member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
+        category = task.get("الفئة", "غير مصنفة")
+        start_date = format_date(task.get("تاريخ البدء", ""))
+        due_date = format_date(task.get("تاريخ الاستحقاق", ""))
+        completion_date = format_date(task.get("تاريخ الإنجاز", "")) if "تاريخ الإنجاز" in task and pd.notna(task["تاريخ الإنجاز"]) else "-"
+        virtual_hours = int(task.get("الساعات الافتراضية", 0))
+        points = int(task.get("النقاط", 0))
+        status = task.get("الحالة", "غير محدد")
+        priority = task.get("الأولوية", "متوسطة")
+        
+        # تحديد لون الأولوية
+        priority_badge = "badge-red" if priority == "عالية" else ("badge-orange" if priority == "متوسطة" else "badge-blue")
+        
+        # تحديد صنف CSS بناءً على الحالة
+        status_class = get_status_class(status)
+        status_badge = get_status_badge(status)
+        
+        # تقسيم البطاقة إلى أجزاء لتسهيل التنقيح
+        # 1. الجزء العلوي من البطاقة
+        card_top = f"""
+        <div class="task-card {status_class}">
+            <div class="task-header">
+                <div>
+                    <div class="task-title">{task_name}</div>
+                    <div style="font-size: 0.85rem; color: #666;">{member_display}</div>
+                </div>
+                <div>
+                    <span class="badge {status_badge}">{status}</span>
+                    <span class="badge {priority_badge}">{priority}</span>
+                </div>
+            </div>
+            <div style="font-size: 0.85rem; margin: 8px 0;">{task_description}</div>
+            <div class="task-details">
+                <span class="task-detail-item">🏷️ {category}</span>
+                <span class="task-detail-item">📅 تاريخ البدء: {start_date}</span>
+                <span class="task-detail-item">⏳ تاريخ الاستحقاق: {due_date}</span>
+        """
+        
+        # إضافة تاريخ الإنجاز إذا كان موجودًا
+        if completion_date != "-":
+            card_top += f'<span class="task-detail-item">✅ تاريخ الإنجاز: {completion_date}</span>'
+        
+        # إغلاق قسم التفاصيل
+        card_top += "</div>"
+        
+        # 2. قسم المقاييس (المشكلة الرئيسية)
+        # استخدام بنية HTML أبسط
+        metrics_html = f"""
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <div style="text-align: center; flex-grow: 1; padding: 4px; border-radius: 5px; background-color: rgba(30, 136, 229, 0.05);">
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #1e88e5;">{points}</div>
+                    <div style="font-size: 0.75rem; color: #666;">النقاط</div>
+                </div>
+                <div style="text-align: center; flex-grow: 1; padding: 4px; border-radius: 5px; background-color: rgba(30, 136, 229, 0.05);">
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #1e88e5;">{virtual_hours}</div>
+                    <div style="font-size: 0.75rem; color: #666;">الساعات</div>
+                </div>
+            </div>
+        </div>
+        """
+        
+        # 3. دمج الأجزاء معًا وعرضها
+        complete_html = card_top + metrics_html
+        st.markdown(complete_html, unsafe_allow_html=True)
     
     # فلاتر البحث والتصفية
     st.markdown("#### بحث وتصفية")
@@ -1168,59 +1241,7 @@ with main_tabs[1]:
         st.markdown(f"#### المهام المطابقة ({len(filtered_tasks)})")
         
         for i, task in filtered_tasks.iterrows():
-            task_id = task.get("رقم المهمة", i+1)
-            task_name = task.get("اسم المهمة", "مهمة غير محددة")
-            task_description = task.get("الوصف", "")
-            member_name = task.get("العضو المسؤول", "")
-            member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
-            category = task.get("الفئة", "غير مصنفة")
-            start_date = format_date(task.get("تاريخ البدء", ""))
-            due_date = format_date(task.get("تاريخ الاستحقاق", ""))
-            completion_date = format_date(task.get("تاريخ الإنجاز", "")) if "تاريخ الإنجاز" in task and pd.notna(task["تاريخ الإنجاز"]) else "-"
-            virtual_hours = task.get("الساعات الافتراضية", 0)
-            points = task.get("النقاط", 0)
-            status = task.get("الحالة", "غير محدد")
-            priority = task.get("الأولوية", "متوسطة")
-            
-            # تحديد لون الأولوية
-            priority_badge = "badge-red" if priority == "عالية" else ("badge-orange" if priority == "متوسطة" else "badge-blue")
-            
-            # تحديد صنف CSS بناءً على الحالة
-            status_class = get_status_class(status)
-            status_badge = get_status_badge(status)
-            
-            # تصحيح الهيكل HTML للبطاقة - إصلاح المشكلة التي تظهر الكود HTML
-            st.markdown(f"""
-            <div class="task-card {status_class}">
-                <div class="task-header">
-                    <div>
-                        <div class="task-title">{task_name}</div>
-                        <div style="font-size: 0.85rem; color: #666;">{member_display}</div>
-                    </div>
-                    <div>
-                        <span class="badge {status_badge}">{status}</span>
-                        <span class="badge {priority_badge}">{priority}</span>
-                    </div>
-                </div>
-                <div style="font-size: 0.85rem; margin: 8px 0;">{task_description}</div>
-                <div class="task-details">
-                    <span class="task-detail-item">🏷️ {category}</span>
-                    <span class="task-detail-item">📅 تاريخ البدء: {start_date}</span>
-                    <span class="task-detail-item">⏳ تاريخ الاستحقاق: {due_date}</span>
-                    {f'<span class="task-detail-item">✅ تاريخ الإنجاز: {completion_date}</span>' if completion_date != "-" else ''}
-                </div>
-                <div class="task-metrics">
-                    <div class="task-metric">
-                        <div class="task-metric-value">{int(points)}</div>
-                        <div class="task-metric-label">النقاط</div>
-                    </div>
-                    <div class="task-metric">
-                        <div class="task-metric-value">{int(virtual_hours)}</div>
-                        <div class="task-metric-label">الساعات</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            render_task_card(task, i)
     else:
         st.info("لا توجد مهام مطابقة للفلاتر المحددة.")
 # =========================================
