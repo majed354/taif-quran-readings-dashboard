@@ -575,174 +575,265 @@ def load_faculty_achievements():
 # --- تحديد عرض الجوال ---
 mobile_view = is_mobile()
 
-# القسم الخامس: منطق الصفحة الرئيسي (اختيار السنة، تحميل البيانات، المقاييس الإجمالية، ملخص التغييرات)
-# --- محتوى صفحة هيئة التدريس ---
+# القسم الخامس: منطق المنتقي الزمني المعدل
 
-# --- إضافة منتقي السنة ---
-YEAR_LIST = list(range(2022, 2026)) # تُحدَّث سنويًا
-selected_year = st.selectbox("اختر السنة", YEAR_LIST[::-1], index=0) # القيمة الافتراضية هي أحدث سنة
+# --- تحديد قاموس رموز البرامج ---
+PROGRAM_MAP = {
+    "بكالوريوس في القرآن وعلومه": "bachelor_quran",
+    "بكالوريوس القراءات": "bachelor_readings",
+    "ماجستير الدراسات القرآنية المعاصرة": "master_contemporary",
+    "ماجستير القراءات": "master_readings",
+    "دكتوراه علوم القرآن": "phd_quran",
+    "دكتوراه القراءات": "phd_readings"
+}
+REVERSE_PROGRAM_MAP = {code: name for name, code in PROGRAM_MAP.items()}
+SHORT_PROGRAM_MAP = {
+    "بكالوريوس في القرآن وعلومه": "ب. قرآن",
+    "بكالوريوس القراءات": "ب. قراءات",
+    "ماجستير الدراسات القرآنية المعاصرة": "م. دراسات",
+    "ماجستير القراءات": "م. قراءات",
+    "دكتوراه علوم القرآن": "د. قرآن",
+    "دكتوراه القراءات": "د. قراءات"
+}
 
-# --- تحميل البيانات ---
+# --- دالة لتحديد السنوات التي تتوفر لها بيانات فعلية ---
+@st.cache_data(ttl=3600)
+def get_available_years():
+    """تحديد السنوات التي تتوفر لها بيانات فعلية في المجلدات"""
+    available_years = []
+    # نطاق السنوات المحتملة
+    potential_years = list(range(2020, 2026))  # يمكن تعديل النطاق حسب الحاجة
+    
+    for year in potential_years:
+        # فحص وجود ملف البيانات لهذه السنة (نفحص ملفات مختلفة حسب نوع الصفحة)
+        has_data = False
+        
+        # بالنسبة لصفحة هيئة التدريس
+        faculty_file_path = f"data/department/{year}/faculty_{year}.csv"
+        if os.path.exists(faculty_file_path) and os.path.getsize(faculty_file_path) > 100:
+            has_data = True
+        
+        # بالنسبة للصفحة الرئيسية - ملخص القسم
+        summary_file_path = f"data/department/{year}/summary_{year}.csv"
+        if os.path.exists(summary_file_path) and os.path.getsize(summary_file_path) > 100:
+            has_data = True
+            
+        # التحقق من ملفات البرامج
+        for program_code in PROGRAM_MAP.values():
+            program_file_path = f"data/{program_code}/{year}/students_{year}.csv"
+            if os.path.exists(program_file_path) and os.path.getsize(program_file_path) > 100:
+                has_data = True
+                break
+            
+            program_kpi_path = f"data/{program_code}/{year}/kpi_{year}.csv"
+            if os.path.exists(program_kpi_path) and os.path.getsize(program_kpi_path) > 100:
+                has_data = True
+                break
+        
+        # إذا وجدنا أي بيانات لهذه السنة، نضيفها إلى القائمة
+        if has_data:
+            available_years.append(year)
+                
+    # إذا لم نجد أي سنوات، نستخدم العام الحالي كمثال
+    if not available_years:
+        current_year = datetime.now().year
+        st.warning(f"لم يتم العثور على بيانات لأي سنة. يرجى إضافة ملفات البيانات في المجلدات المناسبة.")
+        return [current_year]
+        
+    # ترتيب السنوات تنازليًا (الأحدث أولاً)
+    return sorted(available_years, reverse=True)
+
+# --- دوال تحميل البيانات ---
+@st.cache_data(ttl=3600)
+def load_faculty_data(year=None):
+    """تحميل بيانات أعضاء هيئة التدريس للسنة المحددة"""
+    try:
+        available_years = get_available_years()
+
+        if year is None:
+            year = max(available_years) if available_years else datetime.now().year
+
+        # المسار بناءً على هيكل المستودع والسنة
+        file_path = f"data/department/{year}/faculty_{year}.csv"
+
+        # التحقق من وجود الملف، وإلا حاول تحميل الملف القديم
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 100:
+            df = pd.read_csv(file_path)
+            df["year"] = year # إضافة عمود السنة للتمييز لاحقاً
+            return df
+        else:
+            # إذا لم يجد ملف السنة المحددة، ابحث عن أقرب سنة متاحة
+            for y in sorted(available_years, reverse=True):
+                alt_file_path = f"data/department/{y}/faculty_{y}.csv"
+                if os.path.exists(alt_file_path) and os.path.getsize(alt_file_path) > 100:
+                    st.warning(f"بيانات سنة {year} غير متوفرة. تم تحميل بيانات سنة {y} بدلاً عنها.")
+                    df = pd.read_csv(alt_file_path)
+                    df["year"] = y # إضافة عمود السنة الفعلية
+                    return df
+
+            # إذا لم يجد أي ملف، استخدم بيانات تجريبية
+            st.warning(f"بيانات سنة {year} غير متوفرة. استخدام بيانات تجريبية.")
+            return generate_sample_faculty_data(year)
+
+    except Exception as e:
+        st.error(f"خطأ في تحميل بيانات أعضاء هيئة التدريس: {e}")
+        return pd.DataFrame()
+
+@st.cache_data(ttl=3600)
+def load_previous_year_data(current_year):
+    """تحميل بيانات السنة السابقة للمقارنة"""
+    previous_year = current_year - 1
+    available_years = get_available_years()
+    
+    # التحقق مما إذا كانت السنة السابقة متوفرة
+    if previous_year not in available_years:
+        return None
+
+    try:
+        file_path = f"data/department/{previous_year}/faculty_{previous_year}.csv"
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 100:
+            df = pd.read_csv(file_path)
+            df["year"] = previous_year # إضافة عمود السنة
+            return df
+        else:
+            # توليد بيانات تجريبية للسنة السابقة إذا لم توجد
+            return generate_sample_faculty_data(previous_year)
+    except Exception as e:
+        st.error(f"خطأ في تحميل بيانات السنة السابقة: {e}")
+        return None
+
+@st.cache_data(ttl=3600)
+def load_department_summary(year=None):
+    """تحميل بيانات ملخص القسم الكلية"""
+    try:
+        available_years = get_available_years()
+        
+        if year is None:
+            year = max(available_years) if available_years else datetime.now().year
+            
+        file_path = f"data/department/{year}/summary_{year}.csv"
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 100:
+            df = pd.read_csv(file_path)
+        else:
+            # البحث عن أقرب سنة متاحة
+            found_data = False
+            for y in sorted(available_years, reverse=True):
+                alt_path = f"data/department/{y}/summary_{y}.csv"
+                if os.path.exists(alt_path) and os.path.getsize(alt_path) > 100:
+                    df = pd.read_csv(alt_path)
+                    found_data = True
+                    if y != year:
+                        st.warning(f"بيانات ملخص القسم لسنة {year} غير متوفرة. تم تحميل بيانات سنة {y} بدلاً عنها.")
+                    break
+            
+            # إذا لم نجد أي بيانات، نستخدم بيانات تجريبية
+            if not found_data:
+                data = {
+                    "البرنامج": list(PROGRAM_MAP.keys()),
+                    "عدد الطلاب": [210, 180, 150, 200, 120, 140],
+                    "أعضاء هيئة التدريس": [15, 12, 8, 10, 5, 6]
+                }
+                df = pd.DataFrame(data)
+                st.warning(f"بيانات ملخص القسم غير متوفرة. استخدام بيانات تجريبية.")
+        
+        return df
+    except Exception as e:
+        st.error(f"خطأ في تحميل ملخص القسم: {e}")
+        return pd.DataFrame({"البرنامج": [], "عدد الطلاب": [], "أعضاء هيئة التدريس": []})
+
+@st.cache_data(ttl=3600)
+def load_yearly_data():
+    """تحميل بيانات سنوية لجميع البرامج"""
+    available_years = get_available_years()
+    data = []
+    
+    for year in available_years:
+        for program_name, program_code in PROGRAM_MAP.items():
+            try:
+                summary_file = f"data/{program_code}/{year}/summary_{year}.csv"
+                if os.path.exists(summary_file) and os.path.getsize(summary_file) > 100:
+                    df = pd.read_csv(summary_file)
+                    success_rate = df.loc[df["الفئة"] == "نسبة النجاح", "النسبة"].values[0] if "نسبة النجاح" in df["الفئة"].values else None
+                    satisfaction = df.loc[df["الفئة"] == "معدل الرضا", "النسبة"].values[0] if "معدل الرضا" in df["الفئة"].values else None
+                    student_file = f"data/{program_code}/{year}/students_{year}.csv"
+                    if os.path.exists(student_file) and os.path.getsize(student_file) > 100:
+                        student_df = pd.read_csv(student_file)
+                        student_count = student_df["الإجمالي"].sum() if "الإجمالي" in student_df.columns else None
+                    else:
+                        student_count = None
+                    data.append({
+                        "العام": year, "البرنامج": program_name, "عدد الطلاب": student_count,
+                        "نسبة النجاح": success_rate, "معدل الرضا": satisfaction
+                    })
+                else: # بيانات تجريبية إذا لم يوجد الملف
+                    program_hash = int(hashlib.md5(program_name.encode()).hexdigest(), 16) % 100
+                    data.append({
+                        "العام": year, "البرنامج": program_name,
+                        "عدد الطلاب": 100 + (year - 2020) * 10 + program_hash % 100,
+                        "نسبة النجاح": min(95, 70 + (year - 2020) * 2 + program_hash % 10),
+                        "معدل الرضا": min(90, 75 + (year - 2020) * 1.5 + (program_hash // 2) % 10)
+                    })
+            except Exception as e: # بيانات تجريبية عند الخطأ
+                program_hash = int(hashlib.md5(program_name.encode()).hexdigest(), 16) % 100
+                data.append({
+                    "العام": year, "البرنامج": program_name,
+                    "عدد الطلاب": 100 + (year - 2020) * 10 + program_hash % 100,
+                    "نسبة النجاح": min(95, 70 + (year - 2020) * 2 + program_hash % 10),
+                    "معدل الرضا": min(90, 75 + (year - 2020) * 1.5 + (program_hash // 2) % 10)
+                })
+    return pd.DataFrame(data)
+
+# --- تحديد عرض الجوال ---
+mobile_view = is_mobile()
+
+# --- تطبيق منتقي السنة المعدل ---
+# الحصول على قائمة السنوات المتوفرة فقط
+AVAILABLE_YEARS = get_available_years()
+
+# إذا كان هناك سنة واحدة فقط، لا داعي لعرض منتقي السنة
+if len(AVAILABLE_YEARS) > 1:
+    selected_year = st.selectbox("اختر السنة", AVAILABLE_YEARS)
+else:
+    # إذا كانت هناك سنة واحدة فقط، نستخدمها مباشرة دون عرض منتقي
+    if AVAILABLE_YEARS:
+        selected_year = AVAILABLE_YEARS[0]
+        st.info(f"البيانات متوفرة لسنة {selected_year} فقط")
+    else:
+        # في حالة عدم وجود سنوات متاحة على الإطلاق (احتياطي)
+        selected_year = datetime.now().year
+        st.warning("لا توجد بيانات متاحة لأي سنة. سيتم استخدام بيانات تجريبية.")
+
+# تحميل البيانات للسنة المختارة
 faculty_data = load_faculty_data(selected_year)
 
-# تحميل بيانات السنة السابقة للمقارنة
+# تحديد إذا كانت السنة المختارة هي أقدم سنة في القائمة
+is_oldest_year = selected_year == min(AVAILABLE_YEARS) if AVAILABLE_YEARS else True
+
+# تحميل بيانات السنة السابقة للمقارنة (فقط إذا لم تكن أقدم سنة)
+previous_year_data = None
 previous_year = selected_year - 1
-previous_year_data = load_previous_year_data(selected_year)
 
-# تحليل التغييرات بين السنتين (إذا كانت البيانات السابقة متوفرة)
-new_members_data, departed_members_data, promotions, research_increase = analyze_faculty_changes(faculty_data, previous_year_data)
+if not is_oldest_year and previous_year in AVAILABLE_YEARS:
+    try:
+        previous_year_data = load_previous_year_data(selected_year)
+    except Exception as e:
+        st.error(f"خطأ في تحميل بيانات السنة السابقة: {e}")
+        previous_year_data = None
 
-# تحميل بيانات الإنجازات
-faculty_achievements = load_faculty_achievements()
-
-if faculty_data.empty:
-    st.warning("لا تتوفر بيانات أعضاء هيئة التدريس. يرجى التحقق من مصدر البيانات.")
+# تحليل التغييرات بين السنتين (فقط إذا كانت بيانات السنة السابقة متوفرة)
+if previous_year_data is not None:
+    new_members_data, departed_members_data, promotions, research_increase = analyze_faculty_changes(faculty_data, previous_year_data)
+    # تخزين حالة وجود المقارنة للاستخدام في واجهة المستخدم
+    has_comparison_data = True
 else:
-    # --- المقاييس الإجمالية (مع إضافة الدلتا للمقارنة مع السنة السابقة) ---
-    st.subheader("نظرة عامة") # عنوان فرعي للمقاييس
-
-    # حساب قيم المقاييس الحالية
-    total_faculty = len(faculty_data)
-    male_count = len(faculty_data[faculty_data["الجنس"] == "ذكر"])
-    female_count = len(faculty_data[faculty_data["الجنس"] == "أنثى"])
-    total_research = faculty_data["عدد البحوث"].sum() if "عدد البحوث" in faculty_data.columns else 0
-
-    # حساب قيم السنة السابقة إذا كانت متوفرة
-    prev_total_faculty = len(previous_year_data) if previous_year_data is not None else None
-    prev_male_count = len(previous_year_data[previous_year_data["الجنس"] == "ذكر"]) if previous_year_data is not None else None
-    prev_female_count = len(previous_year_data[previous_year_data["الجنس"] == "أنثى"]) if previous_year_data is not None else None
-    prev_total_research = previous_year_data["عدد البحوث"].sum() if previous_year_data is not None and "عدد البحوث" in previous_year_data.columns else None
-
-    # حساب الفروقات (الدلتا)
-    delta_total = total_faculty - prev_total_faculty if prev_total_faculty is not None else None
-    delta_male = male_count - prev_male_count if prev_male_count is not None else None
-    delta_female = female_count - prev_female_count if prev_female_count is not None else None
-    delta_research = total_research - prev_total_research if prev_total_research is not None else None
-
-    # عرض المقاييس في صف (أو 2x2 في الجوال)
-    if mobile_view:
-        row1_cols = st.columns(2)
-        row2_cols = st.columns(2)
-        metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1]]
-    else:
-        metric_cols = st.columns(4)
-
-    # إضافة المقاييس مع الدلتا
-    with metric_cols[0]:
-        st.metric("إجمالي الأعضاء", f"{total_faculty:,}",
-                  delta=f"{delta_total:+}" if delta_total is not None else None)
-    with metric_cols[1]:
-        st.metric("أعضاء (ذكور)", f"{male_count:,}",
-                  delta=f"{delta_male:+}" if delta_male is not None else None)
-    with metric_cols[2]:
-        st.metric("أعضاء (إناث)", f"{female_count:,}",
-                  delta=f"{delta_female:+}" if delta_female is not None else None)
-    with metric_cols[3]:
-        st.metric("إجمالي البحوث", f"{total_research:,}",
-                  delta=f"{delta_research:+}" if delta_research is not None else None)
-
-    # عرض ملخص التغييرات (الأعضاء الجدد والمغادرين والترقيات) في قسم مطوي
-    if previous_year_data is not None:
-        with st.expander("📊 عرض تفاصيل التغييرات عن العام السابق", expanded=False):
-            # هنا نضع تفاصيل التغييرات
-
-            # حاوية للتغييرات
-            st.markdown('<div class="changes-container">', unsafe_allow_html=True)
-
-            # عرض الترقيات
-            if promotions and len(promotions) > 0:
-                st.markdown('<div class="changes-title">🔄 الترقيات الأكاديمية</div>', unsafe_allow_html=True)
-                for promotion in promotions:
-                    st.markdown(f"""
-                    <div class="changes-item promotion-item">
-                        <h4 style="margin: 0; font-size: 0.9rem; color: #1e88e5;">{promotion["الاسم"]}</h4>
-                        <p style="margin: 3px 0; font-size: 0.8rem;">ترقية من {promotion["الرتبة السابقة"]} إلى {promotion["الرتبة الحالية"]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            # عرض الأعضاء الجدد
-            if new_members_data is not None and len(new_members_data) > 0:
-                st.markdown('<div class="changes-title">➕ الأعضاء الجدد</div>', unsafe_allow_html=True)
-                for _, row in new_members_data.iterrows():
-                    name = row.get("الاسم", "غير متوفر")
-                    gender = row.get("الجنس", "")
-                    rank = row.get("الرتبة", "")
-                    spec = row.get("التخصص", "")
-
-                    st.markdown(f"""
-                    <div class="changes-item new-member">
-                        <h4 style="margin: 0; font-size: 0.9rem; color: #27AE60;">{name}</h4>
-                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            # عرض الأعضاء المغادرين
-            if departed_members_data is not None and len(departed_members_data) > 0:
-                st.markdown('<div class="changes-title">➖ الأعضاء المغادرون</div>', unsafe_allow_html=True)
-                for _, row in departed_members_data.iterrows():
-                    name = row.get("الاسم", "غير متوفر")
-                    gender = row.get("الجنس", "")
-                    rank = row.get("الرتبة", "")
-                    spec = row.get("التخصص", "")
-
-                    st.markdown(f"""
-                    <div class="changes-item departed-member">
-                        <h4 style="margin: 0; font-size: 0.9rem; color: #E74C3C;">{name}</h4>
-                        <p style="margin: 3px 0; font-size: 0.8rem;">{rank} - {spec} - {gender}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            # إغلاق حاوية التغييرات
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            # عرض مقارنة التوزيع حسب الرتبة
-            if "الرتبة" in faculty_data.columns and "الرتبة" in previous_year_data.columns:
-                st.markdown("### مقارنة التوزيع حسب الرتبة")
-
-                current_rank_counts = faculty_data["الرتبة"].value_counts().reset_index()
-                current_rank_counts.columns = ["الرتبة", "العدد"]
-                current_rank_counts["السنة"] = selected_year
-
-                previous_rank_counts = previous_year_data["الرتبة"].value_counts().reset_index()
-                previous_rank_counts.columns = ["الرتبة", "العدد"]
-                previous_rank_counts["السنة"] = previous_year
-
-                # دمج البيانات للمقارنة
-                rank_comparison = pd.concat([previous_rank_counts, current_rank_counts])
-
-                # رسم بياني للمقارنة
-                fig_rank_compare = px.bar(
-                    rank_comparison,
-                    x="الرتبة",
-                    y="العدد",
-                    color="السنة",
-                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الرتبة",
-                    barmode="group",
-                    color_discrete_sequence=["#777777", "#1e88e5"]
-                )
-                fig_rank_compare = prepare_chart_layout(fig_rank_compare, "مقارنة حسب الرتبة", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_rank_compare, use_container_width=True, config={"displayModeBar": False})
-
-                # مقارنة عدد الذكور والإناث
-                st.markdown("### مقارنة التوزيع حسب الجنس")
-                gender_comparison = pd.DataFrame({
-                    "السنة": [previous_year, selected_year],
-                    "ذكور": [prev_male_count, male_count],
-                    "إناث": [prev_female_count, female_count]
-                })
-
-                # رسم بياني للمقارنة
-                fig_gender_compare = px.bar(
-                    gender_comparison,
-                    x="السنة",
-                    y=["ذكور", "إناث"],
-                    title="مقارنة أعداد أعضاء هيئة التدريس حسب الجنس",
-                    barmode="group",
-                    color_discrete_sequence=["#1e88e5", "#E83E8C"]
-                )
-                fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
-                st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
-
+    # إذا كانت بيانات السنة السابقة غير متوفرة، نجعل كل المتغيرات None
+    new_members_data, departed_members_data, promotions, research_increase = None, None, None, 0
+    # تخزين حالة عدم وجود المقارنة للاستخدام في واجهة المستخدم
+    has_comparison_data = False
+    
+    # إذا كانت السنة المختارة هي أقدم سنة، نعرض إشعارًا
+    if is_oldest_year and len(AVAILABLE_YEARS) > 1:
+        st.info(f"سنة {selected_year} هي أقدم سنة متوفرة. لا يمكن إجراء مقارنة مع سنة سابقة.")
    # القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
 # --- إنشاء التبويبات الرئيسية الجديدة ---
 st.subheader("بيانات أعضاء هيئة التدريس")
