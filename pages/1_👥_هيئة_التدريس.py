@@ -1198,7 +1198,6 @@ else:
                 )
                 fig_gender_compare = prepare_chart_layout(fig_gender_compare, "مقارنة حسب الجنس", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_gender_compare, use_container_width=True, config={"displayModeBar": False})
-
 # القسم السادس والسابع: نظام التبويبات الجديد لعرض قائمة الأعضاء والتوزيعات والبحوث
 # --- إنشاء التبويبات الرئيسية الجديدة ---
 st.subheader("بيانات أعضاء هيئة التدريس")
