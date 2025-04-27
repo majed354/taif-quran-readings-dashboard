@@ -127,14 +127,16 @@ def show_error(error_msg, details=None):
             st.code(details)
 
 # -------------------------------------------------------------------------
-# التحقق من المتغيرات المطلوبة (Check Required Environment Variables)
+# التحقق من المتغيرات المطلوبة (Check Required Environment Variables) - تم التحديث
 # -------------------------------------------------------------------------
 def check_environment():
+    """Checks if necessary GitHub secrets are set."""
     try:
-        required_vars = ["GITHUB_TOKEN", "REPO_NAME", "MASTER_PASS"]
+        # Only check for GitHub related secrets now
+        required_vars = ["GITHUB_TOKEN", "REPO_NAME"]
         missing_vars = [var for var in required_vars if var not in st.secrets]
         if missing_vars:
-            show_error(f"متغيرات مطلوبة غير موجودة: {', '.join(missing_vars)}", "أضفها إلى ملف .streamlit/secrets.toml.")
+            show_error(f"متغيرات GitHub المطلوبة غير موجودة: {', '.join(missing_vars)}", "أضفها إلى ملف .streamlit/secrets.toml.")
             return False
         for var in required_vars:
              if not st.secrets[var]:
@@ -150,6 +152,7 @@ def check_environment():
 # -------------------------------------------------------------------------
 @st.cache_resource(ttl=300)
 def get_gh_repo():
+    """Connects to the GitHub repository."""
     try:
         if not all(k in st.secrets for k in ["GITHUB_TOKEN", "REPO_NAME"]): return None
         if not st.secrets["GITHUB_TOKEN"] or not st.secrets["REPO_NAME"]: return None
@@ -193,11 +196,15 @@ def load_csv(path: str, expected_cols: list, is_main_tasks=False):
                  show_error(f"خطأ عند قراءة CSV '{path}': {read_err}", traceback.format_exc())
                  return pd.DataFrame(columns=expected_cols), sha
         else:
+             # Keep warning, but handle predefined tasks only if file is truly empty on load
              st.warning(f"الملف '{path}' فارغ أو يحتوي فقط على مسافات بيضاء.")
              if is_main_tasks and path == MAIN_TASKS_PATH:
                  st.info("ملف المهام الرئيسية فارغ. سيتم إضافة مهام أولية.")
                  df = pd.DataFrame(PREDEFINED_MAIN_TASKS)
-                 return df[expected_cols], None
+                 # Make sure the predefined df has the expected columns
+                 for col in expected_cols:
+                     if col not in df.columns: df[col] = ''
+                 return df[expected_cols], None # Return df with predefined tasks, sha=None to force save
 
         df = df.fillna('')
         return df, sha
@@ -207,6 +214,9 @@ def load_csv(path: str, expected_cols: list, is_main_tasks=False):
         if is_main_tasks and path == MAIN_TASKS_PATH:
             st.info("ملف المهام الرئيسية غير موجود. سيتم إنشاؤه بمهام أولية.")
             df = pd.DataFrame(PREDEFINED_MAIN_TASKS)
+            # Make sure the predefined df has the expected columns
+            for col in expected_cols:
+                if col not in df.columns: df[col] = ''
             return df[expected_cols], None
         else:
             return pd.DataFrame(columns=expected_cols), None
@@ -260,7 +270,7 @@ def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_co
 # --- Session State Initialization ---
 default_year = 2025
 current_month = datetime.now().month
-if "auth" not in st.session_state: st.session_state.auth = False
+# Removed auth state
 if "selected_member" not in st.session_state: st.session_state.selected_member = MEMBER_NAMES[0]
 if "selected_year" not in st.session_state: st.session_state.selected_year = default_year
 if "selected_month" not in st.session_state: st.session_state.selected_month = current_month
@@ -277,19 +287,7 @@ if not check_environment():
     if st.button("محاولة مسح ذاكرة التخزين المؤقت للمستودع"): clear_repo_cache(); st.rerun()
     st.stop()
 
-# --- Login Form ---
-if not st.session_state.auth:
-    st.title("تسجيل الدخول")
-    with st.form("login_form"):
-        entered_pass = st.text_input("كلمة المرور العامة", type="password", key="password_input")
-        login_button = st.form_submit_button("دخول")
-        if login_button:
-            master_pass = st.secrets.get("MASTER_PASS", "")
-            if entered_pass == master_pass:
-                st.session_state.auth = True; st.success("تم تسجيل الدخول!"); time.sleep(1); st.rerun()
-            elif not master_pass: st.error("خطأ إعداد: كلمة المرور الرئيسية غير معرفة.")
-            else: st.error("كلمة المرور غير صحيحة!")
-    st.stop()
+# --- Login Form Removed ---
 
 # --- Main Application ---
 st.title("تسجيل المهام المكتملة")
@@ -319,19 +317,12 @@ st.selectbox("اختر اسم العضو", options=MEMBER_NAMES, key="selected_m
 st.markdown("<div class='approx-date-header'>التاريخ التقريبي للمهام</div>", unsafe_allow_html=True)
 col_month, col_year = st.columns(2)
 with col_month: st.selectbox("الشهر", options=list(ARABIC_MONTHS.keys()), format_func=lambda m: ARABIC_MONTHS[m], key="selected_month")
-# Set default value for year input - تم التعديل
 with col_year: st.number_input("السنة", min_value=2010, max_value=default_year + 5, value=st.session_state.selected_year, key="selected_year", step=1)
 
 # --- Sidebar ---
+# Removed Logout button
 with st.sidebar:
     st.header("الإجراءات")
-    if st.button("تسجيل الخروج", type="secondary"):
-        st.session_state.auth = False; st.session_state.selected_member = MEMBER_NAMES[0]
-        st.session_state.selected_year = default_year; st.session_state.selected_month = current_month
-        st.session_state.selected_category = INITIAL_CATEGORIES[0]
-        st.session_state.selected_program = PROGRAM_OPTIONS[0]
-        st.session_state.show_add_main_task_inline = False
-        st.rerun()
     if st.button("مسح ذاكرة التخزين المؤقت", type="secondary"):
         clear_repo_cache(); st.info("تم مسح ذاكرة التخزين المؤقت."); time.sleep(1); st.rerun()
 
@@ -369,7 +360,7 @@ main_task_options_list = list(main_task_options_for_form.keys()) + [add_new_main
 st.header("1. إضافة مهمة جديدة")
 inline_form_placeholder = st.empty()
 
-with st.form("add_task_form", clear_on_submit=False): # Changed form key slightly
+with st.form("add_task_form", clear_on_submit=False):
     task_title = st.text_input("عنوان مختصر للمهمة", key="task_title_input")
     try: default_date_val = datetime(year, month, 1)
     except ValueError: default_date_val = datetime(year, month, calendar.monthrange(year, month)[1])
@@ -380,35 +371,27 @@ with st.form("add_task_form", clear_on_submit=False): # Changed form key slightl
     selected_category = st.selectbox("تحديد فئة المهمة (اختياري)", options=INITIAL_CATEGORIES, key="selected_category")
     selected_program = st.selectbox("تحديد البرنامج (اختياري)", options=PROGRAM_OPTIONS, key="selected_program")
 
-    # Main Task Selection - Updated
     selected_form_main_task_option = st.selectbox(
-        "هل تنتمي هذه المهمة الجزئية إلى مهمة رئيسية؟", # Changed label
+        "هل تنتمي هذه المهمة الجزئية إلى مهمة رئيسية؟",
         options=main_task_options_list,
         index=0,
         key="form_main_task_selector"
     )
 
-    # --- Inline Add Main Task Form Trigger ---
-    # Check if the "Add New" option is selected to potentially show the inline form later
     if selected_form_main_task_option == add_new_main_task_option:
         st.session_state.show_add_main_task_inline = True
     else:
-         # If another option is selected, ensure the inline form is hidden
-         # This might be needed if the user selects "Add New" then changes their mind before submitting the main form
          st.session_state.show_add_main_task_inline = False
 
-
-    # --- Main Form Submit Button ---
     submit_task = st.form_submit_button("➕ إضافة وحفظ المهمة")
 
 # --- Display Inline Add Main Task Form (if triggered) ---
-# This section is now outside the main st.form block
 if st.session_state.show_add_main_task_inline:
      with inline_form_placeholder.container():
          st.subheader("إضافة مهمة رئيسية جديدة")
-         st.session_state.new_main_task_title_inline = st.text_input("عنوان المهمة الرئيسية الجديدة", key="new_main_title_inline_standalone") # Use different key
-         st.session_state.new_main_task_descr_inline = st.text_area("وصف مختصر (اختياري)", key="new_main_descr_inline_standalone") # Use different key
-         if st.button("حفظ المهمة الرئيسية الجديدة", key="save_inline_main_task"): # Use different key
+         st.session_state.new_main_task_title_inline = st.text_input("عنوان المهمة الرئيسية الجديدة", key="new_main_title_inline_standalone")
+         st.session_state.new_main_task_descr_inline = st.text_area("وصف مختصر (اختياري)", key="new_main_descr_inline_standalone")
+         if st.button("حفظ المهمة الرئيسية الجديدة", key="save_inline_main_task"):
              new_title_inline = st.session_state.new_main_task_title_inline.strip()
              new_descr_inline = st.session_state.new_main_task_descr_inline.strip()
              main_df_reloaded_inline, main_sha_reloaded_inline = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True)
@@ -429,20 +412,18 @@ if st.session_state.show_add_main_task_inline:
                  else: st.error("خطأ في حفظ المهمة الرئيسية الجديدة.")
 
 
-# --- Process Main Form Submission (after the form block) ---
+# --- Process Main Form Submission ---
 if submit_task:
-    # Retrieve values from session state if needed, or directly if widgets are outside form (not recommended)
     task_title_val = st.session_state.task_title_input
     achievement_desc_val = st.session_state.achievement_desc_input
     selected_hour_range_val = st.session_state.hour_range_selector
     selected_category_val = st.session_state.selected_category
     selected_program_val = st.session_state.selected_program
     selected_form_main_task_option_val = st.session_state.form_main_task_selector
-    achievement_date_val = achievement_date # Date input value is available directly
+    achievement_date_val = achievement_date
 
-    # Prevent saving if the inline form was meant to be used but wasn't submitted/saved
     if selected_form_main_task_option_val == add_new_main_task_option:
-         st.warning("لقد اخترت 'إضافة مهمة رئيسية جديدة'. يرجى إدخال تفاصيل المهمة الجديدة وحفظها أولاً، أو اختيار مهمة موجودة/بدون مهمة رئيسية.")
+         st.warning("لقد اخترت 'إضافة مهمة رئيسية جديدة'. يرجى إدخال تفاصيل المهمة الجديدة وحفظها أولاً، أو اختيار مهمة أخرى.")
     elif not task_title_val.strip(): st.error("عنوان مختصر للمهمة مطلوب.")
     elif not achievement_desc_val.strip(): st.error("وصف المهمة مطلوب.")
     elif selected_hour_range_val == HOUR_RANGES[0]: st.error("الرجاء اختيار نطاق الساعات المقدرة.")
@@ -482,13 +463,12 @@ if submit_task:
                 commit_message = f"إضافة مهمة '{task_title_val.strip()}' بواسطة {member} ({achievement_date_val.isoformat()})"
                 if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated, achievements_sha_reloaded, commit_message, expected_cols=EXPECTED_ACHIEVEMENT_COLS):
                     st.success(f"✅ تم حفظ المهمة بنجاح!")
-                    # Clear form inputs in session state after successful submission
                     st.session_state.task_title_input = ""
                     st.session_state.achievement_desc_input = ""
                     st.session_state.hour_range_selector = HOUR_RANGES[0]
                     st.session_state.selected_category = INITIAL_CATEGORIES[0]
                     st.session_state.selected_program = PROGRAM_OPTIONS[0]
-                    st.session_state.form_main_task_selector = list(main_task_options_for_form.keys())[0] # Reset to default
+                    st.session_state.form_main_task_selector = list(main_task_options_for_form.keys())[0]
                     time.sleep(1); st.rerun()
                 else: st.error("❌ حدث خطأ أثناء حفظ المهمة.")
             except Exception as e: show_error("خطأ في إضافة المهمة", traceback.format_exc())
