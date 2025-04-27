@@ -3,13 +3,6 @@ import streamlit as st, pandas as pd, requests, base64, io, uuid
 from datetime import datetime
 from github import Github
 
-# -------------------------------------------------------------------------
-# أسرار التطبيق (ضعها في .streamlit/secrets.toml)
-GITHUB_TOKEN   = st.secrets["github_token"]
-MASTER_PASS    = st.secrets["master_password"]
-DEESEEK_KEY    = st.secrets["deepseek_key"]
-
-REPO_NAME      = "ORG/taif-quran-readings-dashboard"
 
 # -------------------------------------------------------------------------
 # الفئات (لن تُعرَض للمستخدم)
