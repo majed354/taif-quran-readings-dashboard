@@ -18,6 +18,50 @@ except ImportError:
 
 
 # -------------------------------------------------------------------------
+# قائمة أسماء الأعضاء (List of Member Names)
+# -------------------------------------------------------------------------
+# تم استخلاص الأسماء من البيانات المقدمة
+MEMBER_NAMES = [
+    "— اختر اسم العضو —", # Placeholder option
+    "عبد الله حماد حميد القرشي",
+    "ناصر سعود حمود القثامي",
+    "حاتم عابد عبد الله القرشي",
+    "ماجد عبد العزيز الحارثي",
+    "رجاء محمد هوساوي",
+    "عبد الله عيدان الزهراني",
+    "منال منصور محمد القرشي",
+    "خلود شاكر فهيد العبدلي",
+    "عبد العزيز عيضه حربي الحارثي",
+    "عبد العزيز عواض الثبيتي",
+    "تهاني فيصل علي الحربي",
+    "آمنة جمعة سعيد أحمد قحاف",
+    "غدير محمد سليم الشريف",
+    "أسرار عايف سراج الخالدي",
+    "سلوى أحمد محمد الحارثي",
+    "هويدا أبو بكر سعيد الخطيب",
+    "تغريد أبو بكر سعيد الخطيب",
+    "مهدي عبد الله قاري",
+    "مها عيفان نوار الخليدي",
+    "سلمى معيوض زويد الجميعي",
+    "أسماء محمد السلومي",
+    "رائد محمد عوضه الغامدي",
+    "ماجد إبراهيم باقي الجهني",
+    "مرام طلعت محمد أمين ينكصار",
+    "سعود سعد محمد الأنصاري",
+    "عبد الرحمن محمد العبيسي",
+    "ولاء حسن مسلم المذكوري",
+    "إسراء عبد الغني سندي",
+    "وسام حسن مسلم المذكوري",
+    "سمر علي محمد الشهراني",
+    "فاطمه أبكر داوود أبكر",
+    "شيماء محمود صالح بركات",
+    "عبد الله سعد عويض الثبيتي",
+    "عايده مصلح صالح المالكي",
+    "أفنان عبد الله محمد السليماني",
+    "أفنان مستور علي السواط"
+]
+
+# -------------------------------------------------------------------------
 # الفئات (Categories)
 # -------------------------------------------------------------------------
 CATEGORIES = {
@@ -34,7 +78,8 @@ CATEGORIES = {
 # -------------------------------------------------------------------------
 # تهيئة الواجهة (UI Initialization)
 # -------------------------------------------------------------------------
-st.set_page_config("لوحة الإنجازات", layout="centered")
+# تم تغيير العنوان هنا
+st.set_page_config("تسجيل المهام المكتملة", layout="centered")
 
 # CSS للواجهة العربية (CSS for Arabic UI)
 st.markdown("""
@@ -81,6 +126,14 @@ st.markdown("""
     /* Ensure placeholder text is also right-aligned */
      div[data-baseweb="input"] input::placeholder, div[data-baseweb="textarea"] textarea::placeholder {
         text-align: right !important;
+    }
+    /* Ensure delete button icon is centered */
+    .stButton>button[help="حذف هذا الإنجاز"] {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 4px; /* Adjust padding if needed */
+        line-height: 1; /* Ensure icon is vertically centered */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -222,7 +275,7 @@ def fallback_classification(text: str) -> dict:
 
     # Estimate points and hours based on text length
     word_count = len(text.split())
-    # Simple estimation: 1 hour per 10 words, capped between 5 and 30
+    # Simple estimation: 1 hour per 10 words, capped between 1 and 30
     virtual_hours = max(1, min(30, word_count // 10 if word_count > 10 else 1)) # Ensure at least 1 hour
     points = virtual_hours * 2 # Points are roughly double the hours
 
@@ -238,6 +291,11 @@ def fallback_classification(text: str) -> dict:
 # -------------------------------------------------------------------------
 def deepseek_eval(text: str) -> dict:
     """Evaluates achievement text using DeepSeek API."""
+    # Check if DEESEEK_KEY exists and is not empty
+    if not st.secrets.get("DEESEEK_KEY"):
+        st.warning("مفتاح DeepSeek API غير موجود أو فارغ في الأسرار. استخدام التصنيف الاحتياطي.")
+        return fallback_classification(text)
+
     try:
         # Construct the prompt for DeepSeek API
         system_prompt = (
@@ -302,6 +360,9 @@ def deepseek_eval(text: str) -> dict:
                 # Validate category code and label
                 if arguments.get("category_code") in CATEGORIES:
                     arguments["category_label"] = CATEGORIES[arguments["category_code"]] # Ensure label matches code
+                    # Ensure points and hours are within reasonable bounds
+                    arguments["points"] = max(1, min(100, arguments.get("points", 1)))
+                    arguments["virtual_hours"] = max(1, min(50, arguments.get("virtual_hours", 1)))
                     return arguments
                 else:
                     st.warning(f"DeepSeek أعاد رمز فئة غير صالح: {arguments.get('category_code')}. استخدام التصنيف الاحتياطي.")
@@ -332,11 +393,11 @@ def deepseek_eval(text: str) -> dict:
 # الصفحة الرئيسية (Main Page Logic)
 # -------------------------------------------------------------------------
 
-# Initialize session state for authentication
+# Initialize session state for authentication and user selection
 if "auth" not in st.session_state:
     st.session_state.auth = False
-if "member_name" not in st.session_state:
-    st.session_state.member_name = ""
+if "selected_member" not in st.session_state:
+    st.session_state.selected_member = MEMBER_NAMES[0] # Default to placeholder
 if "selected_year" not in st.session_state:
     st.session_state.selected_year = datetime.now().year
 
@@ -347,57 +408,59 @@ if not check_environment():
 
 # --- Login Form ---
 if not st.session_state.auth:
-    st.title("نظام إدخال المهام - تسجيل الدخول")
+    st.title("تسجيل الدخول") # Changed Login Title
     with st.form("login_form"):
-        entered_pass = st.text_input("كلمة المرور العامة", type="password")
+        entered_pass = st.text_input("كلمة المرور العامة", type="password", key="password_input")
         login_button = st.form_submit_button("دخول")
 
         if login_button:
-            # Use a more secure comparison if possible (e.g., hashing)
-            # For simplicity, direct comparison is used here based on the original code
             if entered_pass == st.secrets["MASTER_PASS"]:
                 st.session_state.auth = True
                 st.success("تم تسجيل الدخول بنجاح!")
                 time.sleep(1)
-                st.rerun() # Use st.rerun() instead of experimental_rerun
+                st.rerun()
             else:
                 st.error("كلمة المرور غير صحيحة!")
     st.stop() # Stop execution if not authenticated
 
 # --- Main Application (After Login) ---
-st.title("نظام إدخال مهام وإنجازات قسم القراءات")
+# تم تغيير العنوان الرئيسي هنا
+st.title("تسجيل المهام المكتملة")
 
 # --- User Data Input (Sidebar) ---
 with st.sidebar:
-    st.header("بيانات المستخدم")
-    # Use session state to preserve name and year across reruns
-    st.session_state.member_name = st.text_input(
-        "الاسم الثلاثي",
-        value=st.session_state.member_name,
-        key="member_name_input" # Add key for potential widget interaction issues
+    st.header("بيانات المستخدم والسنة")
+    # Use session state to preserve selections across reruns
+    # Replaced text_input with selectbox for member name
+    st.session_state.selected_member = st.selectbox(
+        "اختر اسم العضو",
+        options=MEMBER_NAMES,
+        index=MEMBER_NAMES.index(st.session_state.selected_member) if st.session_state.selected_member in MEMBER_NAMES else 0, # Keep selection
+        key="member_name_selector"
     )
     st.session_state.selected_year = st.number_input(
-        "السنة",
+        "اختر السنة",
         min_value=2010,
         max_value=datetime.now().year + 1, # Allow next year potentially
         value=st.session_state.selected_year,
         step=1,
-        key="year_input" # Add key
+        key="year_input"
     )
 
     if st.button("تسجيل الخروج"):
         # Clear sensitive session state on logout
         st.session_state.auth = False
-        st.session_state.member_name = ""
+        st.session_state.selected_member = MEMBER_NAMES[0] # Reset to placeholder
         # Optionally reset year or keep it
-        st.rerun() # Use st.rerun()
+        st.rerun()
 
 # --- Validate User Input ---
-member = st.session_state.member_name.strip()
+# Get selected member name, ensure it's not the placeholder
+member = st.session_state.selected_member
 year = st.session_state.selected_year
 
-if not member:
-    st.info("👈 الرجاء إدخال اسمك الثلاثي في القائمة الجانبية للمتابعة.")
+if member == MEMBER_NAMES[0]: # Check if placeholder is selected
+    st.info("👈 الرجاء اختيار اسم العضو من القائمة المنسدلة في الشريط الجانبي للمتابعة.")
     st.stop()
 
 # --- Load/Manage Main Tasks ---
@@ -419,8 +482,7 @@ try:
     selected_main_task = st.selectbox(
         "المهمة الرئيسية",
         options,
-        key="main_task_selector" # Add key
-        # index=0 # Default to placeholder
+        key="main_task_selector"
     )
 
     main_id = None # Initialize main_id
@@ -445,11 +507,11 @@ try:
                     if save_csv(main_tasks_path, main_df, main_sha, f"إضافة مهمة رئيسية: {new_title}"):
                         st.success(f"تمت إضافة المهمة الرئيسية '{new_title}' بنجاح.")
                         time.sleep(1)
-                        st.rerun() # Use st.rerun()
+                        st.rerun()
                     else:
                         st.error("حدث خطأ أثناء حفظ المهمة الرئيسية.")
                         # Optionally revert dataframe change if save fails
-                        main_df = main_df[:-1]
+                        main_df = main_df.iloc[:-1] # Use iloc for positional slicing
 
     elif selected_main_task.startswith("—"):
         st.warning("الرجاء اختيار مهمة رئيسية من القائمة أعلاه أو إضافة مهمة جديدة.")
@@ -491,32 +553,33 @@ try:
     # Define expected columns
     expected_cols = ["العضو", "الإنجاز", "التاريخ", "النقاط", "الفئة", "الساعات الافتراضية", "main_id"]
 
-    # Initialize DataFrame if empty or doesn't exist
+    # Initialize DataFrame if empty or doesn't exist, ensuring columns
     if achievements_df.empty:
         achievements_df = pd.DataFrame(columns=expected_cols)
         achievements_sha = None # Ensure SHA is None for creation
+    else:
+        # Ensure all expected columns exist, add if missing
+        for col in expected_cols:
+            if col not in achievements_df.columns:
+                achievements_df[col] = None # Add missing column with None values
+                st.warning(f"تمت إضافة العمود المفقود '{col}' إلى ملف الإنجازات.")
+                achievements_sha = None # Force recreation/update if structure changed
+
 
     # Filter tasks for the current member and selected main task
-    # Ensure 'العضو' and 'main_id' columns exist
-    if "العضو" in achievements_df.columns and "main_id" in achievements_df.columns:
-         my_tasks_df = achievements_df[
-             (achievements_df["العضو"] == member) &
-             (achievements_df["main_id"] == main_id)
-         ].copy() # Use .copy() to avoid SettingWithCopyWarning
-         # Convert 'التاريخ' to datetime for sorting, handle potential errors
-         try:
-            my_tasks_df['التاريخ'] = pd.to_datetime(my_tasks_df['التاريخ'], errors='coerce')
-            my_tasks_df = my_tasks_df.sort_values(by='التاريخ', ascending=False).reset_index(drop=True)
-         except KeyError:
-             st.warning("عمود 'التاريخ' غير موجود في ملف الإنجازات.")
-         except Exception as date_err:
-             st.warning(f"خطأ في تحويل عمود التاريخ: {date_err}")
+    # Ensure 'العضو' and 'main_id' columns exist (checked above)
+    my_tasks_df = achievements_df[
+        (achievements_df["العضو"] == member) &
+        (achievements_df["main_id"] == main_id)
+    ].copy() # Use .copy() to avoid SettingWithCopyWarning
 
+    # Convert 'التاريخ' to datetime for sorting, handle potential errors
+    if 'التاريخ' in my_tasks_df.columns:
+        my_tasks_df['التاريخ'] = pd.to_datetime(my_tasks_df['التاريخ'], errors='coerce')
+        my_tasks_df = my_tasks_df.sort_values(by='التاريخ', ascending=False).reset_index() # Keep original index
     else:
-         my_tasks_df = pd.DataFrame(columns=expected_cols) # Empty DataFrame if columns missing
-         st.warning("ملف الإنجازات قديم أو تالف (الأعمدة المطلوبة غير موجودة). سيتم إنشاء ملف جديد عند الحفظ.")
-         achievements_df = pd.DataFrame(columns=expected_cols) # Reset main df too
-         achievements_sha = None
+        st.warning("عمود 'التاريخ' غير موجود، لا يمكن الفرز حسب التاريخ.")
+        my_tasks_df = my_tasks_df.reset_index() # Keep original index
 
 
     st.subheader(f"الإنجازات المضافة تحت '{selected_main_task}' في {year}")
@@ -524,7 +587,9 @@ try:
         st.caption("لا توجد إنجازات مضافة لهذه المهمة الرئيسية في هذه السنة حتى الآن.")
     else:
         # Display tasks with delete buttons
-        for i in my_tasks_df.index:
+        for i in my_tasks_df.index: # Iterate using the new index (0, 1, 2...)
+            original_df_index = my_tasks_df.loc[i, 'index'] # Get the original index from the reset_index operation
+
             col1, col2 = st.columns([0.9, 0.1]) # Adjust column ratio
             with col1:
                 # Safely access columns using .get() with default values
@@ -541,47 +606,37 @@ try:
                 st.caption(f"التاريخ: {achievement_date_str} | الفئة: {category} | النقاط: {points} | الساعات: {hours}")
 
             with col2:
-                # Use the original index from the main `achievements_df` for deletion
-                original_index = my_tasks_df.loc[i].name # This should get the original index if reset_index wasn't used carelessly
-                # Need to map back to the original df index if reset_index was used
-                # Find the row in the original df that matches this task (safer)
-                original_row_index = achievements_df[
-                    (achievements_df["العضو"] == member) &
-                    (achievements_df["main_id"] == main_id) &
-                    # Add more conditions if needed for uniqueness, e.g., description and date
-                    (achievements_df["الإنجاز"] == achievement_desc) &
-                    (achievements_df["التاريخ"] == achievement_date_dt.isoformat() if pd.notna(achievement_date_dt) else None)
-                ].index
+                 # Use the original DataFrame index for the delete button key and logic
+                delete_key = f"del-{original_df_index}" # Use original index in key
+                if st.button("🗑️", key=delete_key, help="حذف هذا الإنجاز"):
+                    # Verify the index still exists in the main DataFrame before dropping
+                    if original_df_index in achievements_df.index:
+                        achievement_to_delete = achievements_df.loc[original_df_index, 'الإنجاز'] # Get desc for message
 
-                if not original_row_index.empty:
-                    delete_key = f"del-{original_row_index[0]}" # Use original index in key
-                    if st.button("🗑️", key=delete_key, help="حذف هذا الإنجاز"):
-                        index_to_drop = original_row_index[0]
-                        achievement_to_delete = achievements_df.loc[index_to_drop, 'الإنجاز'] # Get desc for message
-
-                        # Drop the row from the main DataFrame
-                        achievements_df_updated = achievements_df.drop(index=index_to_drop).reset_index(drop=True)
+                        # Drop the row from the main DataFrame using the original index
+                        achievements_df_updated = achievements_df.drop(index=original_df_index).reset_index(drop=True)
 
                         if save_csv(current_year_path, achievements_df_updated, achievements_sha, f"حذف إنجاز '{achievement_to_delete}' بواسطة {member}"):
                             st.success("تم حذف الإنجاز بنجاح.")
                             time.sleep(1)
-                            st.rerun() # Use st.rerun()
+                            st.rerun()
                         else:
                             st.error("حدث خطأ أثناء حذف الإنجاز.")
-                else:
-                    st.warning("لم يتم العثور على الصف الأصلي للحذف.") # Should not happen ideally
+                    else:
+                        st.error("لم يتم العثور على الإنجاز المراد حذفه (قد يكون تم حذفه بالفعل). الرجاء تحديث الصفحة.")
+
 
 except Exception as e:
     show_error("خطأ في تحميل أو عرض الإنجازات", traceback.format_exc())
 
 # --- Form for Adding New Achievement ---
 st.markdown("---")
-st.subheader("إضافة إنجاز فرعي جديد")
+st.subheader("3. إضافة إنجاز فرعي جديد") # Added step number
 
 with st.form("add_achievement_form", clear_on_submit=True):
     achievement_date = st.date_input("تاريخ الإنجاز", value=datetime.now()) # Default to today
-    achievement_desc = st.text_area("وصف الإنجاز بالتفصيل", height=150)
-    submit_achievement = st.form_submit_button("إضافة وحفظ الإنجاز")
+    achievement_desc = st.text_area("وصف الإنجاز بالتفصيل", height=150, key="achievement_desc_input")
+    submit_achievement = st.form_submit_button("➕ إضافة وحفظ الإنجاز")
 
     if submit_achievement:
         if not achievement_desc.strip():
@@ -589,7 +644,7 @@ with st.form("add_achievement_form", clear_on_submit=True):
         elif main_id is None:
              st.error("خطأ: لم يتم تحديد المهمة الرئيسية. الرجاء اختيار واحدة أولاً.") # Should be caught earlier
         else:
-            with st.spinner("جاري تقييم الإنجاز وحفظه..."):
+            with st.spinner("⏳ جاري تقييم الإنجاز وحفظه..."):
                 try:
                     # Evaluate using DeepSeek or fallback
                     evaluation = deepseek_eval(achievement_desc)
@@ -606,24 +661,33 @@ with st.form("add_achievement_form", clear_on_submit=True):
                     })
 
                     # Append the new row using pd.concat
+                    # Ensure achievements_df has the correct columns before concat
+                    for col in expected_cols:
+                        if col not in achievements_df.columns:
+                             achievements_df[col] = None # Add if missing
+
                     achievements_df_updated = pd.concat(
                         [achievements_df, pd.DataFrame([new_achievement_row])],
                         ignore_index=True
                     )
+                    # Ensure dtypes are consistent if possible (optional, pandas might handle)
+                    # achievements_df_updated = achievements_df_updated.astype(achievements_df.dtypes)
+
 
                     # Save the updated DataFrame
                     commit_message = f"إضافة إنجاز بواسطة {member} ({achievement_date.isoformat()}): {evaluation.get('category_label')}"
                     if save_csv(current_year_path, achievements_df_updated, achievements_sha, commit_message):
                         st.success(
-                            f"تمت إضافة الإنجاز بنجاح! "
+                            f"✅ تمت إضافة الإنجاز بنجاح! "
                             f"(التقييم: {evaluation.get('points', 'N/A')} نقطة، "
                             f"{evaluation.get('virtual_hours', 'N/A')} ساعة، "
                             f"الفئة: {evaluation.get('category_label', 'N/A')})"
                         )
                         time.sleep(2) # Slightly longer sleep to read success message
-                        st.rerun() # Use st.rerun()
+                        st.rerun()
                     else:
-                        st.error("حدث خطأ أثناء حفظ الإنجاز.")
+                        st.error("❌ حدث خطأ أثناء حفظ الإنجاز.")
 
                 except Exception as e:
                     show_error("خطأ في إضافة الإنجاز", traceback.format_exc())
+
