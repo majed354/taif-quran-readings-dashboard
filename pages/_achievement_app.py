@@ -23,11 +23,10 @@ except ImportError:
 # Constants and Configuration
 # -------------------------------------------------------------------------
 
-# --- Hardcoded Values (Replace with your actual values) ---
+# --- Hardcoded Values (Using user-provided values) ---
 # WARNING: Hardcoding credentials is not recommended for security reasons.
-# Ensure this code is kept private if you use real values here.
-HARDCODED_REPO_NAME = "majed354/taif-quran-readings-dashboard"  # استبدل هذا باسم المستخدم واسم المستودع الخاص بك
-HARDCODED_MASTER_PASS = "1426" # استبدل هذا بكلمة المرور التي تريدها
+HARDCODED_REPO_NAME = "majed354/taif-quran-readings-dashboard"  # تم استخدام اسم المستودع المقدم
+HARDCODED_MASTER_PASS = "1426" # تم استخدام كلمة المرور المقدمة
 
 MEMBER_NAMES = [
     "— اختر اسم العضو —",
@@ -133,12 +132,11 @@ def show_error(error_msg, details=None):
             st.code(details)
 
 # -------------------------------------------------------------------------
-# التحقق من المتغيرات المطلوبة (Check Required Environment Variables) - تم التحديث
+# التحقق من المتغيرات المطلوبة (Check Required Environment Variables)
 # -------------------------------------------------------------------------
 def check_environment():
     """Checks if necessary GitHub Token secret is set."""
     try:
-        # Only check for GitHub Token now
         required_vars = ["GITHUB_TOKEN"]
         missing_vars = [var for var in required_vars if var not in st.secrets]
         if missing_vars:
@@ -147,29 +145,20 @@ def check_environment():
         if not st.secrets["GITHUB_TOKEN"]:
              show_error("المتغير 'GITHUB_TOKEN' فارغ.", "أضف قيمة للمتغير 'GITHUB_TOKEN' في secrets.toml.")
              return False
-        # Check if hardcoded values are placeholders
-        if HARDCODED_REPO_NAME == "your_github_username/your_repo_name":
-             show_error("قيمة اسم المستودع (REPO_NAME) لم يتم تغييرها في الكود.", "يرجى تعديل قيمة HARDCODED_REPO_NAME في الكود.")
-             return False
-        if HARDCODED_MASTER_PASS == "your_secret_password":
-             show_error("قيمة كلمة المرور (MASTER_PASS) لم يتم تغييرها في الكود.", "يرجى تعديل قيمة HARDCODED_MASTER_PASS في الكود.")
-             return False
-
+        # No need to check hardcoded values here anymore as they are directly in the code
         return True
     except Exception as e:
         show_error("خطأ في التحقق من المتغيرات البيئية", traceback.format_exc())
         return False
 
 # -------------------------------------------------------------------------
-# أدوات GitHub (GitHub Utilities) - تم التحديث لاستخدام الثوابت
+# أدوات GitHub (GitHub Utilities)
 # -------------------------------------------------------------------------
 @st.cache_resource(ttl=300)
 def get_gh_repo():
     """Connects to the GitHub repository using hardcoded name and token from secrets."""
     try:
-        # Use hardcoded repo name
-        repo_name = HARDCODED_REPO_NAME
-        # Get token from secrets
+        repo_name = HARDCODED_REPO_NAME # Use hardcoded name
         if "GITHUB_TOKEN" not in st.secrets or not st.secrets["GITHUB_TOKEN"]:
              show_error("GITHUB_TOKEN غير موجود أو فارغ في الأسرار.")
              return None
@@ -178,7 +167,6 @@ def get_gh_repo():
         repo = g.get_repo(repo_name)
         return repo
     except UnknownObjectException:
-         # Use hardcoded name in error message
          show_error(f"خطأ 404: المستودع '{repo_name}' غير موجود.", "تأكد من صحة قيمة 'HARDCODED_REPO_NAME' في الكود وصلاحيات 'GITHUB_TOKEN'.")
          return None
     except Exception as e:
@@ -286,7 +274,8 @@ def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_co
 # --- Session State Initialization ---
 default_year = 2025
 current_month = datetime.now().month
-# Removed auth state initialization, login handles it
+# Added auth state back
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "selected_member" not in st.session_state: st.session_state.selected_member = MEMBER_NAMES[0]
 if "selected_year" not in st.session_state: st.session_state.selected_year = default_year
 if "selected_month" not in st.session_state: st.session_state.selected_month = current_month
@@ -295,33 +284,26 @@ if "selected_program" not in st.session_state: st.session_state.selected_program
 if "show_add_main_task_inline" not in st.session_state: st.session_state.show_add_main_task_inline = False
 if "new_main_task_title_inline" not in st.session_state: st.session_state.new_main_task_title_inline = ""
 if "new_main_task_descr_inline" not in st.session_state: st.session_state.new_main_task_descr_inline = ""
-# Add state for authentication status
-if "authenticated" not in st.session_state: st.session_state.authenticated = False
 
 
 # --- Environment Check ---
-# Check only needs GITHUB_TOKEN now, but also checks hardcoded values
 if not check_environment():
     st.warning("يرجى إصلاح مشكلات الإعداد قبل المتابعة.")
     if st.button("محاولة مسح ذاكرة التخزين المؤقت للمستودع"): clear_repo_cache(); st.rerun()
     st.stop()
 
-# --- Login Form Using Hardcoded Password --- تم التحديث
+# --- Login Form Using Hardcoded Password ---
 if not st.session_state.authenticated:
     st.title("تسجيل الدخول")
     with st.form("login_form"):
         entered_pass = st.text_input("كلمة المرور العامة", type="password", key="password_input")
         login_button = st.form_submit_button("دخول")
         if login_button:
-            # Compare with hardcoded password
             if entered_pass == HARDCODED_MASTER_PASS:
-                st.session_state.authenticated = True # Set authentication state
+                st.session_state.authenticated = True
                 st.success("تم تسجيل الدخول بنجاح!")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("كلمة المرور غير صحيحة!")
-    # Stop execution if not authenticated
+                time.sleep(1); st.rerun()
+            else: st.error("كلمة المرور غير صحيحة!")
     st.stop()
 
 # --- Main Application (Runs only if authenticated) ---
@@ -355,9 +337,19 @@ with col_month: st.selectbox("الشهر", options=list(ARABIC_MONTHS.keys()), f
 with col_year: st.number_input("السنة", min_value=2010, max_value=default_year + 5, value=st.session_state.selected_year, key="selected_year", step=1)
 
 # --- Sidebar ---
-# Removed Logout button as authentication is simplified
+# Added Logout button back
 with st.sidebar:
     st.header("الإجراءات")
+    if st.button("تسجيل الخروج", type="secondary"):
+        st.session_state.authenticated = False # Set auth to False
+        # Reset other relevant states if needed
+        st.session_state.selected_member = MEMBER_NAMES[0]
+        st.session_state.selected_year = default_year
+        st.session_state.selected_month = current_month
+        st.session_state.selected_category = INITIAL_CATEGORIES[0]
+        st.session_state.selected_program = PROGRAM_OPTIONS[0]
+        st.session_state.show_add_main_task_inline = False
+        st.rerun() # Rerun to show login form
     if st.button("مسح ذاكرة التخزين المؤقت", type="secondary"):
         clear_repo_cache(); st.info("تم مسح ذاكرة التخزين المؤقت."); time.sleep(1); st.rerun()
 
@@ -372,14 +364,10 @@ if member == MEMBER_NAMES[0]:
 # --- Load Main Tasks ---
 main_df, main_sha = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True)
 if main_sha is None and not main_df.empty:
-     # Attempt to save predefined tasks if loaded because file was missing/empty
      if save_csv(MAIN_TASKS_PATH, main_df, None, "إضافة المهام الرئيسية الأولية", expected_cols=EXPECTED_MAIN_TASK_COLS):
          st.success("تم حفظ المهام الرئيسية الأولية بنجاح.")
-         # Reload after saving to get the correct sha
          main_df, main_sha = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True)
-     else:
-         st.error("فشل حفظ المهام الرئيسية الأولية. قد تحتاج لإنشاء الملف يدويًا في GitHub.")
-         # Continue with the potentially empty main_df
+     else: st.error("فشل حفظ المهام الرئيسية الأولية.")
 
 # Prepare options for main task dropdowns
 main_task_options_for_form = { "— بدون مهمة رئيسية —": None }
@@ -433,7 +421,6 @@ if st.session_state.show_add_main_task_inline:
          if st.button("حفظ المهمة الرئيسية الجديدة", key="save_inline_main_task"):
              new_title_inline = st.session_state.new_main_task_title_inline.strip()
              new_descr_inline = st.session_state.new_main_task_descr_inline.strip()
-             # Reload main tasks just before saving inline
              main_df_reloaded_inline, main_sha_reloaded_inline = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True)
              main_titles_reloaded_inline = main_df_reloaded_inline["title"].tolist() if "title" in main_df_reloaded_inline.columns else []
 
@@ -442,11 +429,9 @@ if st.session_state.show_add_main_task_inline:
              else:
                  new_id_inline = str(uuid.uuid4())[:8]
                  new_row_inline = pd.DataFrame([{"id": new_id_inline, "title": new_title_inline, "descr": new_descr_inline}])
-                 # Ensure reloaded df has columns before concat
                  for col in EXPECTED_MAIN_TASK_COLS:
                      if col not in main_df_reloaded_inline.columns: main_df_reloaded_inline[col] = ''
                  main_df_updated_inline = pd.concat([main_df_reloaded_inline, new_row_inline], ignore_index=True)
-
                  if save_csv(MAIN_TASKS_PATH, main_df_updated_inline, main_sha_reloaded_inline, f"إضافة مهمة رئيسية: {new_title_inline}", expected_cols=EXPECTED_MAIN_TASK_COLS):
                      st.success(f"تمت إضافة المهمة الرئيسية '{new_title_inline}'. يمكنك الآن اختيارها من القائمة في النموذج أعلاه.")
                      st.session_state.show_add_main_task_inline = False
@@ -464,8 +449,15 @@ if submit_task:
     selected_category_val = st.session_state.selected_category
     selected_program_val = st.session_state.selected_program
     selected_form_main_task_option_val = st.session_state.form_main_task_selector
-    # Assuming 'achievement_date' holds the widget's current value
-    achievement_date_val = achievement_date
+    # Get date value from the widget instance directly
+    try:
+        achievement_date_val = achievement_date
+    except NameError:
+         # If achievement_date is not accessible, try getting from session state if key was added
+         # achievement_date_val = st.session_state.get("achievement_date_key") # Need to add key to date_input
+         # Or show error
+         st.error("خطأ: لم يتم العثور على قيمة تاريخ المهمة.")
+         st.stop()
 
 
     if selected_form_main_task_option_val == add_new_main_task_option:
@@ -509,12 +501,7 @@ if submit_task:
                 commit_message = f"إضافة مهمة '{task_title_val.strip()}' بواسطة {member} ({achievement_date_val.isoformat()})"
                 if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated, achievements_sha_reloaded, commit_message, expected_cols=EXPECTED_ACHIEVEMENT_COLS):
                     st.success(f"✅ تم حفظ المهمة بنجاح!")
-                    st.session_state.task_title_input = ""
-                    st.session_state.achievement_desc_input = ""
-                    st.session_state.hour_range_selector = HOUR_RANGES[0]
-                    st.session_state.selected_category = INITIAL_CATEGORIES[0]
-                    st.session_state.selected_program = PROGRAM_OPTIONS[0]
-                    st.session_state.form_main_task_selector = list(main_task_options_for_form.keys())[0]
+                    # --- Removed session state clearing lines that caused error ---
                     time.sleep(1); st.rerun()
                 else: st.error("❌ حدث خطأ أثناء حفظ المهمة.")
             except Exception as e: show_error("خطأ في إضافة المهمة", traceback.format_exc())
