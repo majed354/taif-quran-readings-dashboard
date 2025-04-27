@@ -44,7 +44,6 @@ HOUR_RANGES = [
     "30-50 ساعة", "50-100 ساعة", "أكثر من 100 ساعة"
 ]
 
-# Initial list of categories - تمت الإضافة
 INITIAL_CATEGORIES = [
     "— بدون فئة —", # Default/Placeholder
     "تطوير المناهج", "التعليم والتقويم", "الاعتماد والجودة", "بحث علمي ونشر",
@@ -52,18 +51,42 @@ INITIAL_CATEGORIES = [
     # "➕ إضافة فئة أخرى..." # Option to add later if needed
 ]
 
+# Program list - تمت الإضافة
+PROGRAM_OPTIONS = [
+    "— اختر البرنامج —", # Placeholder
+    "بكالوريوس القراءات",
+    "بكالوريوس القرآن وعلومه",
+    "ماجستير الدراسات القرآنية المعاصرة",
+    "ماجستير القراءات",
+    "دكتوراه علوم القرآن",
+    "دكتوراه القراءات",
+    "غير مرتبط ببرنامج",
+    "جميع البرامج"
+]
+
+
 ARABIC_MONTHS = {
     1: "يناير", 2: "فبراير", 3: "مارس", 4: "أبريل", 5: "مايو", 6: "يونيو",
     7: "يوليو", 8: "أغسطس", 9: "سبتمبر", 10: "أكتوبر", 11: "نوفمبر", 12: "ديسمبر"
 }
 
-# Single CSV file paths - تم التغيير
+# Single CSV file paths
 MAIN_TASKS_PATH = "data/main_tasks.csv"
-ALL_ACHIEVEMENTS_PATH = "data/all_achievements.csv" # Path for the single achievements file
+ALL_ACHIEVEMENTS_PATH = "data/all_achievements.csv"
 
-# Expected columns - تم التحديث
+# Expected columns - تم التحديث (استبدال الإنجاز بالمهمة، إضافة العنوان والبرنامج)
 EXPECTED_MAIN_TASK_COLS = ["id", "title", "descr"]
-EXPECTED_ACHIEVEMENT_COLS = ["العضو", "الإنجاز", "التاريخ", "نطاق_الساعات_المقدرة", "الفئة", "main_id"]
+EXPECTED_ACHIEVEMENT_COLS = ["العضو", "عنوان_المهمة", "المهمة", "التاريخ", "نطاق_الساعات_المقدرة", "الفئة", "البرنامج", "main_id"]
+
+# Predefined main tasks data - تمت الإضافة
+PREDEFINED_MAIN_TASKS = [
+    {"id": "predef001", "title": "توصيف مقررات", "descr": "إعداد أو تحديث توصيف المقررات الدراسية"},
+    {"id": "predef002", "title": "توصيف برنامج", "descr": "إعداد أو تحديث توصيف البرامج الأكاديمية"},
+    {"id": "predef003", "title": "الاعتماد الأكاديمي", "descr": "المشاركة في أعمال لجان ومتطلبات الاعتماد الأكاديمي"},
+    {"id": "predef004", "title": "مبادرة التحول", "descr": "المشاركة في المبادرات المتعلقة بالتحول الرقمي أو المؤسسي"},
+    {"id": "predef005", "title": "المراجعة الشاملة", "descr": "المشاركة في أعمال المراجعة الشاملة للبرامج أو القسم"},
+    {"id": "predef006", "title": "مراقبة سير الاختبارات", "descr": "المشاركة في مراقبة وتنظيم سير الاختبارات"},
+]
 
 # -------------------------------------------------------------------------
 # تهيئة الواجهة (UI Initialization)
@@ -71,7 +94,7 @@ EXPECTED_ACHIEVEMENT_COLS = ["العضو", "الإنجاز", "التاريخ", "
 st.set_page_config("تسجيل المهام المكتملة", layout="centered")
 st.markdown("""
 <style>
-    /* CSS remains largely the same, ensure it covers new elements if needed */
+    /* CSS remains largely the same */
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
     * { font-family: 'Tajawal', sans-serif !important; }
     body, .stApp { direction: rtl; text-align: right; }
@@ -86,12 +109,13 @@ st.markdown("""
     .stButton>button:hover { background-color: #1565c0; }
     .stButton>button[kind="secondary"] { background-color: #f0f2f6; color: #31333F; border: 1px solid #d3d3d3; }
     .stButton>button[kind="secondary"]:hover { background-color: #e6e8eb; }
-    .stButton>button[help="حذف هذا الإنجاز"] { display: flex; justify-content: center; align-items: center; padding: 4px; line-height: 1; background-color: #f44336; }
-    .stButton>button[help="حذف هذا الإنجاز"]:hover { background-color: #d32f2f; }
+    .stButton>button[help="حذف هذه المهمة"] { display: flex; justify-content: center; align-items: center; padding: 4px; line-height: 1; background-color: #f44336; }
+    .stButton>button[help="حذف هذه المهمة"]:hover { background-color: #d32f2f; }
     .stTabs [data-baseweb="tab-list"] { direction: rtl; }
     .approx-date-header { font-weight: bold; margin-bottom: 5px; text-align: center; }
     .achievement-display { border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; margin-bottom: 10px; background-color: #fafafa; }
     .achievement-display .caption { color: #555; font-size: 0.9em; }
+    .achievement-display .task-title { font-weight: bold; margin-bottom: 3px; display: block; } /* Style for task title */
 </style>
 """, unsafe_allow_html=True)
 
@@ -109,7 +133,7 @@ def show_error(error_msg, details=None):
 # -------------------------------------------------------------------------
 def check_environment():
     try:
-        required_vars = ["GITHUB_TOKEN", "REPO_NAME", "MASTER_PASS"] # DEESEEK_KEY no longer needed
+        required_vars = ["GITHUB_TOKEN", "REPO_NAME", "MASTER_PASS"]
         missing_vars = [var for var in required_vars if var not in st.secrets]
         if missing_vars:
             show_error(f"متغيرات مطلوبة غير موجودة: {', '.join(missing_vars)}", "أضفها إلى ملف .streamlit/secrets.toml.")
@@ -129,13 +153,8 @@ def check_environment():
 @st.cache_resource(ttl=300)
 def get_gh_repo():
     try:
-        # Check for necessary secrets first
-        if not all(k in st.secrets for k in ["GITHUB_TOKEN", "REPO_NAME"]):
-             show_error("GITHUB_TOKEN أو REPO_NAME غير موجود في الأسرار.")
-             return None
-        if not st.secrets["GITHUB_TOKEN"] or not st.secrets["REPO_NAME"]:
-             show_error("GITHUB_TOKEN أو REPO_NAME فارغ في الأسرار.")
-             return None
+        if not all(k in st.secrets for k in ["GITHUB_TOKEN", "REPO_NAME"]): return None
+        if not st.secrets["GITHUB_TOKEN"] or not st.secrets["REPO_NAME"]: return None
         g = Github(st.secrets["GITHUB_TOKEN"])
         repo = g.get_repo(st.secrets["REPO_NAME"])
         return repo
@@ -148,9 +167,8 @@ def get_gh_repo():
 
 def clear_repo_cache(): st.cache_resource.clear()
 
-# Updated load_csv to handle single file and ensure columns
-def load_csv(path: str, expected_cols: list):
-    """Loads the single CSV file from GitHub, ensuring expected columns exist."""
+def load_csv(path: str, expected_cols: list, is_main_tasks=False):
+    """Loads a CSV file from GitHub, ensuring expected columns exist."""
     repo = get_gh_repo()
     if not repo: return pd.DataFrame(columns=expected_cols), None
 
@@ -164,32 +182,46 @@ def load_csv(path: str, expected_cols: list):
 
         if content_decoded.strip():
             try:
-                # Specify dtype as object to prevent pandas from guessing numeric types incorrectly
                 df_read = pd.read_csv(io.StringIO(content_decoded), dtype=object)
-                # Ensure all expected columns are present
+                # Check and add missing columns
+                cols_added_warning = False
                 for col in expected_cols:
                     if col not in df_read.columns:
-                        df_read[col] = '' # Add missing columns
-                df = df_read[expected_cols] # Select only expected columns
+                        df_read[col] = ''
+                        cols_added_warning = True
+                if cols_added_warning:
+                     st.warning(f"تمت إضافة أعمدة مفقودة إلى DataFrame عند تحميل '{path}'. قد تحتاج لمراجعة الملف على GitHub.")
+                df = df_read[expected_cols] # Ensure correct columns and order
             except Exception as read_err:
                  show_error(f"خطأ عند قراءة CSV '{path}': {read_err}", traceback.format_exc())
                  return pd.DataFrame(columns=expected_cols), sha
         else:
              st.warning(f"الملف '{path}' فارغ أو يحتوي فقط على مسافات بيضاء.")
+             # If it's the main tasks file and it's empty, populate with predefined tasks
+             if is_main_tasks and path == MAIN_TASKS_PATH:
+                 st.info("ملف المهام الرئيسية فارغ. سيتم إضافة مهام أولية.")
+                 df = pd.DataFrame(PREDEFINED_MAIN_TASKS)
+                 # Force save by returning None for sha
+                 return df[expected_cols], None # Return df with predefined tasks, sha=None
 
-        df = df.fillna('') # Replace NaN with empty strings
+        df = df.fillna('')
         return df, sha
 
     except UnknownObjectException:
-        st.warning(f"الملف '{path}' غير موجود، سيتم إنشاؤه عند الحفظ.")
-        return pd.DataFrame(columns=expected_cols), None
+        st.warning(f"الملف '{path}' غير موجود، سيتم إنشاؤه.")
+        # If it's the main tasks file, create it with predefined tasks
+        if is_main_tasks and path == MAIN_TASKS_PATH:
+            st.info("ملف المهام الرئيسية غير موجود. سيتم إنشاؤه بمهام أولية.")
+            df = pd.DataFrame(PREDEFINED_MAIN_TASKS)
+            return df[expected_cols], None # Return df with predefined tasks, sha=None
+        else:
+            return pd.DataFrame(columns=expected_cols), None # Return empty df for achievements file
     except Exception as e:
         show_error(f"خطأ في تحميل الملف '{path}': {e}", traceback.format_exc())
         return pd.DataFrame(columns=expected_cols), sha
 
-# Updated save_csv to handle single file and correct argument name
 def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_cols: list):
-    """Saves the DataFrame to the single CSV file."""
+    """Saves the DataFrame to the CSV file, ensuring only expected columns."""
     repo = get_gh_repo()
     if not repo: return False
 
@@ -197,13 +229,12 @@ def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_co
         # Ensure only expected columns and fill NA before saving
         df_to_save = df[expected_cols].copy()
         df_to_save = df_to_save.fillna('')
-        # Corrected argument: lineterminator (lowercase)
+        # Corrected argument: lineterminator
         content = df_to_save.to_csv(index=False, lineterminator="\n", encoding="utf-8-sig")
 
         try:
             existing_file = repo.get_contents(path)
             current_sha = existing_file.sha
-            # Only update if sha matches or if provided sha is None
             if sha is None or sha == current_sha:
                 existing_content_decoded = base64.b64decode(existing_file.content).decode("utf-8-sig")
                 if content == existing_content_decoded:
@@ -217,11 +248,8 @@ def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_co
                  show_error(f"فشل الحفظ: تم تعديل الملف '{path}' على GitHub.", "تم تحميل أحدث نسخة. أعد المحاولة.")
                  clear_repo_cache(); st.rerun(); return False
         except UnknownObjectException:
-            # Create the file (and potentially the 'data' directory)
             folder_path = os.path.dirname(path)
-            if folder_path and folder_path != '.':
-                 # Basic check, create_file handles nested creation
-                 pass
+            if folder_path and folder_path != '.': pass # create_file handles directories
             repo.create_file(path, msg, content)
             st.toast(f"✅ تم إنشاء '{os.path.basename(path)}'")
             clear_repo_cache()
@@ -233,23 +261,23 @@ def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_co
         show_error(f"خطأ عام أثناء حفظ '{path}': {e}", traceback.format_exc())
         return False
 
-# --- Removed year_path function ---
-
 # -------------------------------------------------------------------------
 # الصفحة الرئيسية (Main Page Logic)
 # -------------------------------------------------------------------------
 
 # --- Session State Initialization ---
-# Default year set to 2025
 default_year = 2025
 current_month = datetime.now().month
 if "auth" not in st.session_state: st.session_state.auth = False
 if "selected_member" not in st.session_state: st.session_state.selected_member = MEMBER_NAMES[0]
-if "selected_year" not in st.session_state: st.session_state.selected_year = default_year # Default to 2025
+if "selected_year" not in st.session_state: st.session_state.selected_year = default_year
 if "selected_month" not in st.session_state: st.session_state.selected_month = current_month
-if "form_main_task_id" not in st.session_state: st.session_state.form_main_task_id = None
-if "form_main_task_title" not in st.session_state: st.session_state.form_main_task_title = "— بدون مهمة رئيسية —"
-if "selected_category" not in st.session_state: st.session_state.selected_category = INITIAL_CATEGORIES[0] # Default category
+if "selected_category" not in st.session_state: st.session_state.selected_category = INITIAL_CATEGORIES[0]
+if "selected_program" not in st.session_state: st.session_state.selected_program = PROGRAM_OPTIONS[0] # Default program
+# State for inline main task addition
+if "show_add_main_task_inline" not in st.session_state: st.session_state.show_add_main_task_inline = False
+if "new_main_task_title_inline" not in st.session_state: st.session_state.new_main_task_title_inline = ""
+if "new_main_task_descr_inline" not in st.session_state: st.session_state.new_main_task_descr_inline = ""
 
 
 # --- Environment Check ---
@@ -275,21 +303,45 @@ if not st.session_state.auth:
 # --- Main Application ---
 st.title("تسجيل المهام المكتملة")
 
+# --- Instructions Expander --- تمت الإضافة
+with st.expander("تعليمات هامة لأعضاء هيئة التدريس بقسم القراءات", expanded=False):
+    st.markdown("""
+    **أهلاً بكم في نظام تسجيل المهام المكتملة،،**
+
+    يهدف هذا النظام إلى توثيق جهودكم القيمة ومتابعة إنجاز المهام المختلفة. لضمان دقة البيانات والاستفادة القصوى من النظام، يرجى اتباع التعليمات التالية عند تعبئة النموذج:
+
+    1.  **اختيار العضو والتاريخ:** تأكد من اختيار اسمك الصحيح من القائمة، ثم حدد الشهر والسنة التقريبية التي تمت فيها المهمة.
+    2.  **عنوان المهمة:** أدخل عنوانًا مختصرًا وواضحًا للمهمة (مثال: "تطوير مقرر 101"، "الإشراف على طالب الماجستير").
+    3.  **وصف المهمة:** قدم وصفًا تفصيليًا ودقيقًا للمهمة التي قمت بها. كلما كان الوصف أوضح، كان التقييم أدق.
+    4.  **الساعات المقدرة:** اختر أقرب نطاق زمني يعكس الجهد المبذول في إنجاز المهمة.
+    5.  **الفئة والبرنامج (اختياري):** يمكنك تصنيف المهمة ضمن فئة محددة أو ربطها ببرنامج أكاديمي معين إذا كان ذلك مناسبًا.
+    6.  **المهمة الرئيسية (اختياري):** إذا كانت هذه المهمة جزءًا من مهمة أكبر أو مشروع مستمر (مثل "الاعتماد الأكاديمي")، يمكنك ربطها بالمهمة الرئيسية المقابلة من القائمة. يمكنك أيضًا إضافة مهمة رئيسية جديدة إذا لم تكن موجودة.
+
+    **ملاحظة هامة:** سيتم مستقبلًا الاعتماد على التصنيف الآلي للمهام المدخلة لتحديد النقاط المستحقة لكل مهمة بناءً على الوصف ونطاق الساعات والفئة. لذا، فإن دقة البيانات المدخلة أساسية لضمان تقييم عادل ومنصف لجهودكم.
+
+    **شكرًا لتعاونكم.**
+    """)
+
+
 # --- User & Date Selection ---
 st.selectbox("اختر اسم العضو", options=MEMBER_NAMES, key="selected_member")
-st.markdown("<div class='approx-date-header'>التاريخ التقريبي للإنجازات</div>", unsafe_allow_html=True)
+st.markdown("<div class='approx-date-header'>التاريخ التقريبي للمهام</div>", unsafe_allow_html=True)
 col_month, col_year = st.columns(2)
 with col_month: st.selectbox("الشهر", options=list(ARABIC_MONTHS.keys()), format_func=lambda m: ARABIC_MONTHS[m], key="selected_month")
-# Year input defaults to session state (which is 2025)
-with col_year: st.number_input("السنة", min_value=2010, max_value=default_year + 5, key="selected_year", step=1) # Allow few years ahead
+with col_year: st.number_input("السنة", min_value=2010, max_value=default_year + 5, key="selected_year", step=1)
 
 # --- Sidebar ---
 with st.sidebar:
     st.header("الإجراءات")
     if st.button("تسجيل الخروج", type="secondary"):
-        st.session_state.auth = False; st.session_state.selected_member = MEMBER_NAMES[0]
-        st.session_state.selected_year = default_year; st.session_state.selected_month = current_month
-        st.session_state.selected_category = INITIAL_CATEGORIES[0] # Reset category on logout
+        # Reset relevant session state on logout
+        st.session_state.auth = False
+        st.session_state.selected_member = MEMBER_NAMES[0]
+        st.session_state.selected_year = default_year
+        st.session_state.selected_month = current_month
+        st.session_state.selected_category = INITIAL_CATEGORIES[0]
+        st.session_state.selected_program = PROGRAM_OPTIONS[0]
+        st.session_state.show_add_main_task_inline = False # Reset inline form state
         st.rerun()
     if st.button("مسح ذاكرة التخزين المؤقت", type="secondary"):
         clear_repo_cache(); st.info("تم مسح ذاكرة التخزين المؤقت."); time.sleep(1); st.rerun()
@@ -303,164 +355,219 @@ if member == MEMBER_NAMES[0]:
     st.stop()
 
 # --- Load Main Tasks ---
-main_df, main_sha = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS)
+# Pass is_main_tasks=True to handle predefined data population
+main_df, main_sha = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True)
+# If load_csv returned predefined tasks (sha is None), save them now
+if main_sha is None and not main_df.empty:
+     if save_csv(MAIN_TASKS_PATH, main_df, None, "إضافة المهام الرئيسية الأولية", expected_cols=EXPECTED_MAIN_TASK_COLS):
+         st.success("تم حفظ المهام الرئيسية الأولية بنجاح.")
+         # Reload after saving to get the correct sha
+         main_df, main_sha = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True)
+     else:
+         st.error("فشل حفظ المهام الرئيسية الأولية.")
+
+
+# Prepare options for main task dropdowns
 main_task_options_for_form = { "— بدون مهمة رئيسية —": None }
+# Add option to add new task
+add_new_main_task_option = "➕ إضافة مهمة رئيسية…"
 if not main_df.empty:
      main_df_filled = main_df.fillna('')
-     # Create {title: id} mapping
-     id_to_title_map_form = main_df_filled.set_index('id')['title'].to_dict()
-     id_to_title_map_form = {k: v for k, v in id_to_title_map_form.items() if k and v}
-     main_task_options_for_form.update({v: k for k, v in id_to_title_map_form.items()})
+     id_to_title_map = main_df_filled.set_index('id')['title'].to_dict()
+     id_to_title_map = {k: v for k, v in id_to_title_map.items() if k and v} # Filter empty
+     # Create {title: id} mapping for selectbox options
+     title_to_id_map = {v: k for k, v in id_to_title_map.items()}
+     # Sort titles alphabetically for the dropdown
+     sorted_titles = sorted(title_to_id_map.keys())
+     # Update the options dictionary preserving the default
+     for title in sorted_titles:
+         main_task_options_for_form[title] = title_to_id_map[title]
+
+# Add the "Add New" option at the end
+main_task_options_list = list(main_task_options_for_form.keys()) + [add_new_main_task_option]
 
 
-# --- Add New Achievement Form ---
-st.header("1. إضافة إنجاز جديد")
-with st.form("add_achievement_form", clear_on_submit=True):
+# --- Add New Task Form ---
+st.header("1. إضافة مهمة جديدة")
+# Use a placeholder for the inline form
+inline_form_placeholder = st.empty()
+
+with st.form("add_achievement_form", clear_on_submit=False): # Clear on submit set to False for inline form logic
+    task_title = st.text_input("عنوان مختصر للمهمة", key="task_title_input") # Added Task Title
     try: default_date_val = datetime(year, month, 1)
     except ValueError: default_date_val = datetime(year, month, calendar.monthrange(year, month)[1])
-    achievement_date = st.date_input("تاريخ الإنجاز الفعلي", value=default_date_val)
-    achievement_desc = st.text_area("وصف الإنجاز بالتفصيل", height=100, key="achievement_desc_input") # Reduced height slightly
+    achievement_date = st.date_input("تاريخ المهمة الفعلي", value=default_date_val) # Changed label
+    achievement_desc = st.text_area("وصف المهمة بالتفصيل", height=100, key="achievement_desc_input") # Changed label
 
-    # Select Estimated Hour Range
     selected_hour_range = st.selectbox( "نطاق الساعات المقدرة", options=HOUR_RANGES, key="hour_range_selector")
+    selected_category = st.selectbox("تحديد فئة المهمة (اختياري)", options=INITIAL_CATEGORIES, key="selected_category")
+    selected_program = st.selectbox("تحديد البرنامج (اختياري)", options=PROGRAM_OPTIONS, key="selected_program") # Added Program
 
-    # Select Category (Optional) - تمت الإضافة
-    selected_category = st.selectbox(
-        "تحديد فئة المهمة (اختياري)",
-        options=INITIAL_CATEGORIES, # Use the initial list
-        key="selected_category" # Bind to session state
-    )
-
-    # Optional: Select Main Task - تم تعديل العنوان والافتراضي
-    selected_form_main_task_title = st.selectbox(
-        "هل تنتمي هذه المهمة الجزئية إلى مهمة رئيسية؟", # Changed label
-        options=list(main_task_options_for_form.keys()),
+    # Main Task Selection - Updated
+    selected_form_main_task_option = st.selectbox(
+        "هل تنتمي هذه المهمة الجزئية إلى مهمة رئيسية؟",
+        options=main_task_options_list, # Use the list including "Add New"
         index=0, # Default to "— بدون مهمة رئيسية —"
         key="form_main_task_selector"
     )
-    form_main_id = main_task_options_for_form.get(selected_form_main_task_title)
 
-    submit_achievement = st.form_submit_button("➕ إضافة وحفظ الإنجاز")
+    # --- Inline Add Main Task Form ---
+    if selected_form_main_task_option == add_new_main_task_option:
+        st.session_state.show_add_main_task_inline = True # Show the inline form
+    # Display inline form if triggered (outside the main form structure but logically linked)
+    if st.session_state.show_add_main_task_inline:
+         with inline_form_placeholder.container(): # Use the placeholder
+             st.subheader("إضافة مهمة رئيسية جديدة")
+             st.session_state.new_main_task_title_inline = st.text_input("عنوان المهمة الرئيسية الجديدة", key="new_main_title_inline")
+             st.session_state.new_main_task_descr_inline = st.text_area("وصف مختصر (اختياري)", key="new_main_descr_inline")
+             # Add a button within this inline section to save the *new main task*
+             if st.button("حفظ المهمة الرئيسية الجديدة"):
+                 new_title_inline = st.session_state.new_main_task_title_inline.strip()
+                 new_descr_inline = st.session_state.new_main_task_descr_inline.strip()
+                 # Reload main tasks to check for duplicates just before saving
+                 main_df_reloaded_inline, main_sha_reloaded_inline = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True) # is_main_tasks might be redundant here
+                 main_titles_reloaded_inline = main_df_reloaded_inline["title"].tolist() if "title" in main_df_reloaded_inline.columns else []
 
-    if submit_achievement:
-        if not achievement_desc.strip(): st.error("وصف الإنجاز مطلوب.")
+                 if not new_title_inline: st.error("عنوان المهمة الرئيسية مطلوب.")
+                 elif new_title_inline in main_titles_reloaded_inline: st.error("هذه المهمة الرئيسية موجودة بالفعل.")
+                 else:
+                     new_id_inline = str(uuid.uuid4())[:8]
+                     new_row_inline = pd.DataFrame([{"id": new_id_inline, "title": new_title_inline, "descr": new_descr_inline}])
+                     main_df_updated_inline = pd.concat([main_df_reloaded_inline, new_row_inline], ignore_index=True)
+
+                     if save_csv(MAIN_TASKS_PATH, main_df_updated_inline, main_sha_reloaded_inline, f"إضافة مهمة رئيسية: {new_title_inline}", expected_cols=EXPECTED_MAIN_TASK_COLS):
+                         st.success(f"تمت إضافة المهمة الرئيسية '{new_title_inline}'. يمكنك الآن اختيارها من القائمة.")
+                         st.session_state.show_add_main_task_inline = False # Hide the inline form
+                         st.session_state.new_main_task_title_inline = "" # Clear inputs
+                         st.session_state.new_main_task_descr_inline = ""
+                         time.sleep(1)
+                         st.rerun() # Rerun to update the main task dropdown
+                     else: st.error("خطأ في حفظ المهمة الرئيسية الجديدة.")
+
+    # --- Main Form Submit Button ---
+    submit_task = st.form_submit_button("➕ إضافة وحفظ المهمة") # Changed label
+
+    if submit_task:
+        # Prevent saving if the inline form is active but not saved
+        if st.session_state.show_add_main_task_inline:
+             st.warning("يرجى حفظ المهمة الرئيسية الجديدة أولاً أو اختيار مهمة أخرى من القائمة.")
+        elif not task_title.strip(): st.error("عنوان مختصر للمهمة مطلوب.") # Validate new title field
+        elif not achievement_desc.strip(): st.error("وصف المهمة مطلوب.")
         elif selected_hour_range == HOUR_RANGES[0]: st.error("الرجاء اختيار نطاق الساعات المقدرة.")
         else:
-            with st.spinner("⏳ جاري حفظ الإنجاز..."):
+            with st.spinner("⏳ جاري حفظ المهمة..."):
                 try:
-                    # Prepare data row including the selected category
-                    category_to_save = selected_category if selected_category != INITIAL_CATEGORIES[0] else '' # Save empty string if default selected
+                    # Determine main_id based on selection (excluding the "Add New" option text)
+                    form_main_id = None
+                    if selected_form_main_task_option != add_new_main_task_option:
+                         form_main_id = main_task_options_for_form.get(selected_form_main_task_option)
 
-                    new_achievement_row = pd.Series({
+                    category_to_save = selected_category if selected_category != INITIAL_CATEGORIES[0] else ''
+                    program_to_save = selected_program if selected_program != PROGRAM_OPTIONS[0] else ''
+
+                    new_task_row = pd.Series({
                         "العضو": member,
-                        "الإنجاز": achievement_desc.strip(),
+                        "عنوان_المهمة": task_title.strip(), # Save the short title
+                        "المهمة": achievement_desc.strip(), # Save the description under "المهمة"
                         "التاريخ": achievement_date.isoformat(),
                         "نطاق_الساعات_المقدرة": selected_hour_range,
-                        "الفئة": category_to_save, # Save selected category
+                        "الفئة": category_to_save,
+                        "البرنامج": program_to_save, # Save selected program
                         "main_id": form_main_id if form_main_id else ''
                     })
 
-                    # Load the single achievements file
                     achievements_df_reloaded, achievements_sha_reloaded = load_csv(ALL_ACHIEVEMENTS_PATH, expected_cols=EXPECTED_ACHIEVEMENT_COLS)
 
-                    # Ensure columns before concat
                     for col in EXPECTED_ACHIEVEMENT_COLS:
                          if col not in achievements_df_reloaded.columns: achievements_df_reloaded[col] = ''
                     achievements_df_reloaded['main_id'] = achievements_df_reloaded['main_id'].fillna('')
 
-                    achievements_df_updated = pd.concat([achievements_df_reloaded, pd.DataFrame([new_achievement_row])], ignore_index=True)
-                    # Ensure correct types before saving
+                    achievements_df_updated = pd.concat([achievements_df_reloaded, pd.DataFrame([new_task_row])], ignore_index=True)
+                    achievements_df_updated = achievements_df_updated.fillna('') # Final fillna
                     achievements_df_updated['main_id'] = achievements_df_updated['main_id'].astype(str).replace('nan', '').replace('None','')
-                    achievements_df_updated['الفئة'] = achievements_df_updated['الفئة'].astype(str).fillna('') # Ensure category is string
+                    achievements_df_updated['الفئة'] = achievements_df_updated['الفئة'].astype(str)
+                    achievements_df_updated['البرنامج'] = achievements_df_updated['البرنامج'].astype(str)
 
-                    commit_message = f"إضافة إنجاز بواسطة {member} ({achievement_date.isoformat()})"
-                    # Save to the single file
+
+                    commit_message = f"إضافة مهمة '{task_title.strip()}' بواسطة {member} ({achievement_date.isoformat()})"
                     if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated, achievements_sha_reloaded, commit_message, expected_cols=EXPECTED_ACHIEVEMENT_COLS):
-                        st.success(f"✅ تم حفظ الإنجاز بنجاح!")
+                        st.success(f"✅ تم حفظ المهمة بنجاح!")
                         time.sleep(1); st.rerun()
-                    else: st.error("❌ حدث خطأ أثناء حفظ الإنجاز.")
-                except Exception as e: show_error("خطأ في إضافة الإنجاز", traceback.format_exc())
+                    else: st.error("❌ حدث خطأ أثناء حفظ المهمة.")
+                except Exception as e: show_error("خطأ في إضافة المهمة", traceback.format_exc())
 
 
-# --- Display Existing Achievements (from Single File) ---
-st.header(f"2. الإنجازات المسجلة ({member} - {ARABIC_MONTHS.get(month, month)} {year})")
+# --- Display Existing Tasks ---
+st.header(f"2. المهام المسجلة ({member} - {ARABIC_MONTHS.get(month, month)} {year})") # Changed label
 try:
-    # Load the single achievements file
     achievements_df_display, achievements_sha_display = load_csv(ALL_ACHIEVEMENTS_PATH, expected_cols=EXPECTED_ACHIEVEMENT_COLS)
 
     if not achievements_df_display.empty:
-        # Convert date and fill NAs
         achievements_df_display['التاريخ_dt'] = pd.to_datetime(achievements_df_display['التاريخ'], errors='coerce')
-        achievements_df_display['main_id'] = achievements_df_display['main_id'].fillna('')
-        achievements_df_display['الفئة'] = achievements_df_display['الفئة'].fillna('') # Fill NA for category too
+        achievements_df_display = achievements_df_display.fillna('') # Fill NAs after loading
 
-        # Create id-to-title map (using the already loaded main_df)
-        id_to_title_map = {None: "— بدون مهمة رئيسية —", '': "— بدون مهمة رئيسية —"}
-        if not main_df.empty: id_to_title_map.update(main_df.fillna('').set_index('id')['title'].to_dict())
+        id_to_title_map_display = {None: "— بدون مهمة رئيسية —", '': "— بدون مهمة رئيسية —"}
+        if not main_df.empty: id_to_title_map_display.update(main_df.fillna('').set_index('id')['title'].to_dict())
 
-        # Filter the single DataFrame by member, year, and month
         my_tasks_display_df = achievements_df_display[
             (achievements_df_display["العضو"] == member) &
             (achievements_df_display['التاريخ_dt'].notna()) &
             (achievements_df_display['التاريخ_dt'].dt.year == year) &
             (achievements_df_display['التاريخ_dt'].dt.month == month)
         ].copy()
-        # Get the original index from the main DataFrame before sorting
         my_tasks_display_df['original_index'] = my_tasks_display_df.index
-        my_tasks_display_df = my_tasks_display_df.sort_values(by='التاريخ_dt', ascending=False) # Sort but keep original index
+        my_tasks_display_df = my_tasks_display_df.sort_values(by='التاريخ_dt', ascending=False)
 
         if my_tasks_display_df.empty:
-            st.caption("لا توجد إنجازات مسجلة لهذا العضو في هذا الشهر وهذه السنة.")
+            st.caption("لا توجد مهام مسجلة لهذا العضو في هذا الشهر وهذه السنة.")
         else:
-            st.write(f"إجمالي الإنجازات المعروضة: {len(my_tasks_display_df)}")
-            # Iterate using the index of the filtered dataframe
+            st.write(f"إجمالي المهام المعروضة: {len(my_tasks_display_df)}") # Changed label
             for i in my_tasks_display_df.index:
-                original_df_index = my_tasks_display_df.loc[i, 'original_index'] # Get original index for deletion
+                original_df_index = my_tasks_display_df.loc[i, 'original_index']
                 with st.container():
                      st.markdown("<div class='achievement-display'>", unsafe_allow_html=True)
                      col1, col2 = st.columns([0.9, 0.1])
                      with col1:
-                        achievement_desc = my_tasks_display_df.loc[i].get('الإنجاز', "")
+                        task_title_display = my_tasks_display_df.loc[i].get('عنوان_المهمة', '') # Get short title
+                        task_desc_display = my_tasks_display_df.loc[i].get('المهمة', "") # Get description
                         achievement_date_dt = my_tasks_display_df.loc[i].get('التاريخ_dt')
                         achievement_date_str = achievement_date_dt.strftime('%Y-%m-%d') if pd.notna(achievement_date_dt) else my_tasks_display_df.loc[i].get('التاريخ', "غير معروف")
                         hour_range_display = my_tasks_display_df.loc[i].get('نطاق_الساعات_المقدرة', 'غير محدد')
-                        category_display = my_tasks_display_df.loc[i].get('الفئة', 'غير محدد') # Get category
+                        category_display = my_tasks_display_df.loc[i].get('الفئة', 'غير محدد')
+                        program_display = my_tasks_display_df.loc[i].get('البرنامج', 'غير محدد') # Get program
                         task_main_id = my_tasks_display_df.loc[i].get('main_id', '')
-                        main_task_title_display = id_to_title_map.get(task_main_id, f"({task_main_id})") if task_main_id else "— بدون مهمة رئيسية —"
+                        main_task_title_display = id_to_title_map_display.get(task_main_id, f"({task_main_id})") if task_main_id else "— بدون مهمة رئيسية —"
 
+                        # Display Title if exists, otherwise use start of description
+                        display_title = task_title_display if task_title_display else f"{task_desc_display[:50]}..." if task_desc_display else "مهمة بدون عنوان"
+                        st.markdown(f"<span class='task-title'>{display_title}</span>", unsafe_allow_html=True)
+                        # Show description if different from title or if title is short
+                        if task_desc_display and (task_desc_display != task_title_display or len(task_title_display) < 20):
+                             st.markdown(f"{task_desc_display}")
 
-                        st.markdown(f"**{achievement_desc}**")
-                        # Updated caption to include Category
-                        st.markdown(f"<span class='caption'>التاريخ: {achievement_date_str} | الساعات المقدرة: {hour_range_display} | الفئة: {category_display or 'غير محدد'}<br>المهمة الرئيسية: {main_task_title_display}</span>", unsafe_allow_html=True)
+                        # Updated caption
+                        st.markdown(f"<span class='caption'>التاريخ: {achievement_date_str} | الساعات: {hour_range_display} | الفئة: {category_display or 'غير محدد'} | البرنامج: {program_display or 'غير محدد'}<br>المهمة الرئيسية: {main_task_title_display}</span>", unsafe_allow_html=True)
 
                      with col2:
-                        # Use the original index for the key and deletion logic
                         delete_key = f"del-{original_df_index}"
-                        if st.button("🗑️", key=delete_key, help="حذف هذا الإنجاز"):
-                            # Use the main achievements_df_display for dropping
+                        if st.button("🗑️", key=delete_key, help="حذف هذه المهمة"): # Changed tooltip
                             if original_df_index in achievements_df_display.index:
-                                achievement_to_delete = achievements_df_display.loc[original_df_index, 'الإنجاز']
-                                # Drop using the original index from the main loaded df
+                                task_to_delete_title = achievements_df_display.loc[original_df_index, 'عنوان_المهمة'] or achievements_df_display.loc[original_df_index, 'المهمة'][:20]
                                 achievements_df_updated_del = achievements_df_display.drop(index=original_df_index)
-                                # Drop the temporary datetime column before saving
                                 if 'التاريخ_dt' in achievements_df_updated_del.columns:
                                      achievements_df_updated_del = achievements_df_updated_del.drop(columns=['التاريخ_dt'])
 
-                                # Save the updated single file
-                                if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated_del, achievements_sha_display, f"حذف إنجاز '{achievement_to_delete}' بواسطة {member}", expected_cols=EXPECTED_ACHIEVEMENT_COLS):
-                                    st.success("تم حذف الإنجاز بنجاح.")
+                                if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated_del, achievements_sha_display, f"حذف مهمة '{task_to_delete_title}' بواسطة {member}", expected_cols=EXPECTED_ACHIEVEMENT_COLS):
+                                    st.success("تم حذف المهمة بنجاح.")
                                     time.sleep(1); st.rerun()
-                                else: st.error("حدث خطأ أثناء حذف الإنجاز.")
-                            else: st.error("لم يتم العثور على الإنجاز المراد حذفه (قد يكون تم حذفه بالفعل).")
+                                else: st.error("حدث خطأ أثناء حذف المهمة.")
+                            else: st.error("لم يتم العثور على المهمة المراد حذفها.")
                      st.markdown("</div>", unsafe_allow_html=True)
     else:
-         # Handle case where the single CSV file exists but is empty
-         if achievements_sha_display is not None: # Check if sha exists (meaning file was found but empty)
-              st.caption("ملف الإنجازات فارغ.")
-         # Otherwise, load_csv already showed a warning if the file wasn't found
+         if achievements_sha_display is not None: st.caption("ملف المهام فارغ.")
 
 except Exception as e:
-    show_error("خطأ في تحميل أو عرض الإنجازات", traceback.format_exc())
+    show_error("خطأ في تحميل أو عرض المهام", traceback.format_exc()) # Changed label
 
 
 # --- Optional: Section to Add/Manage Main Tasks ---
@@ -471,7 +578,8 @@ with st.expander("إدارة المهام الرئيسية (إضافة/تعدي�
         new_descr_exp = st.text_area("وصف مختصر للمهمة (اختياري)", key="new_descr_exp")
         submitted_exp = st.form_submit_button("حفظ المهمة الرئيسية")
         if submitted_exp:
-            main_df_reloaded, main_sha_reloaded = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS)
+            # Reload just before saving
+            main_df_reloaded, main_sha_reloaded = load_csv(MAIN_TASKS_PATH, expected_cols=EXPECTED_MAIN_TASK_COLS, is_main_tasks=True) # is_main_tasks might be redundant
             main_task_titles_reloaded = main_df_reloaded["title"].tolist() if "title" in main_df_reloaded.columns else []
 
             if not new_title_exp.strip(): st.error("عنوان المهمة مطلوب.")
@@ -479,15 +587,15 @@ with st.expander("إدارة المهام الرئيسية (إضافة/تعدي�
             else:
                 new_id_exp = str(uuid.uuid4())[:8]
                 new_row_exp = pd.DataFrame([{"id": new_id_exp, "title": new_title_exp, "descr": new_descr_exp}])
-                if main_df_reloaded.empty: main_df_exp_updated = new_row_exp
-                else: main_df_exp_updated = pd.concat([main_df_reloaded, new_row_exp], ignore_index=True)
+                main_df_exp_updated = pd.concat([main_df_reloaded, new_row_exp], ignore_index=True)
 
                 if save_csv(MAIN_TASKS_PATH, main_df_exp_updated, main_sha_reloaded, f"إضافة مهمة رئيسية: {new_title_exp}", expected_cols=EXPECTED_MAIN_TASK_COLS):
                     st.success(f"تمت إضافة المهمة '{new_title_exp}'.")
-                    time.sleep(1); st.rerun()
+                    time.sleep(1); st.rerun() # Rerun to update dropdowns
                 else: st.error("خطأ في حفظ المهمة الرئيسية.")
 
     st.subheader("المهام الرئيسية الحالية")
+    # Display using the initially loaded main_df
     if not main_df.empty:
          st.dataframe(main_df.fillna('')[["title", "descr"]].rename(columns={"title": "العنوان", "descr": "الوصف"}), use_container_width=True)
     else:
