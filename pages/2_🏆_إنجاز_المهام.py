@@ -529,336 +529,299 @@ def format_date(date_str):
         return date_str
 
 # =========================================
-# القسم 6: دوال تحميل البيانات
+# القسم 6: ثوابت وإعدادات البيانات
 # =========================================
 
-# --- تحديد قاموس رموز البرامج ---
-PROGRAM_MAP = {
-    "بكالوريوس في القرآن وعلومه": "bachelor_quran",
-    "بكالوريوس القراءات": "bachelor_readings",
-    "ماجستير الدراسات القرآنية المعاصرة": "master_contemporary",
-    "ماجستير القراءات": "master_readings",
-    "دكتوراه علوم القرآن": "phd_quran",
-    "دكتوراه القراءات": "phd_readings"
-}
+# تعريف قائمة الفئات
+INITIAL_CATEGORIES = [
+    "— بدون فئة —", # Default/Placeholder
+    "تطوير البرامج والمناهج", "ضمان الجودة والاعتماد", "الحوكمة والإدارة",
+    "الابتكار والتطوير", "المشاركة المهنية والمجتمعية", "الإرشاد والدعم الطلابي",
+]
 
-# --- دالة لتحديد السنوات التي تتوفر لها بيانات فعلية ---
-@st.cache_data(ttl=3600)
-def get_available_years():
-    """تحديد السنوات التي تتوفر لها بيانات فعلية في المجلدات"""
-    available_years = []
-    # نطاق السنوات المحتملة
-    potential_years = list(range(2020, 2026))  # يمكن تعديل النطاق حسب الحاجة
+# تعريف خيارات البرامج
+PROGRAM_OPTIONS = [
+    "— اختر البرنامج —", # Placeholder
+    "بكالوريوس القراءات",
+    "بكالوريوس القرآن وعلومه",
+    "ماجستير الدراسات القرآنية المعاصرة",
+    "ماجستير القراءات",
+    "دكتوراه علوم القرآن",
+    "دكتوراه القراءات",
+    "غير مرتبط ببرنامج",
+    "جميع البرامج"
+]
 
-    for year in potential_years:
-        # فحص وجود ملف البيانات لهذه السنة
-        has_data = False
+# تعريف مستويات التعقيد
+COMPLEXITY_LEVELS = [
+    "منخفض", "متوسط", "عالي", "عالي جداً"
+]
 
-        # بالنسبة لصفحة إنجاز المهام
-        tasks_file_path = f"data/department/{year}/tasks_{year}.csv"
-        achievements_path = f"data/department/{year}/achievements_{year}.csv"
-        
-        if (os.path.exists(tasks_file_path) and os.path.getsize(tasks_file_path) > 100) or \
-           (os.path.exists(achievements_path) and os.path.getsize(achievements_path) > 100):
-            has_data = True
+# تعريف خيارات التصفية الزمنية
+TIME_FILTER_OPTIONS = [
+    "جميع المهام",
+    "آخر شهر",
+    "آخر ستة أشهر",
+    "آخر سنة",
+    "آخر ثلاث سنوات"
+]
 
-        # إذا وجدنا أي بيانات لهذه السنة، نضيفها إلى القائمة
-        if has_data:
-            available_years.append(year)
+# مسار الجدول الفعلي
+ACHIEVEMENTS_DATA_PATH = "data/department/achievements.csv"
 
-    # إذا لم نجد أي سنوات، نستخدم العام الحالي كمثال
-    if not available_years:
-        current_year = datetime.now().year
-        st.warning(f"لم يتم العثور على بيانات لأي سنة. يرجى إضافة ملفات البيانات في المجلدات المناسبة.")
-        return [current_year]
+# تعريف الأعمدة المتوقعة في الجدول
+EXPECTED_ACHIEVEMENT_COLS = [
+    "عنوان المهمة", 
+    "وصف مختصر", 
+    "اسم العضو", 
+    "تاريخ الإنجاز", 
+    "عدد الساعات", 
+    "عدد النقاط", 
+    "مستوى التعقيد", 
+    "الفئة", 
+    "المهمة الرئيسية",
+    "البرنامج"
+]
 
-    # ترتيب السنوات تنازليًا (الأحدث أولاً)
-    return sorted(available_years, reverse=True)
-
-def generate_sample_tasks_data(year):
-    """توليد بيانات تجريبية للمهام عند عدم وجود ملف"""
-    current_date = datetime.now()
-    # تحديد تواريخ ضمن السنة المحددة
-    start_date = datetime(year, 1, 1)
-    end_date = datetime(year, 12, 31)
-    
-    if current_date < end_date:
-        end_date = current_date
-    
-    # تعريف أنواع المهام وفئاتها
-    task_categories = ["تطوير المقررات", "أنشطة بحثية", "لجان علمية", "خدمة المجتمع", "تدريب وورش عمل"]
-    member_names = [
-        "د. محمد أحمد علي", "د. عائشة محمد سعيد", "د. عبدالله محمد خالد", 
-        "د. فاطمة علي حسن", "د. خالد إبراهيم عمر", "د. نورا سعيد أحمد",
-        "د. عبد الله حماد حميد القرشي", "د. ناصر سعود حمود القثامي"
-    ]
-    statuses = ["منجزة", "قيد التنفيذ", "مخطط لها"]
-    
-    def random_date(start, end):
-        delta = end - start
-        int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
-        random_second = np.random.randint(0, int_delta)
-        return start + timedelta(seconds=random_second)
-    
-    # توليد مهام تجريبية
-    tasks = []
-    num_tasks = 30  # عدد المهام التي سيتم توليدها
-    
-    for i in range(1, num_tasks + 1):
-        task_date = random_date(start_date, end_date)
-        status = np.random.choice(statuses, p=[0.6, 0.3, 0.1])  # توزيع الاحتمالات لكل حالة
-        
-        if status == "منجزة":
-            completion_date = random_date(task_date, end_date)
-            due_date = task_date + timedelta(days=np.random.randint(10, 30))
-        elif status == "قيد التنفيذ":
-            completion_date = None
-            due_date = task_date + timedelta(days=np.random.randint(15, 45))
-        else:  # مخطط لها
-            completion_date = None
-            due_date = task_date + timedelta(days=np.random.randint(20, 60))
-        
-        category = np.random.choice(task_categories)
-        member = np.random.choice(member_names)
-        virtual_hours = np.random.randint(5, 30)
-        points = int(virtual_hours * np.random.uniform(1.5, 3.0))
-        
-        task_name = f"مهمة {category} رقم {i}"
-        description = f"وصف تفصيلي للمهمة ضمن فئة {category}"
-        
-        task = {
-            "رقم المهمة": i,
-            "اسم المهمة": task_name,
-            "الوصف": description,
-            "العضو المسؤول": member,
-            "الفئة": category,
-            "تاريخ البدء": task_date.strftime("%Y-%m-%d"),
-            "تاريخ الاستحقاق": due_date.strftime("%Y-%m-%d"),
-            "تاريخ الإنجاز": completion_date.strftime("%Y-%m-%d") if completion_date else None,
-            "الساعات الافتراضية": virtual_hours,
-            "النقاط": points,
-            "الحالة": status,
-            "الأولوية": np.random.choice(["عالية", "متوسطة", "منخفضة"])
-        }
-        tasks.append(task)
-    
-    return pd.DataFrame(tasks)
-
-@st.cache_data(ttl=3600)
-def load_tasks_data(year=None):
-    """تحميل بيانات المهام للسنة المحددة"""
-    try:
-        available_years = get_available_years()
-
-        if year is None:
-            year = max(available_years) if available_years else datetime.now().year
-
-        # المسار بناءً على هيكل المستودع والسنة
-        file_path = f"data/department/{year}/tasks_{year}.csv"
-
-        # التحقق من وجود الملف، وإلا حاول تحميل الملف القديم
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 100:
-            df = pd.read_csv(file_path)
-            df["year"] = year # إضافة عمود السنة للتمييز لاحقاً
-            return df
-        else:
-            # إذا لم يجد ملف السنة المحددة، ابحث عن أقرب سنة متاحة
-            for y in sorted(available_years, reverse=True):
-                alt_file_path = f"data/department/{y}/tasks_{y}.csv"
-                if os.path.exists(alt_file_path) and os.path.getsize(alt_file_path) > 100:
-                    st.warning(f"بيانات سنة {year} غير متوفرة. تم تحميل بيانات سنة {y} بدلاً عنها.")
-                    df = pd.read_csv(alt_file_path)
-                    df["year"] = y # إضافة عمود السنة الفعلية
-                    return df
-
-            # إذا لم يجد أي ملف، استخدم بيانات تجريبية
-            st.warning(f"بيانات سنة {year} غير متوفرة. استخدام بيانات تجريبية.")
-            return generate_sample_tasks_data(year)
-
-    except Exception as e:
-        st.error(f"خطأ في تحميل بيانات المهام: {e}")
-        return pd.DataFrame()
+# =========================================
+# القسم 7: دوال تحميل البيانات
+# =========================================
 
 @st.cache_data(ttl=3600)
 def load_achievements_data(year=None):
-    """تحميل بيانات الإنجازات للسنة المحددة"""
+    """تحميل بيانات الإنجازات من الجدول الفعلي"""
     try:
-        available_years = get_available_years()
-
-        if year is None:
-            year = max(available_years) if available_years else datetime.now().year
-
-        file_path = f"data/department/{year}/achievements_{year}.csv"
+        # استخدام الجدول الموحد
+        file_path = ACHIEVEMENTS_DATA_PATH
         
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 100:
+        # التحقق من وجود الملف
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             df = pd.read_csv(file_path)
-            df["year"] = year
+            
+            # تحويل التاريخ إلى كائن datetime
+            if "تاريخ الإنجاز" in df.columns:
+                df["التاريخ"] = pd.to_datetime(df["تاريخ الإنجاز"], errors='coerce')
+            
+            # إذا كان تم تحديد سنة، قم بتصفية البيانات
+            if year is not None and "التاريخ" in df.columns:
+                df = df[df["التاريخ"].dt.year == year]
+                
+            # ضمان وجود جميع الأعمدة المتوقعة
+            for col in EXPECTED_ACHIEVEMENT_COLS:
+                if col not in df.columns:
+                    df[col] = ""
+                    
             return df
         else:
-            # إذا لم يجد ملف السنة المحددة، ابحث عن أقرب سنة متاحة
-            for y in sorted(available_years, reverse=True):
-                alt_file_path = f"data/department/{y}/achievements_{y}.csv"
-                if os.path.exists(alt_file_path) and os.path.getsize(alt_file_path) > 100:
-                    st.warning(f"بيانات إنجازات سنة {year} غير متوفرة. تم تحميل بيانات سنة {y} بدلاً عنها.")
-                    df = pd.read_csv(alt_file_path)
-                    df["year"] = y
-                    return df
-                    
-            # إذا لم يجد أي ملف، استخدم بيانات المهام لتوليد الإنجازات
-            tasks_df = load_tasks_data(year)
-            if not tasks_df.empty:
-                # تحويل المهام المنجزة إلى إنجازات
-                completed_tasks = tasks_df[tasks_df["الحالة"] == "منجزة"].copy()
-                if not completed_tasks.empty:
-                    achievements_data = []
-                    for _, task in completed_tasks.iterrows():
-                        achievement = {
-                            "العضو": task["العضو المسؤول"],
-                            "الإنجاز": task["اسم المهمة"],
-                            "التاريخ": task["تاريخ الإنجاز"] if "تاريخ الإنجاز" in task else task["تاريخ الاستحقاق"],
-                            "النقاط": task["النقاط"] if "النقاط" in task else 10,
-                            "الفئة": task["الفئة"] if "الفئة" in task else "أخرى",
-                            "الساعات الافتراضية": task["الساعات الافتراضية"] if "الساعات الافتراضية" in task else 5
-                        }
-                        achievements_data.append(achievement)
-                    return pd.DataFrame(achievements_data)
-                    
-            # إذا لا توجد مهام منجزة، إنشاء بيانات تجريبية
-            achievements = []
-            member_names = [
-                "د. محمد أحمد علي", "د. عائشة محمد سعيد", "د. عبدالله محمد خالد", 
-                "د. فاطمة علي حسن", "د. خالد إبراهيم عمر", "د. نورا سعيد أحمد",
-                "د. عبد الله حماد حميد القرشي", "د. ناصر سعود حمود القثامي"
+            # إذا لم يكن الملف موجودًا، قم بإنشاء بيانات تجريبية
+            st.warning(f"ملف بيانات الإنجازات غير موجود أو فارغ. سيتم استخدام بيانات تجريبية.")
+            
+            # إنشاء بيانات تجريبية
+            sample_data = [
+                {
+                    "عنوان المهمة": "تطوير مقرر القراءات المتواترة",
+                    "وصف مختصر": "تحديث محتوى المقرر وإضافة مخرجات تعلم جديدة",
+                    "اسم العضو": "عبد الله حماد حميد القرشي",
+                    "تاريخ الإنجاز": "2024-03-15",
+                    "عدد الساعات": 15,
+                    "عدد النقاط": 45,
+                    "مستوى التعقيد": "متوسط",
+                    "الفئة": "تطوير البرامج والمناهج",
+                    "المهمة الرئيسية": "توصيف المقررات",
+                    "البرنامج": "بكالوريوس القراءات"
+                },
+                {
+                    "عنوان المهمة": "إعداد مصفوفة المخرجات التعليمية",
+                    "وصف مختصر": "إنشاء مصفوفة تربط مخرجات تعلم البرنامج بالمقررات",
+                    "اسم العضو": "ناصر سعود حمود القثامي",
+                    "تاريخ الإنجاز": "2024-02-20",
+                    "عدد الساعات": 18,
+                    "عدد النقاط": 55,
+                    "مستوى التعقيد": "عالي",
+                    "الفئة": "ضمان الجودة والاعتماد",
+                    "المهمة الرئيسية": "الاعتماد الأكاديمي",
+                    "البرنامج": "بكالوريوس القرآن وعلومه"
+                },
+                {
+                    "عنوان المهمة": "تنظيم ورشة عمل لمهارات القراءة",
+                    "وصف مختصر": "تدريب الطلاب على مهارات القراءة الصحيحة",
+                    "اسم العضو": "منال منصور محمد القرشي",
+                    "تاريخ الإنجاز": "2024-04-05",
+                    "عدد الساعات": 8,
+                    "عدد النقاط": 25,
+                    "مستوى التعقيد": "منخفض",
+                    "الفئة": "المشاركة المهنية والمجتمعية",
+                    "المهمة الرئيسية": "تطوير مهارات الطلاب",
+                    "البرنامج": "جميع البرامج"
+                },
+                {
+                    "عنوان المهمة": "إعداد تقرير الدراسة الذاتية",
+                    "وصف مختصر": "تحليل وتوثيق جوانب القوة والضعف في البرنامج",
+                    "اسم العضو": "خلود شاكر فهيد العبدلي",
+                    "تاريخ الإنجاز": "2024-01-10",
+                    "عدد الساعات": 25,
+                    "عدد النقاط": 70,
+                    "مستوى التعقيد": "عالي جداً",
+                    "الفئة": "ضمان الجودة والاعتماد",
+                    "المهمة الرئيسية": "الاعتماد الأكاديمي",
+                    "البرنامج": "ماجستير القراءات"
+                },
+                {
+                    "عنوان المهمة": "مراجعة توصيفات المقررات",
+                    "وصف مختصر": "مراجعة وتحديث 5 توصيفات لمقررات المستوى الثالث",
+                    "اسم العضو": "حاتم عابد عبد الله القرشي",
+                    "تاريخ الإنجاز": "2023-11-25",
+                    "عدد الساعات": 12,
+                    "عدد النقاط": 36,
+                    "مستوى التعقيد": "متوسط",
+                    "الفئة": "تطوير البرامج والمناهج",
+                    "المهمة الرئيسية": "توصيف المقررات",
+                    "البرنامج": "بكالوريوس القراءات"
+                },
+                {
+                    "عنوان المهمة": "إعداد الجدول الدراسي",
+                    "وصف مختصر": "تجهيز وتنسيق الجدول الدراسي للفصل الثاني",
+                    "اسم العضو": "ماجد عبد العزيز الحارثي",
+                    "تاريخ الإنجاز": "2023-12-15",
+                    "عدد الساعات": 10,
+                    "عدد النقاط": 30,
+                    "مستوى التعقيد": "متوسط",
+                    "الفئة": "الحوكمة والإدارة",
+                    "المهمة الرئيسية": "إدارة البرنامج",
+                    "البرنامج": "دكتوراه علوم القرآن"
+                }
             ]
-            achievement_types = ["نشر بحث", "إعداد دورة", "تطوير مقرر", "مشاركة في مؤتمر", "إنجاز مشروع", "تقديم ورشة عمل"]
-            categories = ["تطوير المقررات", "أنشطة بحثية", "لجان علمية", "خدمة المجتمع", "تدريب وورش عمل"]
             
-            # إنشاء تواريخ ضمن السنة المحددة
-            start_date = datetime(year, 1, 1)
-            end_date = datetime(year, 12, 31)
-            if datetime.now() < end_date:
-                end_date = datetime.now()
+            df = pd.DataFrame(sample_data)
+            
+            # تحويل التاريخ إلى كائن datetime
+            df["التاريخ"] = pd.to_datetime(df["تاريخ الإنجاز"], errors='coerce')
+            
+            # إذا كان تم تحديد سنة، قم بتصفية البيانات
+            if year is not None:
+                df = df[df["التاريخ"].dt.year == year]
                 
-            for i in range(20):  # إنشاء 20 إنجاز تجريبي
-                random_date = start_date + timedelta(days=np.random.randint(0, (end_date - start_date).days))
-                achievements.append({
-                    "العضو": np.random.choice(member_names),
-                    "الإنجاز": f"{np.random.choice(achievement_types)} - {i+1}",
-                    "التاريخ": random_date.strftime("%Y-%m-%d"),
-                    "النقاط": np.random.randint(10, 60),
-                    "الفئة": np.random.choice(categories),
-                    "الساعات الافتراضية": np.random.randint(5, 30)
-                })
-            
-            return pd.DataFrame(achievements)
+            return df
             
     except Exception as e:
         st.error(f"خطأ في تحميل بيانات الإنجازات: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(columns=EXPECTED_ACHIEVEMENT_COLS)
 
 @st.cache_data(ttl=3600)
-def load_faculty_data(year=None):
-    """تحميل بيانات أعضاء هيئة التدريس للسنة المحددة"""
-    try:
-        available_years = get_available_years()
+def get_member_list(achievements_df):
+    """استخراج قائمة أعضاء هيئة التدريس من بيانات الإنجازات"""
+    if not achievements_df.empty and "اسم العضو" in achievements_df.columns:
+        members = sorted(achievements_df["اسم العضو"].unique())
+        return members
+    else:
+        # قائمة افتراضية في حالة عدم وجود بيانات
+        return [
+            "عبد الله حماد حميد القرشي", "ناصر سعود حمود القثامي", "حاتم عابد عبد الله القرشي",
+            "ماجد عبد العزيز الحارثي", "رجاء محمد هوساوي", "عبد الله عيدان الزهراني",
+            "منال منصور محمد القرشي", "خلود شاكر فهيد العبدلي"
+        ]
 
-        if year is None:
-            year = max(available_years) if available_years else datetime.now().year
+@st.cache_data(ttl=3600)
+def get_available_years(achievements_df):
+    """استخراج قائمة السنوات المتاحة من بيانات الإنجازات"""
+    if not achievements_df.empty and "التاريخ" in achievements_df.columns:
+        years = sorted(achievements_df["التاريخ"].dt.year.unique(), reverse=True)
+        return years
+    else:
+        # قائمة افتراضية في حالة عدم وجود بيانات
+        current_year = datetime.now().year
+        return list(range(current_year, current_year-3, -1))
 
-        # المسار بناءً على هيكل المستودع والسنة
-        file_path = f"data/department/{year}/faculty_{year}.csv"
-
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 100:
-            df = pd.read_csv(file_path)
-            return df
-        else:
-            # بيانات تجريبية لأعضاء هيئة التدريس
-            faculty_data = [
-                {"الاسم": "د. محمد أحمد علي", "الرتبة": "أستاذ مشارك", "التخصص": "قراءات", "حالة الموظف": "رأس العمل", "الجنس": "ذكر", "الجنسية": "سعودي"},
-                {"الاسم": "د. عائشة محمد سعيد", "الرتبة": "أستاذ", "التخصص": "علوم القرآن", "حالة الموظف": "رأس العمل", "الجنس": "أنثى", "الجنسية": "سعودية"},
-                {"الاسم": "د. عبدالله محمد خالد", "الرتبة": "أستاذ مساعد", "التخصص": "قراءات", "حالة الموظف": "رأس العمل", "الجنس": "ذكر", "الجنسية": "سعودي"},
-                {"الاسم": "د. فاطمة علي حسن", "الرتبة": "أستاذ مشارك", "التخصص": "الدراسات القرآنية", "حالة الموظف": "رأس العمل", "الجنس": "أنثى", "الجنسية": "سعودية"},
-                {"الاسم": "د. خالد إبراهيم عمر", "الرتبة": "أستاذ", "التخصص": "قراءات", "حالة الموظف": "متعاون", "الجنس": "ذكر", "الجنسية": "مصري"},
-                {"الاسم": "د. نورا سعيد أحمد", "الرتبة": "أستاذ مساعد", "التخصص": "علوم القرآن", "حالة الموظف": "رأس العمل", "الجنس": "أنثى", "الجنسية": "سعودية"},
-                {"الاسم": "د. عبد الله حماد حميد القرشي", "الرتبة": "أستاذ", "التخصص": "قراءات", "حالة الموظف": "رأس العمل", "الجنس": "ذكر", "الجنسية": "سعودي"},
-                {"الاسم": "د. ناصر سعود حمود القثامي", "الرتبة": "أستاذ مشارك", "التخصص": "علوم القرآن", "حالة الموظف": "رأس العمل", "الجنس": "ذكر", "الجنسية": "سعودي"}
-            ]
-            return pd.DataFrame(faculty_data)
-    except Exception as e:
-        st.error(f"خطأ في تحميل بيانات أعضاء هيئة التدريس: {e}")
-        return pd.DataFrame()
+@st.cache_data(ttl=3600)
+def get_main_tasks_list(achievements_df):
+    """استخراج قائمة المهام الرئيسية من بيانات الإنجازات"""
+    if not achievements_df.empty and "المهمة الرئيسية" in achievements_df.columns:
+        main_tasks = sorted(achievements_df["المهمة الرئيسية"].dropna().unique())
+        return ["— بدون مهمة رئيسية —"] + main_tasks
+    else:
+        # قائمة افتراضية في حالة عدم وجود بيانات
+        return [
+            "— بدون مهمة رئيسية —",
+            "توصيف المقررات",
+            "الاعتماد الأكاديمي",
+            "تطوير مهارات الطلاب",
+            "إدارة البرنامج"
+        ]
 
 # =========================================
-# القسم 7: منتقي السنة وتحميل البيانات الأولية
+# القسم 8: تحميل البيانات الأولية
 # =========================================
 mobile_view = is_mobile()
-AVAILABLE_YEARS = get_available_years()
 
-# تطبيق منتقي السنة المعدل
-if len(AVAILABLE_YEARS) > 1:
-    selected_year = st.selectbox("اختر السنة", AVAILABLE_YEARS)
-else:
-    # إذا كانت هناك سنة واحدة فقط، نستخدمها مباشرة دون عرض منتقي
-    if AVAILABLE_YEARS:
-        selected_year = AVAILABLE_YEARS[0]
-        st.info(f"البيانات متوفرة لسنة {selected_year} فقط")
-    else:
-        # في حالة عدم وجود سنوات متاحة على الإطلاق (احتياطي)
-        selected_year = datetime.now().year
-        st.warning("لا توجد بيانات متاحة لأي سنة. سيتم استخدام بيانات تجريبية.")
+# تحميل بيانات الإنجازات
+achievements_data = load_achievements_data()
 
-# تحميل البيانات للسنة المختارة
-tasks_data = load_tasks_data(selected_year)
-achievements_data = load_achievements_data(selected_year)
-faculty_data = load_faculty_data(selected_year)
+# استخراج قوائم الاختيارات
+available_years = get_available_years(achievements_data)
+members_list = get_member_list(achievements_data)
+main_tasks_list = get_main_tasks_list(achievements_data)
+
+# تهيئة متغيرات الجلسة لحالة التصفية
+if "time_filter" not in st.session_state:
+    st.session_state.time_filter = TIME_FILTER_OPTIONS[0]
+if "selected_member" not in st.session_state:
+    st.session_state.selected_member = "الكل"
+if "selected_category" not in st.session_state:
+    st.session_state.selected_category = "الكل"
+if "selected_program" not in st.session_state:
+    st.session_state.selected_program = "الكل"
+if "selected_main_task" not in st.session_state:
+    st.session_state.selected_main_task = "الكل"
+if "selected_year" not in st.session_state and available_years:
+    st.session_state.selected_year = available_years[0] if available_years else datetime.now().year
 
 # =========================================
-# القسم 8: حساب المؤشرات الرئيسية
+# القسم 9: حساب المؤشرات الرئيسية
 # =========================================
 # حساب المؤشرات الرئيسية من البيانات المتاحة
-total_tasks = len(tasks_data) if not tasks_data.empty else 0
-completed_tasks = len(tasks_data[tasks_data["الحالة"] == "منجزة"]) if not tasks_data.empty and "الحالة" in tasks_data.columns else 0
-in_progress_tasks = len(tasks_data[tasks_data["الحالة"] == "قيد التنفيذ"]) if not tasks_data.empty and "الحالة" in tasks_data.columns else 0
-planned_tasks = len(tasks_data[tasks_data["الحالة"] == "مخطط لها"]) if not tasks_data.empty and "الحالة" in tasks_data.columns else 0
+total_tasks = len(achievements_data) if not achievements_data.empty else 0
+total_members = len(members_list) if members_list else 0
+active_members = 0  # سيتم حسابها لاحقًا
 
-total_members = len(faculty_data) if not faculty_data.empty else 0
-active_members = 0  # سيتم حسابها لاحقاً
+total_points = 0
+total_hours = 0
 
-total_points = achievements_data["النقاط"].sum() if not achievements_data.empty and "النقاط" in achievements_data.columns else 0
-total_hours = achievements_data["الساعات الافتراضية"].sum() if not achievements_data.empty and "الساعات الافتراضية" in achievements_data.columns else 0
+if not achievements_data.empty:
+    if "عدد النقاط" in achievements_data.columns:
+        total_points = achievements_data["عدد النقاط"].astype(float).sum()
+    
+    if "عدد الساعات" in achievements_data.columns:
+        total_hours = achievements_data["عدد الساعات"].astype(float).sum()
 
 # حساب المؤشرات المتعلقة بالأعضاء
-if not achievements_data.empty and "العضو" in achievements_data.columns:
-    member_achievements = achievements_data.groupby("العضو").size().reset_index()
-    member_achievements.columns = ["العضو", "عدد الإنجازات"]
+member_achievements = None
+if not achievements_data.empty and "اسم العضو" in achievements_data.columns:
+    member_achievements = achievements_data.groupby("اسم العضو").size().reset_index()
+    member_achievements.columns = ["اسم العضو", "عدد الإنجازات"]
     active_members = len(member_achievements[member_achievements["عدد الإنجازات"] > 0])
     
     # حساب مجموع النقاط لكل عضو
-    if "النقاط" in achievements_data.columns:
-        member_points = achievements_data.groupby("العضو")["النقاط"].sum().reset_index()
-        member_points.columns = ["العضو", "مجموع النقاط"]
-        member_achievements = pd.merge(member_achievements, member_points, on="العضو", how="left")
+    if "عدد النقاط" in achievements_data.columns:
+        member_points = achievements_data.groupby("اسم العضو")["عدد النقاط"].sum().reset_index()
+        member_points.columns = ["اسم العضو", "مجموع النقاط"]
+        member_achievements = pd.merge(member_achievements, member_points, on="اسم العضو", how="left")
     
     # حساب مجموع الساعات لكل عضو
-    if "الساعات الافتراضية" in achievements_data.columns:
-        member_hours = achievements_data.groupby("العضو")["الساعات الافتراضية"].sum().reset_index()
-        member_hours.columns = ["العضو", "مجموع الساعات"]
-        member_achievements = pd.merge(member_achievements, member_hours, on="العضو", how="left")
-
-# حساب نسبة الإنجاز
-completion_rate = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+    if "عدد الساعات" in achievements_data.columns:
+        member_hours = achievements_data.groupby("اسم العضو")["عدد الساعات"].sum().reset_index()
+        member_hours.columns = ["اسم العضو", "مجموع الساعات"]
+        member_achievements = pd.merge(member_achievements, member_hours, on="اسم العضو", how="left")
 
 # حساب الإنجازات في الشهر الحالي
 current_month_achievements = 0
 if not achievements_data.empty and "التاريخ" in achievements_data.columns:
-    achievements_data["التاريخ"] = pd.to_datetime(achievements_data["التاريخ"], errors='coerce')
     current_date = datetime.now()
     first_day_of_month = datetime(current_date.year, current_date.month, 1)
     current_month_mask = (achievements_data["التاريخ"] >= first_day_of_month) & (achievements_data["التاريخ"] <= current_date)
     current_month_achievements = achievements_data[current_month_mask].shape[0]
 
 # =========================================
-# القسم 9: عرض المقاييس الإجمالية
+# القسم 10: عرض المقاييس الإجمالية
 # =========================================
 st.subheader("نظرة عامة")
 
@@ -873,80 +836,91 @@ else:
 
 # عرض المقاييس
 with metric_cols[0]: st.metric("إجمالي المهام", f"{total_tasks:,}")
-with metric_cols[1]: st.metric("المهام المنجزة", f"{completed_tasks:,}")
-with metric_cols[2]: st.metric("مجموع النقاط", f"{total_points:,}")
-with metric_cols[3]: st.metric("مجموع الساعات", f"{total_hours:,}")
-with metric_cols[4]: st.metric("الأعضاء النشطين", f"{active_members:,} من {total_members:,}")
+with metric_cols[1]: st.metric("الأعضاء النشطين", f"{active_members:,} من {total_members:,}")
+with metric_cols[2]: st.metric("مجموع النقاط", f"{total_points:,.0f}")
+with metric_cols[3]: st.metric("مجموع الساعات", f"{total_hours:,.0f}")
+with metric_cols[4]: st.metric("متوسط النقاط", f"{total_points/total_tasks:.1f}" if total_tasks > 0 else "0")
 with metric_cols[5]: st.metric("إنجازات الشهر", f"{current_month_achievements:,}")
 
 # =========================================
-# القسم 10: إعداد التبويبات الرئيسية
+# القسم 11: إعداد التبويبات الرئيسية
 # =========================================
-main_tabs = st.tabs(["لوحة المعلومات", "قائمة المهام", "إنجازات الأعضاء", "المهام الحالية والمخطط لها", "تحليل الإنجازات"])
+main_tabs = st.tabs(["لوحة المعلومات", "قائمة المهام", "إنجازات الأعضاء", "تحليل الإنجازات"])
 
 # =========================================
-# القسم 11: تبويب لوحة المعلومات
+# القسم 12: تبويب لوحة المعلومات
 # =========================================
 with main_tabs[0]:
     st.markdown("### لوحة معلومات الإنجازات")
     
-    # 1. توزيع المهام حسب الحالة (منجزة، قيد التنفيذ، مخطط لها)
-    task_status_data = pd.DataFrame({
-        "الحالة": ["منجزة", "قيد التنفيذ", "مخطط لها"],
-        "العدد": [completed_tasks, in_progress_tasks, planned_tasks]
-    })
-    
-    if mobile_view:
-        fig_status = px.pie(task_status_data, values="العدد", names="الحالة", title="توزيع المهام حسب الحالة",
-                         color="الحالة", color_discrete_map={"منجزة": "#27AE60", "قيد التنفيذ": "#F39C12", "مخطط لها": "#E74C3C"})
-        fig_status = prepare_chart_layout(fig_status, "توزيع المهام حسب الحالة", is_mobile=mobile_view, chart_type="pie")
-        st.plotly_chart(fig_status, use_container_width=True, config={"displayModeBar": False})
+    # 1. توزيع المهام حسب مستوى التعقيد
+    if not achievements_data.empty and "مستوى التعقيد" in achievements_data.columns:
+        complexity_counts = achievements_data["مستوى التعقيد"].value_counts().reset_index()
+        complexity_counts.columns = ["مستوى التعقيد", "العدد"]
         
-        # توزيع المهام حسب الفئة
-        if not tasks_data.empty and "الفئة" in tasks_data.columns:
-            category_counts = tasks_data["الفئة"].value_counts().reset_index()
-            category_counts.columns = ["الفئة", "العدد"]
-            fig_category = px.bar(category_counts, x="الفئة", y="العدد", title="توزيع المهام حسب الفئة",
-                                 color="العدد", color_continuous_scale="Blues")
-            fig_category = prepare_chart_layout(fig_category, "توزيع المهام حسب الفئة", is_mobile=mobile_view, chart_type="bar")
-            st.plotly_chart(fig_category, use_container_width=True, config={"displayModeBar": False})
-    else:
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            fig_status = px.pie(task_status_data, values="العدد", names="الحالة", title="توزيع المهام حسب الحالة",
-                            color="الحالة", color_discrete_map={"منجزة": "#27AE60", "قيد التنفيذ": "#F39C12", "مخطط لها": "#E74C3C"})
-            fig_status = prepare_chart_layout(fig_status, "توزيع المهام حسب الحالة", is_mobile=mobile_view, chart_type="pie")
-            st.plotly_chart(fig_status, use_container_width=True, config={"displayModeBar": False})
+        # ضمان ترتيب مستويات التعقيد بشكل منطقي
+        complexity_order = {level: i for i, level in enumerate(COMPLEXITY_LEVELS)}
+        complexity_counts["الترتيب"] = complexity_counts["مستوى التعقيد"].map(complexity_order)
+        complexity_counts = complexity_counts.sort_values("الترتيب").drop("الترتيب", axis=1)
         
-        with col2:
+        # تعيين ألوان حسب مستوى التعقيد
+        complexity_colors = {
+            "منخفض": "#27AE60",  # أخضر
+            "متوسط": "#F39C12",  # برتقالي
+            "عالي": "#E74C3C",    # أحمر
+            "عالي جداً": "#C0392B"  # أحمر داكن
+        }
+        
+        if mobile_view:
+            fig_complexity = px.pie(complexity_counts, values="العدد", names="مستوى التعقيد", title="توزيع المهام حسب مستوى التعقيد",
+                              color="مستوى التعقيد", color_discrete_map=complexity_colors)
+            fig_complexity = prepare_chart_layout(fig_complexity, "توزيع المهام حسب مستوى التعقيد", is_mobile=mobile_view, chart_type="pie")
+            st.plotly_chart(fig_complexity, use_container_width=True, config={"displayModeBar": False})
+            
             # توزيع المهام حسب الفئة
-            if not tasks_data.empty and "الفئة" in tasks_data.columns:
-                category_counts = tasks_data["الفئة"].value_counts().reset_index()
+            if "الفئة" in achievements_data.columns:
+                category_counts = achievements_data["الفئة"].value_counts().reset_index()
                 category_counts.columns = ["الفئة", "العدد"]
                 fig_category = px.bar(category_counts, x="الفئة", y="العدد", title="توزيع المهام حسب الفئة",
                                    color="العدد", color_continuous_scale="Blues")
                 fig_category = prepare_chart_layout(fig_category, "توزيع المهام حسب الفئة", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_category, use_container_width=True, config={"displayModeBar": False})
-            else:
-                st.info("لا توجد بيانات كافية لعرض توزيع المهام حسب الفئة.")
+        else:
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                fig_complexity = px.pie(complexity_counts, values="العدد", names="مستوى التعقيد", title="توزيع المهام حسب مستوى التعقيد",
+                                  color="مستوى التعقيد", color_discrete_map=complexity_colors)
+                fig_complexity = prepare_chart_layout(fig_complexity, "توزيع المهام حسب مستوى التعقيد", is_mobile=mobile_view, chart_type="pie")
+                st.plotly_chart(fig_complexity, use_container_width=True, config={"displayModeBar": False})
+            
+            with col2:
+                # توزيع المهام حسب الفئة
+                if "الفئة" in achievements_data.columns:
+                    category_counts = achievements_data["الفئة"].value_counts().reset_index()
+                    category_counts.columns = ["الفئة", "العدد"]
+                    fig_category = px.bar(category_counts, x="الفئة", y="العدد", title="توزيع المهام حسب الفئة",
+                                       color="العدد", color_continuous_scale="Blues")
+                    fig_category = prepare_chart_layout(fig_category, "توزيع المهام حسب الفئة", is_mobile=mobile_view, chart_type="bar")
+                    st.plotly_chart(fig_category, use_container_width=True, config={"displayModeBar": False})
+                else:
+                    st.info("لا توجد بيانات كافية لعرض توزيع المهام حسب الفئة.")
     
     # 2. قسم أفضل المنجزين (Top Achievers)
     st.markdown("### أفضل المنجزين")
     
-    if not achievements_data.empty and "العضو" in achievements_data.columns and "النقاط" in achievements_data.columns:
-        top_achievers = achievements_data.groupby("العضو")["النقاط"].sum().reset_index()
-        top_achievers = top_achievers.sort_values("النقاط", ascending=False).head(5)
+    if member_achievements is not None and "مجموع النقاط" in member_achievements.columns:
+        top_achievers = member_achievements.sort_values("مجموع النقاط", ascending=False).head(5)
         
         if mobile_view:
-            fig_top = px.bar(top_achievers, x="العضو", y="النقاط", title="أفضل 5 أعضاء من حيث النقاط",
-                           color="النقاط", color_continuous_scale="Greens")
+            fig_top = px.bar(top_achievers, x="اسم العضو", y="مجموع النقاط", title="أفضل 5 أعضاء من حيث النقاط",
+                           color="مجموع النقاط", color_continuous_scale="Greens")
             fig_top = prepare_chart_layout(fig_top, "أفضل 5 أعضاء", is_mobile=mobile_view, chart_type="bar")
             st.plotly_chart(fig_top, use_container_width=True, config={"displayModeBar": False})
         else:
             col3, col4 = st.columns([2, 1])
             with col3:
-                fig_top = px.bar(top_achievers, y="العضو", x="النقاط", title="أفضل 5 أعضاء من حيث النقاط",
-                               color="النقاط", color_continuous_scale="Greens", orientation='h')
+                fig_top = px.bar(top_achievers, y="اسم العضو", x="مجموع النقاط", title="أفضل 5 أعضاء من حيث النقاط",
+                               color="مجموع النقاط", color_continuous_scale="Greens", orientation='h')
                 fig_top = prepare_chart_layout(fig_top, "أفضل 5 أعضاء", is_mobile=mobile_view, chart_type="bar")
                 st.plotly_chart(fig_top, use_container_width=True, config={"displayModeBar": False})
             
@@ -955,14 +929,14 @@ with main_tabs[0]:
                 
                 # عرض بطاقات للأعضاء المتميزين
                 for i, (_, member) in enumerate(top_achievers.iterrows()):
-                    member_name = member["العضو"]
-                    member_points = member["النقاط"]
+                    member_name = member["اسم العضو"]
+                    member_points = member["مجموع النقاط"]
                     
                     # حساب عدد المهام المنجزة للعضو
-                    completed_count = achievements_data[achievements_data["العضو"] == member_name].shape[0]
+                    completed_count = member["عدد الإنجازات"]
                     
-                    # حساب مجموع الساعات الافتراضية للعضو
-                    total_member_hours = achievements_data[achievements_data["العضو"] == member_name]["الساعات الافتراضية"].sum() if "الساعات الافتراضية" in achievements_data.columns else 0
+                    # حساب مجموع الساعات للعضو
+                    total_member_hours = member["مجموع الساعات"] if "مجموع الساعات" in member else 0
                     
                     medal = "🥇" if i == 0 else ("🥈" if i == 1 else ("🥉" if i == 2 else ""))
                     
@@ -992,33 +966,37 @@ with main_tabs[0]:
     st.markdown("### أحدث الإنجازات")
     
     if not achievements_data.empty and "التاريخ" in achievements_data.columns:
-        achievements_data["التاريخ"] = pd.to_datetime(achievements_data["التاريخ"], errors='coerce')
         latest_achievements = achievements_data.sort_values("التاريخ", ascending=False).head(5)
         
         if latest_achievements.empty:
             st.info("لا توجد إنجازات حديثة متاحة.")
         else:
             for _, achievement in latest_achievements.iterrows():
-                member_name = achievement.get("العضو", "غير معروف")
-                achievement_name = achievement.get("الإنجاز", "إنجاز غير محدد")
+                member_name = achievement.get("اسم العضو", "غير معروف")
+                achievement_title = achievement.get("عنوان المهمة", "مهمة غير محددة")
+                achievement_desc = achievement.get("وصف مختصر", "")
                 achievement_date = achievement.get("التاريخ", None)
-                achievement_points = achievement.get("النقاط", 0)
-                achievement_hours = achievement.get("الساعات الافتراضية", 0)
-                achievement_category = achievement.get("الفئة", "أخرى")
+                achievement_points = float(achievement.get("عدد النقاط", 0))
+                achievement_hours = float(achievement.get("عدد الساعات", 0))
+                achievement_category = achievement.get("الفئة", "غير مصنفة")
+                achievement_complexity = achievement.get("مستوى التعقيد", "غير محدد")
                 
                 formatted_date = achievement_date.strftime("%Y/%m/%d") if pd.notna(achievement_date) else ""
+                complexity_class = "badge-green" if achievement_complexity == "منخفض" else ("badge-orange" if achievement_complexity == "متوسط" else "badge-red")
                 
                 st.markdown(f"""
                 <div class="task-card completed">
                     <div class="task-header">
                         <div>
-                            <div class="task-title">{achievement_name}</div>
+                            <div class="task-title">{achievement_title}</div>
                             <div style="font-size: 0.85rem; color: #666;">{member_name}</div>
                         </div>
                         <div>
                             <span class="badge badge-green">منجزة</span>
+                            <span class="badge {complexity_class}">{achievement_complexity}</span>
                         </div>
                     </div>
+                    <div style="font-size: 0.85rem; margin: 8px 0;">{achievement_desc}</div>
                     <div class="task-details">
                         <span class="task-detail-item">📅 {formatted_date}</span>
                         <span class="task-detail-item">🏷️ {achievement_category}</span>
@@ -1038,18 +1016,17 @@ with main_tabs[0]:
     else:
         st.info("لا توجد بيانات كافية لعرض أحدث الإنجازات.")
         
-    # 4. تحليل النقاط والساعات الافتراضية حسب الشهر
+    # 4. تحليل النقاط والساعات حسب الشهر
     st.markdown("### تحليل زمني للإنجازات")
     
     if not achievements_data.empty and "التاريخ" in achievements_data.columns:
         # تحويل التاريخ وإضافة عمود الشهر
-        achievements_data["التاريخ"] = pd.to_datetime(achievements_data["التاريخ"], errors='coerce')
         achievements_data["الشهر"] = achievements_data["التاريخ"].dt.to_period("M").astype(str)
         
         # تجميع البيانات حسب الشهر
         monthly_data = achievements_data.groupby("الشهر").agg({
-            "النقاط": "sum",
-            "الساعات الافتراضية": "sum"
+            "عدد النقاط": "sum",
+            "عدد الساعات": "sum"
         }).reset_index()
         
         # ترتيب حسب التاريخ
@@ -1058,11 +1035,11 @@ with main_tabs[0]:
         monthly_data = monthly_data.drop("sort_date", axis=1)
         
         # رسم بياني للنقاط والساعات حسب الشهر
-        fig_monthly = px.line(monthly_data, x="الشهر", y=["النقاط", "الساعات الافتراضية"], 
-                            title="تطور النقاط والساعات الافتراضية حسب الشهر",
+        fig_monthly = px.line(monthly_data, x="الشهر", y=["عدد النقاط", "عدد الساعات"], 
+                            title="تطور النقاط والساعات حسب الشهر",
                             labels={"value": "العدد", "variable": "النوع", "الشهر": "الشهر"},
                             markers=True, color_discrete_sequence=["#1e88e5", "#27AE60"])
-        fig_monthly = prepare_chart_layout(fig_monthly, "تطور النقاط والساعات الافتراضية", is_mobile=mobile_view, chart_type="line")
+        fig_monthly = prepare_chart_layout(fig_monthly, "تطور النقاط والساعات", is_mobile=mobile_view, chart_type="line")
         st.plotly_chart(fig_monthly, use_container_width=True, config={"displayModeBar": False})
         
         # رسم بياني لعدد الإنجازات حسب الشهر
@@ -1081,195 +1058,272 @@ with main_tabs[0]:
         st.info("لا توجد بيانات كافية لعرض التحليل الزمني للإنجازات.")
 
 # =========================================
-# =========================================
-# =========================================
-# القسم 12: تبويب قائمة المهام
+# القسم 13: تبويب قائمة المهام
 # =========================================
 with main_tabs[1]:
     st.markdown("### قائمة المهام")
     
-    # دالة لعرض بطاقة المهمة بشكل صحيح
-    def render_task_card(task, i):
-        """تقوم بإنشاء بطاقة مهمة بطريقة مختلفة تضمن عرض HTML بشكل صحيح"""
-        task_id = task.get("رقم المهمة", i+1)
-        task_name = task.get("اسم المهمة", "مهمة غير محددة")
-        task_description = task.get("الوصف", "")
-        member_name = task.get("العضو المسؤول", "")
-        member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
-        category = task.get("الفئة", "غير مصنفة")
-        start_date = format_date(task.get("تاريخ البدء", ""))
-        due_date = format_date(task.get("تاريخ الاستحقاق", ""))
-        completion_date = format_date(task.get("تاريخ الإنجاز", "")) if "تاريخ الإنجاز" in task and pd.notna(task["تاريخ الإنجاز"]) else "-"
-        virtual_hours = int(task.get("الساعات الافتراضية", 0))
-        points = int(task.get("النقاط", 0))
-        status = task.get("الحالة", "غير محدد")
-        priority = task.get("الأولوية", "متوسطة")
-        
-        # تحديد لون الأولوية
-        priority_badge = "badge-red" if priority == "عالية" else ("badge-orange" if priority == "متوسطة" else "badge-blue")
-        
-        # تحديد صنف CSS بناءً على الحالة
-        status_class = get_status_class(status)
-        status_badge = get_status_badge(status)
-        
-        # تقسيم البطاقة إلى أجزاء لتسهيل التنقيح
-        # 1. الجزء العلوي من البطاقة
-        card_top = f"""
-        <div class="task-card {status_class}">
-            <div class="task-header">
-                <div>
-                    <div class="task-title">{task_name}</div>
-                    <div style="font-size: 0.85rem; color: #666;">{member_display}</div>
-                </div>
-                <div>
-                    <span class="badge {status_badge}">{status}</span>
-                    <span class="badge {priority_badge}">{priority}</span>
-                </div>
-            </div>
-            <div style="font-size: 0.85rem; margin: 8px 0;">{task_description}</div>
-            <div class="task-details">
-                <span class="task-detail-item">🏷️ {category}</span>
-                <span class="task-detail-item">📅 تاريخ البدء: {start_date}</span>
-                <span class="task-detail-item">⏳ تاريخ الاستحقاق: {due_date}</span>
-        """
-        
-        # إضافة تاريخ الإنجاز إذا كان موجودًا
-        if completion_date != "-":
-            card_top += f'<span class="task-detail-item">✅ تاريخ الإنجاز: {completion_date}</span>'
-        
-        # إغلاق قسم التفاصيل
-        card_top += "</div>"
-        
-        # 2. قسم المقاييس (المشكلة الرئيسية)
-        # استخدام بنية HTML أبسط
-        metrics_html = f"""
-            <div style="display: flex; gap: 10px; margin-top: 8px;">
-                <div style="text-align: center; flex-grow: 1; padding: 4px; border-radius: 5px; background-color: rgba(30, 136, 229, 0.05);">
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #1e88e5;">{points}</div>
-                    <div style="font-size: 0.75rem; color: #666;">النقاط</div>
-                </div>
-                <div style="text-align: center; flex-grow: 1; padding: 4px; border-radius: 5px; background-color: rgba(30, 136, 229, 0.05);">
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #1e88e5;">{virtual_hours}</div>
-                    <div style="font-size: 0.75rem; color: #666;">الساعات</div>
-                </div>
-            </div>
-        </div>
-        """
-        
-        # 3. دمج الأجزاء معًا وعرضها
-        complete_html = card_top + metrics_html
-        st.markdown(complete_html, unsafe_allow_html=True)
-    
     # فلاتر البحث والتصفية
     st.markdown("#### بحث وتصفية")
     
+    # تصفية زمنية
+    st.markdown('<div class="time-filter">', unsafe_allow_html=True)
+    st.markdown('<div class="time-filter-title">تصفية المهام حسب الفترة الزمنية:</div>', unsafe_allow_html=True)
+    st.session_state.time_filter = st.radio(
+        "",
+        options=TIME_FILTER_OPTIONS,
+        horizontal=True,
+        key="time_filter_radio"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # فلاتر إضافية
     if mobile_view:
         filter_container = st.container()
         with filter_container:
-            if "الحالة" in tasks_data.columns:
-                all_statuses = ["الكل"] + sorted(tasks_data["الحالة"].unique().tolist())
-                selected_status = st.selectbox("حالة المهمة", all_statuses, key="status_mobile")
-            else: selected_status = "الكل"
-
-            if "الفئة" in tasks_data.columns:
-                all_categories = ["الكل"] + sorted(tasks_data["الفئة"].unique().tolist())
-                selected_category = st.selectbox("فئة المهمة", all_categories, key="category_mobile")
-            else: selected_category = "الكل"
-
-            if "العضو المسؤول" in tasks_data.columns:
-                all_members = ["الكل", "غير معين"] + sorted(tasks_data["العضو المسؤول"].dropna().unique().tolist())
-                selected_member = st.selectbox("العضو المسؤول", all_members, key="member_mobile")
-            else: selected_member = "الكل"
-
-            if "الأولوية" in tasks_data.columns:
-                all_priorities = ["الكل", "عالية", "متوسطة", "منخفضة"]
-                selected_priority = st.selectbox("الأولوية", all_priorities, key="priority_mobile")
-            else: selected_priority = "الكل"
-    else: # عرض سطح المكتب
+            # اختيار العضو
+            members_options = ["الكل"] + members_list
+            st.session_state.selected_member = st.selectbox(
+                "عضو هيئة التدريس", 
+                options=members_options, 
+                key="member_mobile"
+            )
+            
+            # اختيار الفئة
+            category_options = ["الكل"]
+            if not achievements_data.empty and "الفئة" in achievements_data.columns:
+                categories = achievements_data["الفئة"].dropna().unique()
+                category_options += sorted(categories)
+            
+            st.session_state.selected_category = st.selectbox(
+                "الفئة", 
+                options=category_options, 
+                key="category_mobile"
+            )
+            
+            # اختيار البرنامج
+            program_options = ["الكل"]
+            if not achievements_data.empty and "البرنامج" in achievements_data.columns:
+                programs = achievements_data["البرنامج"].dropna().unique()
+                program_options += sorted(programs)
+            
+            st.session_state.selected_program = st.selectbox(
+                "البرنامج", 
+                options=program_options, 
+                key="program_mobile"
+            )
+            
+            # اختيار المهمة الرئيسية
+            st.session_state.selected_main_task = st.selectbox(
+                "المهمة الرئيسية", 
+                options=["الكل"] + main_tasks_list, 
+                key="main_task_mobile"
+            )
+            
+    else:  # عرض سطح المكتب
         filter_cols = st.columns([1, 1, 1, 1])
         with filter_cols[0]:
-            if "الحالة" in tasks_data.columns:
-                all_statuses = ["الكل"] + sorted(tasks_data["الحالة"].unique().tolist())
-                selected_status = st.selectbox("حالة المهمة", all_statuses, key="status_desktop")
-            else: selected_status = "الكل"
+            # اختيار العضو
+            members_options = ["الكل"] + members_list
+            st.session_state.selected_member = st.selectbox(
+                "عضو هيئة التدريس", 
+                options=members_options, 
+                key="member_desktop"
+            )
+        
         with filter_cols[1]:
-            if "الفئة" in tasks_data.columns:
-                all_categories = ["الكل"] + sorted(tasks_data["الفئة"].unique().tolist())
-                selected_category = st.selectbox("فئة المهمة", all_categories, key="category_desktop")
-            else: selected_category = "الكل"
+            # اختيار الفئة
+            category_options = ["الكل"]
+            if not achievements_data.empty and "الفئة" in achievements_data.columns:
+                categories = achievements_data["الفئة"].dropna().unique()
+                category_options += sorted(categories)
+            
+            st.session_state.selected_category = st.selectbox(
+                "الفئة", 
+                options=category_options, 
+                key="category_desktop"
+            )
+        
         with filter_cols[2]:
-            if "العضو المسؤول" in tasks_data.columns:
-                all_members = ["الكل", "غير معين"] + sorted(tasks_data["العضو المسؤول"].dropna().unique().tolist())
-                selected_member = st.selectbox("العضو المسؤول", all_members, key="member_desktop")
-            else: selected_member = "الكل"
+            # اختيار البرنامج
+            program_options = ["الكل"]
+            if not achievements_data.empty and "البرنامج" in achievements_data.columns:
+                programs = achievements_data["البرنامج"].dropna().unique()
+                program_options += sorted(programs)
+            
+            st.session_state.selected_program = st.selectbox(
+                "البرنامج", 
+                options=program_options, 
+                key="program_desktop"
+            )
+        
         with filter_cols[3]:
-            if "الأولوية" in tasks_data.columns:
-                all_priorities = ["الكل", "عالية", "متوسطة", "منخفضة"]
-                selected_priority = st.selectbox("الأولوية", all_priorities, key="priority_desktop")
-            else: selected_priority = "الكل"
+            # اختيار المهمة الرئيسية
+            st.session_state.selected_main_task = st.selectbox(
+                "المهمة الرئيسية", 
+                options=["الكل"] + main_tasks_list, 
+                key="main_task_desktop"
+            )
 
     # فلتر البحث بالنص
-    search_query = st.text_input("البحث في المهام", placeholder="ادخل اسم المهمة أو جزء من الوصف...")
+    search_query = st.text_input("البحث في المهام", placeholder="ادخل عنوان المهمة أو جزء من الوصف...")
 
     # تطبيق الفلاتر
-    filtered_tasks = tasks_data.copy()
-    if selected_status != "الكل" and "الحالة" in filtered_tasks.columns: 
-        filtered_tasks = filtered_tasks[filtered_tasks["الحالة"] == selected_status]
-    if selected_category != "الكل" and "الفئة" in filtered_tasks.columns: 
-        filtered_tasks = filtered_tasks[filtered_tasks["الفئة"] == selected_category]
-    if selected_member != "الكل" and "العضو المسؤول" in filtered_tasks.columns: 
-        if selected_member == "غير معين":
-            filtered_tasks = filtered_tasks[filtered_tasks["العضو المسؤول"].isna() | 
-                                            (filtered_tasks["العضو المسؤول"] == "") |
-                                            (filtered_tasks["العضو المسؤول"] == "غير معين")]
+    filtered_tasks = achievements_data.copy()
+    
+    # تطبيق الفلتر الزمني
+    current_date = datetime.now()
+    if st.session_state.time_filter == "آخر شهر":
+        filter_date = current_date - timedelta(days=30)
+        filtered_tasks = filtered_tasks[filtered_tasks["التاريخ"] >= filter_date]
+    elif st.session_state.time_filter == "آخر ستة أشهر":
+        filter_date = current_date - timedelta(days=180)
+        filtered_tasks = filtered_tasks[filtered_tasks["التاريخ"] >= filter_date]
+    elif st.session_state.time_filter == "آخر سنة":
+        filter_date = current_date - timedelta(days=365)
+        filtered_tasks = filtered_tasks[filtered_tasks["التاريخ"] >= filter_date]
+    elif st.session_state.time_filter == "آخر ثلاث سنوات":
+        filter_date = current_date - timedelta(days=365*3)
+        filtered_tasks = filtered_tasks[filtered_tasks["التاريخ"] >= filter_date]
+    
+    # تطبيق فلتر العضو
+    if st.session_state.selected_member != "الكل" and "اسم العضو" in filtered_tasks.columns:
+        filtered_tasks = filtered_tasks[filtered_tasks["اسم العضو"] == st.session_state.selected_member]
+    
+    # تطبيق فلتر الفئة
+    if st.session_state.selected_category != "الكل" and "الفئة" in filtered_tasks.columns:
+        filtered_tasks = filtered_tasks[filtered_tasks["الفئة"] == st.session_state.selected_category]
+    
+    # تطبيق فلتر البرنامج
+    if st.session_state.selected_program != "الكل" and "البرنامج" in filtered_tasks.columns:
+        filtered_tasks = filtered_tasks[filtered_tasks["البرنامج"] == st.session_state.selected_program]
+    
+    # تطبيق فلتر المهمة الرئيسية
+    if st.session_state.selected_main_task != "الكل" and "المهمة الرئيسية" in filtered_tasks.columns:
+        if st.session_state.selected_main_task == "— بدون مهمة رئيسية —":
+            filtered_tasks = filtered_tasks[(filtered_tasks["المهمة الرئيسية"].isna()) | 
+                                           (filtered_tasks["المهمة الرئيسية"] == "")]
         else:
-            filtered_tasks = filtered_tasks[filtered_tasks["العضو المسؤول"] == selected_member]
-    if selected_priority != "الكل" and "الأولوية" in filtered_tasks.columns: 
-        filtered_tasks = filtered_tasks[filtered_tasks["الأولوية"] == selected_priority]
+            filtered_tasks = filtered_tasks[filtered_tasks["المهمة الرئيسية"] == st.session_state.selected_main_task]
+    
+    # تطبيق فلتر البحث النصي
     if search_query:
-        search_cond = False
-        if "اسم المهمة" in filtered_tasks.columns:
-            search_cond = search_cond | filtered_tasks["اسم المهمة"].str.contains(search_query, case=False, na=False)
-        if "الوصف" in filtered_tasks.columns:
-            search_cond = search_cond | filtered_tasks["الوصف"].str.contains(search_query, case=False, na=False)
-        if "العضو المسؤول" in filtered_tasks.columns:
-            search_cond = search_cond | filtered_tasks["العضو المسؤول"].str.contains(search_query, case=False, na=False)
+        search_cond = pd.Series(False, index=filtered_tasks.index)
+        
+        if "عنوان المهمة" in filtered_tasks.columns:
+            search_cond = search_cond | filtered_tasks["عنوان المهمة"].astype(str).str.contains(search_query, case=False, na=False)
+        
+        if "وصف مختصر" in filtered_tasks.columns:
+            search_cond = search_cond | filtered_tasks["وصف مختصر"].astype(str).str.contains(search_query, case=False, na=False)
+        
         filtered_tasks = filtered_tasks[search_cond]
 
     # عرض قائمة المهام المصفاة
     if len(filtered_tasks) > 0:
         st.markdown(f"#### المهام المطابقة ({len(filtered_tasks)})")
+        filtered_tasks = filtered_tasks.sort_values(by="التاريخ", ascending=False)
         
         for i, task in filtered_tasks.iterrows():
-            render_task_card(task, i)
+            with st.container():
+                st.markdown("<div class='task-card completed'>", unsafe_allow_html=True)
+                
+                # معلومات المهمة الأساسية
+                task_title = task.get("عنوان المهمة", "مهمة غير محددة")
+                task_desc = task.get("وصف مختصر", "")
+                member_name = task.get("اسم العضو", "غير معين")
+                date_display = task.get("التاريخ", None)
+                formatted_date = date_display.strftime("%Y/%m/%d") if pd.notna(date_display) else ""
+                
+                # معلومات المهمة الإضافية
+                hours = float(task.get("عدد الساعات", 0))
+                points = float(task.get("عدد النقاط", 0))
+                complexity = task.get("مستوى التعقيد", "غير محدد")
+                category = task.get("الفئة", "غير مصنفة")
+                program = task.get("البرنامج", "غير محدد")
+                main_task = task.get("المهمة الرئيسية", "")
+                
+                # تحديد لون مستوى التعقيد
+                complexity_class = ""
+                if complexity == "منخفض":
+                    complexity_class = "badge-green"
+                elif complexity == "متوسط":
+                    complexity_class = "badge-orange"
+                elif complexity in ["عالي", "عالي جداً"]:
+                    complexity_class = "badge-red"
+                else:
+                    complexity_class = "badge-blue"
+                
+                # عرض معلومات المهمة
+                st.markdown(f"""
+                <div class="task-header">
+                    <div>
+                        <div class="task-title">{task_title}</div>
+                        <div style="font-size: 0.85rem; color: #666;">{member_name}</div>
+                    </div>
+                    <div>
+                        <span class="badge {complexity_class}">{complexity}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # عرض وصف المهمة إذا كان متوفرًا
+                if task_desc:
+                    st.markdown(f'<div style="font-size: 0.85rem; margin: 8px 0;">{task_desc}</div>', unsafe_allow_html=True)
+                
+                # عرض تفاصيل المهمة
+                st.markdown(f"""
+                <div class="task-details">
+                    <span class="task-detail-item">📅 {formatted_date}</span>
+                    <span class="task-detail-item">🏷️ {category}</span>
+                    <span class="task-detail-item">📚 {program}</span>
+                    {f'<span class="task-detail-item">🔗 {main_task}</span>' if main_task else ''}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # عرض المقاييس
+                st.markdown(f"""
+                <div class="task-metrics">
+                    <div class="task-metric">
+                        <div class="task-metric-value">{int(points)}</div>
+                        <div class="task-metric-label">النقاط</div>
+                    </div>
+                    <div class="task-metric">
+                        <div class="task-metric-value">{int(hours)}</div>
+                        <div class="task-metric-label">الساعات</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("لا توجد مهام مطابقة للفلاتر المحددة.")
+
 # =========================================
-# القسم 13: تبويب إنجازات الأعضاء
+# القسم 14: تبويب إنجازات الأعضاء
 # =========================================
 with main_tabs[2]:
     st.markdown("### إنجازات الأعضاء")
     
-    if not achievements_data.empty and "العضو" in achievements_data.columns:
+    if not achievements_data.empty and "اسم العضو" in achievements_data.columns:
         # حساب إجماليات كل عضو
-        member_summary = achievements_data.groupby("العضو").agg({
-            "النقاط": "sum",
-            "الساعات الافتراضية": "sum"
+        member_summary = achievements_data.groupby("اسم العضو").agg({
+            "عدد النقاط": "sum",
+            "عدد الساعات": "sum"
         }).reset_index()
         
         # عدد الإنجازات لكل عضو
-        achievement_counts = achievements_data.groupby("العضو").size().reset_index()
-        achievement_counts.columns = ["العضو", "عدد الإنجازات"]
+        achievement_counts = achievements_data.groupby("اسم العضو").size().reset_index()
+        achievement_counts.columns = ["اسم العضو", "عدد الإنجازات"]
         
         # دمج البيانات
-        member_summary = pd.merge(member_summary, achievement_counts, on="العضو", how="left")
+        member_summary = pd.merge(member_summary, achievement_counts, on="اسم العضو", how="left")
         
         # ترتيب حسب النقاط تنازليًا
-        member_summary = member_summary.sort_values("النقاط", ascending=False)
+        member_summary = member_summary.sort_values("عدد النقاط", ascending=False)
         
         # عرض مخطط للنقاط حسب الأعضاء
-        fig_points = px.bar(member_summary, y="العضو", x="النقاط", title="توزيع النقاط حسب الأعضاء",
-                          color="النقاط", orientation='h', color_continuous_scale="Blues")
+        fig_points = px.bar(member_summary, y="اسم العضو", x="عدد النقاط", title="توزيع النقاط حسب الأعضاء",
+                          color="عدد النقاط", orientation='h', color_continuous_scale="Blues")
         fig_points = prepare_chart_layout(fig_points, "توزيع النقاط حسب الأعضاء", is_mobile=mobile_view, chart_type="bar")
         st.plotly_chart(fig_points, use_container_width=True, config={"displayModeBar": False})
         
@@ -1288,9 +1342,9 @@ with main_tabs[2]:
         """, unsafe_allow_html=True)
         
         for i, (_, row) in enumerate(member_summary.iterrows()):
-            member_name = row["العضو"]
-            total_points = row["النقاط"]
-            total_hours = row["الساعات الافتراضية"]
+            member_name = row["اسم العضو"]
+            total_points = row["عدد النقاط"]
+            total_hours = row["عدد الساعات"]
             achievement_count = row["عدد الإنجازات"]
             avg_points = total_points / achievement_count if achievement_count > 0 else 0
             
@@ -1311,24 +1365,23 @@ with main_tabs[2]:
         st.markdown("#### تفاصيل إنجازات عضو محدد")
         
         selected_detail_member = st.selectbox("اختر العضو لعرض تفاصيل إنجازاته", 
-                                           ["اختر عضوًا..."] + member_summary["العضو"].tolist())
+                                           ["اختر عضوًا..."] + members_list)
         
         if selected_detail_member != "اختر عضوًا...":
-            member_achievements = achievements_data[achievements_data["العضو"] == selected_detail_member].copy()
+            member_achievements = achievements_data[achievements_data["اسم العضو"] == selected_detail_member].copy()
             
             if not member_achievements.empty:
-                member_achievements["التاريخ"] = pd.to_datetime(member_achievements["التاريخ"], errors='coerce')
                 member_achievements = member_achievements.sort_values("التاريخ", ascending=False)
                 
                 # معلومات ملخصة عن العضو
-                member_info = member_summary[member_summary["العضو"] == selected_detail_member].iloc[0]
+                member_info = member_summary[member_summary["اسم العضو"] == selected_detail_member].iloc[0]
                 
                 st.markdown(f"""
                 <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
                     <h3 style="margin-top: 0;">{selected_detail_member}</h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;">
                         <div style="flex: 1; min-width: 150px;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #1e88e5;">{int(member_info['النقاط'])}</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #1e88e5;">{int(member_info['عدد النقاط'])}</div>
                             <div style="font-size: 0.9rem; color: #666;">مجموع النقاط</div>
                         </div>
                         <div style="flex: 1; min-width: 150px;">
@@ -1336,7 +1389,7 @@ with main_tabs[2]:
                             <div style="font-size: 0.9rem; color: #666;">عدد الإنجازات</div>
                         </div>
                         <div style="flex: 1; min-width: 150px;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #F39C12;">{int(member_info['الساعات الافتراضية'])}</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #F39C12;">{int(member_info['عدد الساعات'])}</div>
                             <div style="font-size: 0.9rem; color: #666;">مجموع الساعات</div>
                         </div>
                     </div>
@@ -1347,26 +1400,31 @@ with main_tabs[2]:
                 st.markdown("##### قائمة الإنجازات")
                 
                 for i, achievement in member_achievements.iterrows():
-                    achievement_name = achievement.get("الإنجاز", "إنجاز غير محدد")
+                    achievement_title = achievement.get("عنوان المهمة", "مهمة غير محددة")
+                    achievement_desc = achievement.get("وصف مختصر", "")
                     achievement_date = achievement.get("التاريخ", None)
-                    achievement_points = achievement.get("النقاط", 0)
-                    achievement_hours = achievement.get("الساعات الافتراضية", 0)
-                    achievement_category = achievement.get("الفئة", "أخرى")
+                    achievement_points = float(achievement.get("عدد النقاط", 0))
+                    achievement_hours = float(achievement.get("عدد الساعات", 0))
+                    achievement_category = achievement.get("الفئة", "غير مصنفة")
+                    achievement_complexity = achievement.get("مستوى التعقيد", "غير محدد")
                     
                     formatted_date = achievement_date.strftime("%Y/%m/%d") if pd.notna(achievement_date) else ""
+                    complexity_class = "badge-green" if achievement_complexity == "منخفض" else ("badge-orange" if achievement_complexity == "متوسط" else "badge-red")
                     
                     st.markdown(f"""
                     <div class="task-card completed" style="margin-bottom: 8px;">
                         <div class="task-header">
                             <div>
-                                <div class="task-title">{achievement_name}</div>
+                                <div class="task-title">{achievement_title}</div>
                             </div>
                             <div>
-                                <span class="badge badge-blue">{achievement_category}</span>
+                                <span class="badge {complexity_class}">{achievement_complexity}</span>
                             </div>
                         </div>
+                        {f'<div style="font-size: 0.85rem; margin: 8px 0;">{achievement_desc}</div>' if achievement_desc else ''}
                         <div class="task-details">
                             <span class="task-detail-item">📅 {formatted_date}</span>
+                            <span class="task-detail-item">🏷️ {achievement_category}</span>
                         </div>
                         <div class="task-metrics">
                             <div class="task-metric">
@@ -1387,12 +1445,12 @@ with main_tabs[2]:
                     
                     # توزيع حسب الفئة
                     category_analysis = member_achievements.groupby("الفئة").agg({
-                        "النقاط": "sum",
-                        "الساعات الافتراضية": "sum"
+                        "عدد النقاط": "sum",
+                        "عدد الساعات": "sum"
                     }).reset_index()
                     
                     # عرض التوزيع حسب الفئة
-                    fig_member_category = px.pie(category_analysis, values="النقاط", names="الفئة", 
+                    fig_member_category = px.pie(category_analysis, values="عدد النقاط", names="الفئة", 
                                                title=f"توزيع نقاط {selected_detail_member} حسب الفئة",
                                                color_discrete_sequence=px.colors.qualitative.Set2)
                     fig_member_category = prepare_chart_layout(fig_member_category, f"توزيع نقاط {selected_detail_member}", is_mobile=mobile_view, chart_type="pie")
@@ -1402,15 +1460,15 @@ with main_tabs[2]:
                     if "التاريخ" in member_achievements.columns:
                         member_achievements["الشهر"] = member_achievements["التاريخ"].dt.to_period("M").astype(str)
                         monthly_analysis = member_achievements.groupby("الشهر").agg({
-                            "النقاط": "sum",
-                            "الساعات الافتراضية": "sum"
+                            "عدد النقاط": "sum",
+                            "عدد الساعات": "sum"
                         }).reset_index()
                         
                         monthly_analysis["sort_date"] = pd.to_datetime(monthly_analysis["الشهر"], format="%Y-%m")
                         monthly_analysis = monthly_analysis.sort_values("sort_date").reset_index(drop=True)
                         monthly_analysis = monthly_analysis.drop("sort_date", axis=1)
                         
-                        fig_monthly_member = px.line(monthly_analysis, x="الشهر", y=["النقاط", "الساعات الافتراضية"], 
+                        fig_monthly_member = px.line(monthly_analysis, x="الشهر", y=["عدد النقاط", "عدد الساعات"], 
                                                    title=f"تطور نقاط وساعات {selected_detail_member} حسب الشهر",
                                                    labels={"value": "العدد", "variable": "النوع", "الشهر": "الشهر"},
                                                    markers=True, color_discrete_sequence=["#1e88e5", "#27AE60"])
@@ -1422,272 +1480,9 @@ with main_tabs[2]:
         st.info("لا توجد بيانات كافية لعرض إنجازات الأعضاء.")
 
 # =========================================
-# =========================================
-# القسم 14: تبويب المهام الحالية والمخطط لها
-# =========================================
-with main_tabs[3]:
-    st.markdown("### المهام الحالية والمخطط لها")
-    
-    if not tasks_data.empty and "الحالة" in tasks_data.columns:
-        # تقسيم التبويب الداخلي إلى جزئين: المهام الجارية والمهام المخطط لها
-        inner_tabs = st.tabs(["المهام قيد التنفيذ", "المهام المخطط لها", "المهام غير المكتملة"])
-        
-        # 1. تبويب المهام قيد التنفيذ
-        with inner_tabs[0]:
-            in_progress_tasks = tasks_data[tasks_data["الحالة"] == "قيد التنفيذ"].copy()
-            
-            if not in_progress_tasks.empty:
-                # حاول ترتيب المهام حسب تاريخ الاستحقاق إذا كان متاحًا
-                if "تاريخ الاستحقاق" in in_progress_tasks.columns:
-                    in_progress_tasks["تاريخ الاستحقاق"] = pd.to_datetime(in_progress_tasks["تاريخ الاستحقاق"], errors='coerce')
-                    in_progress_tasks = in_progress_tasks.sort_values("تاريخ الاستحقاق")
-                
-                # إضافة عمود للأيام المتبقية حتى الاستحقاق
-                if "تاريخ الاستحقاق" in in_progress_tasks.columns:
-                    current_date = pd.to_datetime(datetime.now().date())
-                    in_progress_tasks["الأيام المتبقية"] = (in_progress_tasks["تاريخ الاستحقاق"] - current_date).dt.days
-                
-                # عنوان وعرض عدد المهام
-                st.markdown(f"#### المهام قيد التنفيذ ({len(in_progress_tasks)})")
-                
-                # عرض مخطط زمني للمهام
-                st.markdown('<div class="achievements-timeline">', unsafe_allow_html=True)
-                
-                for i, task in in_progress_tasks.iterrows():
-                    task_name = task.get("اسم المهمة", "مهمة غير محددة")
-                    member_name = task.get("العضو المسؤول", "")
-                    member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
-                    start_date = task.get("تاريخ البدء", "")
-                    due_date = task.get("تاريخ الاستحقاق", "")
-                    category = task.get("الفئة", "غير مصنفة")
-                    priority = task.get("الأولوية", "متوسطة")
-                    days_remaining = task.get("الأيام المتبقية", None)
-                    
-                    formatted_start = format_date(start_date)
-                    formatted_due = format_date(due_date)
-                    
-                    # تحديد لون المهمة بناءً على الأيام المتبقية
-                    timeline_class = "in-progress"
-                    days_text = ""
-                    if days_remaining is not None:
-                        if days_remaining < 0:
-                            days_text = f"<span style='color: #E74C3C;'>متأخرة بـ {abs(days_remaining)} يوم</span>"
-                        elif days_remaining == 0:
-                            days_text = "<span style='color: #F39C12;'>مستحقة اليوم</span>"
-                        else:
-                            days_text = f"<span style='color: #27AE60;'>متبقي {days_remaining} يوم</span>"
-                    
-                    # تحديد لون الأولوية
-                    priority_class = "badge-red" if priority == "عالية" else ("badge-orange" if priority == "متوسطة" else "badge-blue")
-                    
-                    st.markdown(f"""
-                    <div class="timeline-item">
-                        <div class="timeline-date">{formatted_due}</div>
-                        <div class="timeline-content {timeline_class}">
-                            <h4>{task_name}</h4>
-                            <p>{member_display} • {category}</p>
-                            <div class="timeline-meta">
-                                <div class="timeline-meta-item">
-                                    <span class="badge {priority_class}">{priority}</span>
-                                </div>
-                                <div class="timeline-meta-item">
-                                    {days_text}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # إضافة رسم بياني لتوزيع المهام قيد التنفيذ حسب العضو المسؤول
-                if "العضو المسؤول" in in_progress_tasks.columns:
-                    # التعامل مع العضو الغير معين
-                    in_progress_tasks["العضو المعروض"] = in_progress_tasks["العضو المسؤول"].apply(
-                        lambda x: "غير معين" if pd.isna(x) or x.strip() == "" else x
-                    )
-                    member_counts = in_progress_tasks["العضو المعروض"].value_counts().reset_index()
-                    member_counts.columns = ["العضو المسؤول", "عدد المهام"]
-                    
-                    fig_members = px.bar(member_counts, y="العضو المسؤول", x="عدد المهام", 
-                                      title="توزيع المهام قيد التنفيذ حسب العضو",
-                                      color="عدد المهام", orientation='h', color_continuous_scale="Oranges")
-                    fig_members = prepare_chart_layout(fig_members, "توزيع المهام قيد التنفيذ", is_mobile=mobile_view, chart_type="bar")
-                    st.plotly_chart(fig_members, use_container_width=True, config={"displayModeBar": False})
-            else:
-                st.info("لا توجد مهام قيد التنفيذ حاليًا.")
-        
-        # 2. تبويب المهام المخطط لها
-        with inner_tabs[1]:
-            planned_tasks = tasks_data[tasks_data["الحالة"] == "مخطط لها"].copy()
-            
-            if not planned_tasks.empty:
-                # إضافة تبويب جديد للتصفية بين "المهام المعينة" و"المهام غير المعينة"
-                assignment_tabs = st.radio(
-                    "عرض المهام المخطط لها",
-                    ["جميع المهام", "المهام المعينة", "المهام غير المعينة"],
-                    horizontal=True
-                )
-                
-                # تطبيق الفلتر حسب التعيين
-                filtered_planned = planned_tasks.copy()
-                if assignment_tabs == "المهام المعينة":
-                    filtered_planned = filtered_planned[filtered_planned["العضو المسؤول"].notna() & 
-                                                     (filtered_planned["العضو المسؤول"].str.strip() != "")]
-                elif assignment_tabs == "المهام غير المعينة":
-                    filtered_planned = filtered_planned[filtered_planned["العضو المسؤول"].isna() | 
-                                                      (filtered_planned["العضو المسؤول"].str.strip() == "")]
-                
-                # حاول ترتيب المهام حسب تاريخ البدء المخطط له إذا كان متاحًا
-                if "تاريخ البدء" in filtered_planned.columns:
-                    filtered_planned["تاريخ البدء"] = pd.to_datetime(filtered_planned["تاريخ البدء"], errors='coerce')
-                    filtered_planned = filtered_planned.sort_values("تاريخ البدء")
-                
-                # عنوان وعرض عدد المهام
-                st.markdown(f"#### المهام المخطط لها ({len(filtered_planned)})")
-                
-                # عرض مخطط زمني للمهام المخطط لها
-                st.markdown('<div class="achievements-timeline">', unsafe_allow_html=True)
-                
-                for i, task in filtered_planned.iterrows():
-                    task_name = task.get("اسم المهمة", "مهمة غير محددة")
-                    member_name = task.get("العضو المسؤول", "")
-                    member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
-                    start_date = task.get("تاريخ البدء", "")
-                    due_date = task.get("تاريخ الاستحقاق", "")
-                    category = task.get("الفئة", "غير مصنفة")
-                    priority = task.get("الأولوية", "متوسطة")
-                    
-                    formatted_start = format_date(start_date)
-                    formatted_due = format_date(due_date)
-                    
-                    # تحديد لون الأولوية
-                    priority_class = "badge-red" if priority == "عالية" else ("badge-orange" if priority == "متوسطة" else "badge-blue")
-                    
-                    st.markdown(f"""
-                    <div class="timeline-item">
-                        <div class="timeline-date">{formatted_start}</div>
-                        <div class="timeline-content planned">
-                            <h4>{task_name}</h4>
-                            <p>{member_display} • {category}</p>
-                            <div class="timeline-meta">
-                                <div class="timeline-meta-item">
-                                    <span class="badge {priority_class}">{priority}</span>
-                                </div>
-                                <div class="timeline-meta-item">
-                                    تاريخ الاستحقاق: {formatted_due}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # إضافة رسم بياني لتوزيع المهام المخطط لها حسب الفئة
-                if "الفئة" in filtered_planned.columns:
-                    category_counts = filtered_planned["الفئة"].value_counts().reset_index()
-                    category_counts.columns = ["الفئة", "عدد المهام"]
-                    
-                    fig_categories = px.pie(category_counts, values="عدد المهام", names="الفئة", 
-                                         title="توزيع المهام المخطط لها حسب الفئة",
-                                         color_discrete_sequence=px.colors.qualitative.Set2)
-                    fig_categories = prepare_chart_layout(fig_categories, "توزيع المهام المخطط لها", is_mobile=mobile_view, chart_type="pie")
-                    st.plotly_chart(fig_categories, use_container_width=True, config={"displayModeBar": False})
-            else:
-                st.info("لا توجد مهام مخطط لها حاليًا.")
-        
-        # 3. تبويب المهام غير المكتملة (مدمجة)
-        with inner_tabs[2]:
-            # جمع المهام قيد التنفيذ والمخطط لها معًا
-            incomplete_tasks = tasks_data[(tasks_data["الحالة"] == "قيد التنفيذ") | (tasks_data["الحالة"] == "مخطط لها")].copy()
-            
-            if not incomplete_tasks.empty:
-                # جدول تفصيلي للمهام غير المكتملة
-                st.markdown(f"#### جميع المهام غير المكتملة ({len(incomplete_tasks)})")
-                
-                # إضافة فلتر بسيط
-                filter_options = ["جميع المهام", "الأولوية العالية", "المهام المتأخرة", "قيد التنفيذ فقط", "مخطط لها فقط", "غير معينة"]
-                selected_filter = st.selectbox("تصفية المهام", filter_options, key="incomplete_filter")
-                
-                # تطبيق الفلتر المختار
-                filtered_incomplete = incomplete_tasks.copy()
-                if selected_filter == "الأولوية العالية":
-                    filtered_incomplete = filtered_incomplete[filtered_incomplete["الأولوية"] == "عالية"]
-                elif selected_filter == "المهام المتأخرة":
-                    if "تاريخ الاستحقاق" in filtered_incomplete.columns:
-                        filtered_incomplete["تاريخ الاستحقاق"] = pd.to_datetime(filtered_incomplete["تاريخ الاستحقاق"], errors='coerce')
-                        current_date = pd.to_datetime(datetime.now().date())
-                        filtered_incomplete = filtered_incomplete[filtered_incomplete["تاريخ الاستحقاق"] < current_date]
-                elif selected_filter == "قيد التنفيذ فقط":
-                    filtered_incomplete = filtered_incomplete[filtered_incomplete["الحالة"] == "قيد التنفيذ"]
-                elif selected_filter == "مخطط لها فقط":
-                    filtered_incomplete = filtered_incomplete[filtered_incomplete["الحالة"] == "مخطط لها"]
-                elif selected_filter == "غير معينة":
-                    filtered_incomplete = filtered_incomplete[filtered_incomplete["العضو المسؤول"].isna() | 
-                                                           (filtered_incomplete["العضو المسؤول"].str.strip() == "")]
-                
-                # ترتيب المهام حسب الحالة ثم تاريخ الاستحقاق
-                if "تاريخ الاستحقاق" in filtered_incomplete.columns:
-                    filtered_incomplete["تاريخ الاستحقاق"] = pd.to_datetime(filtered_incomplete["تاريخ الاستحقاق"], errors='coerce')
-                    filtered_incomplete = filtered_incomplete.sort_values(["الحالة", "تاريخ الاستحقاق"])
-                
-                # عرض الجدول
-                if len(filtered_incomplete) > 0:
-                    st.markdown("""
-                    <table class="achievements-table">
-                        <tr>
-                            <th>المهمة</th>
-                            <th>العضو المسؤول</th>
-                            <th>الفئة</th>
-                            <th>تاريخ الاستحقاق</th>
-                            <th>الحالة</th>
-                            <th>الأولوية</th>
-                        </tr>
-                    """, unsafe_allow_html=True)
-                    
-                    for _, task in filtered_incomplete.iterrows():
-                        task_name = task.get("اسم المهمة", "مهمة غير محددة")
-                        member_name = task.get("العضو المسؤول", "")
-                        member_display = member_name if pd.notna(member_name) and member_name.strip() != "" else "غير معين"
-                        category = task.get("الفئة", "غير مصنفة")
-                        due_date = format_date(task.get("تاريخ الاستحقاق", ""))
-                        status = task.get("الحالة", "غير محدد")
-                        priority = task.get("الأولوية", "متوسطة")
-                        
-                        # تحديد لون الصف بناءً على الحالة
-                        row_style = "background-color: rgba(243, 156, 18, 0.05);" if status == "قيد التنفيذ" else "background-color: rgba(231, 76, 60, 0.05);"
-                        
-                        # تحديد لون الأولوية
-                        priority_class = "badge-red" if priority == "عالية" else ("badge-orange" if priority == "متوسطة" else "badge-blue")
-                        
-                        # تحديد لون الحالة
-                        status_class = get_status_badge(status)
-                        
-                        st.markdown(f"""
-                        <tr style="{row_style}">
-                            <td>{task_name}</td>
-                            <td>{member_display}</td>
-                            <td>{category}</td>
-                            <td>{due_date}</td>
-                            <td><span class="badge {status_class}">{status}</span></td>
-                            <td><span class="badge {priority_class}">{priority}</span></td>
-                        </tr>
-                        """, unsafe_allow_html=True)
-                    
-                    st.markdown("</table>", unsafe_allow_html=True)
-                else:
-                    st.info("لا توجد مهام مطابقة للفلتر المحدد.")
-            else:
-                st.info("جميع المهام منجزة!")
-    else:
-        st.info("لا توجد بيانات كافية لعرض المهام الحالية والمخطط لها.")
-        
-# =========================================
-# =========================================
 # القسم 15: تبويب تحليل الإنجازات
 # =========================================
-with main_tabs[4]:
+with main_tabs[3]:
     st.markdown("### تحليل الإنجازات")
     
     if not achievements_data.empty:
@@ -1700,7 +1495,7 @@ with main_tabs[4]:
             category_counts.columns = ["الفئة", "عدد الإنجازات"]
             
             # حساب مجموع النقاط لكل فئة
-            category_points = achievements_data.groupby("الفئة")["النقاط"].sum().reset_index()
+            category_points = achievements_data.groupby("الفئة")["عدد النقاط"].sum().reset_index()
             category_points.columns = ["الفئة", "مجموع النقاط"]
             
             # دمج البيانات
@@ -1804,14 +1599,13 @@ with main_tabs[4]:
         
         if "التاريخ" in achievements_data.columns:
             # تحويل التاريخ وإضافة عمود الشهر والسنة
-            achievements_data["التاريخ"] = pd.to_datetime(achievements_data["التاريخ"], errors='coerce')
             achievements_data["الشهر"] = achievements_data["التاريخ"].dt.to_period("M").astype(str)
             achievements_data["السنة"] = achievements_data["التاريخ"].dt.year
             
             # تحليل الإنجازات حسب السنة - مع تسمية واضحة للأعمدة
             yearly_data = achievements_data.groupby("السنة").agg({
-                "النقاط": "sum",
-                "الساعات الافتراضية": "sum"
+                "عدد النقاط": "sum",
+                "عدد الساعات": "sum"
             }).reset_index()
             # إعادة تسمية الأعمدة بشكل واضح
             yearly_data.columns = ["السنة", "مجموع النقاط", "مجموع الساعات"]
@@ -1840,8 +1634,8 @@ with main_tabs[4]:
             if not year_data.empty:
                 # تجميع البيانات حسب الشهر - مع تسمية واضحة للأعمدة
                 monthly_data = year_data.groupby("الشهر").agg({
-                    "النقاط": "sum",
-                    "الساعات الافتراضية": "sum"
+                    "عدد النقاط": "sum",
+                    "عدد الساعات": "sum"
                 }).reset_index()
                 
                 # إعادة تسمية الأعمدة بشكل واضح
@@ -1876,52 +1670,116 @@ with main_tabs[4]:
             st.info("لا توجد بيانات تاريخ كافية لإجراء تحليل زمني.")
         
         # 3. تحليل العلاقة بين عدد الساعات والنقاط
-        st.subheader("تحليل العلاقة بين الساعات الافتراضية والنقاط")
+        st.subheader("تحليل العلاقة بين الساعات والنقاط")
         
-        if "النقاط" in achievements_data.columns and "الساعات الافتراضية" in achievements_data.columns:
-            # إنشاء مخطط النقاط بين الساعات الافتراضية والنقاط
-            fig_scatter = px.scatter(achievements_data, x="الساعات الافتراضية", y="النقاط", 
+        if "عدد النقاط" in achievements_data.columns and "عدد الساعات" in achievements_data.columns:
+            # إنشاء مخطط النقاط بين الساعات والنقاط
+            fig_scatter = px.scatter(achievements_data, x="عدد الساعات", y="عدد النقاط", 
                                    color="الفئة" if "الفئة" in achievements_data.columns else None,
-                                   size="النقاط", hover_name="الإنجاز" if "الإنجاز" in achievements_data.columns else None,
-                                   title="العلاقة بين الساعات الافتراضية والنقاط",
-                                   labels={"الساعات الافتراضية": "الساعات الافتراضية", "النقاط": "النقاط"},
+                                   size="عدد النقاط", hover_name="عنوان المهمة" if "عنوان المهمة" in achievements_data.columns else None,
+                                   title="العلاقة بين الساعات والنقاط",
+                                   labels={"عدد الساعات": "الساعات", "عدد النقاط": "النقاط"},
                                    color_discrete_sequence=px.colors.qualitative.Set2)
             fig_scatter = prepare_chart_layout(fig_scatter, "العلاقة بين الساعات والنقاط", is_mobile=mobile_view, chart_type="scatter")
             st.plotly_chart(fig_scatter, use_container_width=True, config={"displayModeBar": False})
             
             # حساب معامل الارتباط
-            correlation = achievements_data["الساعات الافتراضية"].corr(achievements_data["النقاط"])
+            correlation = achievements_data["عدد الساعات"].corr(achievements_data["عدد النقاط"])
             
             # عرض معامل الارتباط
             st.markdown(f"""
             <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin: 15px 0;">
-                <h4 style="margin-top: 0;">معامل الارتباط بين الساعات الافتراضية والنقاط</h4>
+                <h4 style="margin-top: 0;">معامل الارتباط بين الساعات والنقاط</h4>
                 <div style="font-size: 1.5rem; font-weight: bold; color: #1e88e5; text-align: center; margin: 10px 0;">{correlation:.2f}</div>
                 <p style="margin-bottom: 0;">
                     {"ارتباط قوي موجب" if correlation > 0.7 else "ارتباط متوسط" if correlation > 0.4 else "ارتباط ضعيف"}
-                    بين عدد الساعات الافتراضية والنقاط المكتسبة.
+                    بين عدد الساعات والنقاط المكتسبة.
                 </p>
             </div>
             """, unsafe_allow_html=True)
             
             # حساب متوسط النقاط لكل ساعة
-            avg_points_per_hour = achievements_data["النقاط"].sum() / achievements_data["الساعات الافتراضية"].sum() if achievements_data["الساعات الافتراضية"].sum() > 0 else 0
+            avg_points_per_hour = achievements_data["عدد النقاط"].sum() / achievements_data["عدد الساعات"].sum() if achievements_data["عدد الساعات"].sum() > 0 else 0
             
             st.markdown(f"""
             <div style="padding: 15px; background-color: #f0f2f6; border-radius: 8px; margin: 15px 0;">
-                <h4 style="margin-top: 0;">متوسط النقاط لكل ساعة افتراضية</h4>
+                <h4 style="margin-top: 0;">متوسط النقاط لكل ساعة</h4>
                 <div style="font-size: 1.5rem; font-weight: bold; color: #27AE60; text-align: center; margin: 10px 0;">{avg_points_per_hour:.2f}</div>
                 <p style="margin-bottom: 0;">
-                    متوسط عدد النقاط المكتسبة لكل ساعة افتراضية من الإنجازات.
+                    متوسط عدد النقاط المكتسبة لكل ساعة من الإنجازات.
                 </p>
             </div>
             """, unsafe_allow_html=True)
+            
+            # 4. تحليل حسب مستوى التعقيد
+            if "مستوى التعقيد" in achievements_data.columns:
+                st.subheader("تحليل حسب مستوى التعقيد")
+                
+                # تجميع البيانات حسب مستوى التعقيد
+                complexity_data = achievements_data.groupby("مستوى التعقيد").agg({
+                    "عدد النقاط": ["sum", "mean"],
+                    "عدد الساعات": ["sum", "mean"]
+                }).reset_index()
+                
+                # تنظيم الأعمدة
+                complexity_data.columns = ["مستوى التعقيد", "مجموع النقاط", "متوسط النقاط", "مجموع الساعات", "متوسط الساعات"]
+                
+                # ترتيب مستويات التعقيد
+                complexity_order = {level: i for i, level in enumerate(COMPLEXITY_LEVELS)}
+                complexity_data["الترتيب"] = complexity_data["مستوى التعقيد"].map(complexity_order)
+                complexity_data = complexity_data.sort_values("الترتيب").drop("الترتيب", axis=1)
+                
+                # إنشاء جدول تفصيلي
+                st.markdown("""
+                <table class="aligned-table">
+                    <tr>
+                        <th>مستوى التعقيد</th>
+                        <th>عدد المهام</th>
+                        <th>مجموع النقاط</th>
+                        <th>متوسط النقاط</th>
+                        <th>مجموع الساعات</th>
+                        <th>متوسط الساعات</th>
+                        <th>متوسط النقاط/ساعة</th>
+                    </tr>
+                """, unsafe_allow_html=True)
+                
+                complexity_counts = achievements_data["مستوى التعقيد"].value_counts().to_dict()
+                
+                for _, row in complexity_data.iterrows():
+                    complexity = row["مستوى التعقيد"]
+                    task_count = complexity_counts.get(complexity, 0)
+                    total_points = row["مجموع النقاط"]
+                    avg_points = row["متوسط النقاط"]
+                    total_hours = row["مجموع الساعات"]
+                    avg_hours = row["متوسط الساعات"]
+                    points_per_hour = avg_points / avg_hours if avg_hours > 0 else 0
+                    
+                    st.markdown(f"""
+                    <tr>
+                        <td>{complexity}</td>
+                        <td>{task_count}</td>
+                        <td>{int(total_points)}</td>
+                        <td>{avg_points:.1f}</td>
+                        <td>{int(total_hours)}</td>
+                        <td>{avg_hours:.1f}</td>
+                        <td>{points_per_hour:.2f}</td>
+                    </tr>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("</table>", unsafe_allow_html=True)
+                
+                # إنشاء رسم بياني لمتوسط النقاط والساعات حسب مستوى التعقيد
+                fig_avg_complexity = px.bar(complexity_data, x="مستوى التعقيد", y=["متوسط النقاط", "متوسط الساعات"], 
+                                         barmode="group", title="متوسط النقاط والساعات حسب مستوى التعقيد",
+                                         color_discrete_sequence=["#1e88e5", "#27AE60"])
+                fig_avg_complexity = prepare_chart_layout(fig_avg_complexity, "متوسط النقاط والساعات", is_mobile=mobile_view, chart_type="bar")
+                st.plotly_chart(fig_avg_complexity, use_container_width=True, config={"displayModeBar": False})
         else:
-            st.info("لا توجد بيانات كافية لتحليل العلاقة بين الساعات الافتراضية والنقاط.")
+            st.info("لا توجد بيانات كافية لتحليل العلاقة بين الساعات والنقاط.")
     else:
         st.info("لا توجد بيانات كافية لإجراء تحليل الإنجازات.")
 
-# القسم 16: نصائح الاستخدام وتذييل الصفحة
+# نصائح الاستخدام وتذييل الصفحة
 # =========================================
 with st.expander("💡 نصائح للاستخدام", expanded=False):
     st.markdown("""
@@ -1930,8 +1788,7 @@ with st.expander("💡 نصائح للاستخدام", expanded=False):
     - **لوحة المعلومات:** تعرض نظرة عامة على الإنجازات والمهام مع رسوم بيانية تفاعلية.
     - **قائمة المهام:** تتيح البحث والتصفية في جميع المهام وعرض تفاصيلها.
     - **إنجازات الأعضاء:** تعرض إنجازات كل عضو بشكل تفصيلي مع إمكانية اختيار عضو محدد.
-    - **المهام الحالية والمخطط لها:** تعرض المهام قيد التنفيذ والمخطط لها مع تنبيهات للمهام المتأخرة.
-    - **تحليل الإنجازات:** يوفر تحليلات متعمقة للإنجازات حسب الفئة والوقت.
+    - **تحليل الإنجازات:** يوفر تحليلات متعمقة للإنجازات حسب الفئة والوقت ومستوى التعقيد.
     - **الرسوم البيانية تفاعلية:** مرر الفأرة فوقها لرؤية التفاصيل.
     - **التبويبات:** انقر على التبويبات المختلفة للتنقل بين أقسام الصفحة.
     - **للعودة إلى أعلى الصفحة:** انقر على زر السهم ↑ في أسفل يسار الشاشة.
