@@ -870,27 +870,68 @@ if not achievements_data.empty and "التاريخ" in achievements_data.columns
     current_month_achievements = achievements_data[current_month_mask].shape[0]
 
 # =========================================
-# القسم 10: عرض المقاييس الإجمالية
+# القسم 10: عرض المقاييس الإجمالية (المحدّثة للنظرة العامة)
 # =========================================
 st.subheader("نظرة عامة")
+
+# حساب المؤشرات للنظرة العامة
+total_tasks = len(achievements_data)
+total_hours = achievements_data["عدد الساعات"].astype(float).sum() if "عدد الساعات" in achievements_data.columns else 0
+active_members_count = achievements_data["اسم العضو"].nunique() if "اسم العضو" in achievements_data.columns else 0
+active_percentage = (active_members_count / total_members) * 100 if total_members > 0 else 0
+
+# تحديد العضو الأكثر نشاطًا (حسب الساعات)
+most_active_member = None
+if not achievements_data.empty and "اسم العضو" in achievements_data.columns and "عدد الساعات" in achievements_data.columns:
+    member_hours = achievements_data.groupby("اسم العضو")["عدد الساعات"].sum()
+    if not member_hours.empty:
+        most_active_member = member_hours.idxmax()
+
+# تحديد المهمة الأساسية الأكثر ساعات
+top_main_task = None
+if not achievements_data.empty and "المهمة الرئيسية" in achievements_data.columns and "عدد الساعات" in achievements_data.columns:
+    # استبعاد القيم الفارغة
+    task_data = achievements_data[achievements_data["المهمة الرئيسية"].notna() & (achievements_data["المهمة الرئيسية"] != "")]
+    if not task_data.empty:
+        main_task_hours = task_data.groupby("المهمة الرئيسية")["عدد الساعات"].sum()
+        if not main_task_hours.empty:
+            top_main_task = main_task_hours.idxmax()
 
 # عرض المقاييس في صف (أو 3x2 في الجوال)
 if mobile_view:
     row1_cols = st.columns(2)
     row2_cols = st.columns(2)
-    row3_cols = st.columns(2)
-    metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1], row3_cols[0], row3_cols[1]]
+    row3_cols = st.columns(1)
+    metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1], row3_cols[0]]
 else:
-    metric_cols = st.columns(6)
+    metric_cols = st.columns(5)
 
-# عرض المقاييس
-with metric_cols[0]: st.metric("إجمالي المهام", f"{total_tasks:,}")
-with metric_cols[1]: st.metric("الأعضاء النشطين", f"{active_members:,} من {total_members:,}")
-with metric_cols[2]: st.metric("مجموع النقاط", f"{total_points:,.0f}")
-with metric_cols[3]: st.metric("مجموع الساعات", f"{total_hours:,.0f}")
-with metric_cols[4]: st.metric("متوسط النقاط", f"{total_points/total_tasks:.1f}" if total_tasks > 0 else "0")
-with metric_cols[5]: st.metric("إنجازات الشهر", f"{current_month_achievements:,}")
+# عرض المؤشرات الرئيسية الخمسة
+with metric_cols[0]:
+    st.metric("إجمالي المهام", f"{total_tasks:,}")
 
+with metric_cols[1]:
+    st.metric("إجمالي الساعات", f"{total_hours:,.0f}")
+
+with metric_cols[2]:
+    st.metric(
+        "الأعضاء النشطين", 
+        f"{active_members_count:,} ({active_percentage:.0f}%)"
+    )
+
+with metric_cols[3]:
+    if most_active_member:
+        st.metric("الأكثر نشاطًا", f"{most_active_member}")
+    else:
+        st.metric("الأكثر نشاطًا", "لا توجد بيانات")
+
+with metric_cols[4]:
+    if top_main_task:
+        # اختصار اسم المهمة إذا كان طويلاً
+        task_name = top_main_task if len(top_main_task) < 15 else top_main_task[:12] + "..."
+        st.metric("المهمة الأكثر ساعات", f"{task_name}")
+    else:
+        st.metric("المهمة الأكثر ساعات", "لا توجد بيانات")
 # =========================================
 # القسم 11: إعداد التبويبات الرئيسية
 # =========================================
