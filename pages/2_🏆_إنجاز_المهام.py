@@ -9,21 +9,21 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import dateutil.relativedelta
-import hashlib
 import os
 import numpy as np
+import io # Required for CSV export
+import traceback # For detailed error logging
 
 # --- إعدادات الصفحة ---
 st.set_page_config(
-    page_title="إنجاز المهام | قسم القراءات",
-    page_icon="🏆",
+    page_title="لوحة إنجاز المهام | قسم القراءات", # عنوان محدث
+    page_icon="📊", # أيقونة محدثة
     layout="wide"
 )
 
 # =========================================
-# القسم 2: تنسيقات CSS للقائمة والصفحة
+# القسم 2: تنسيقات CSS (مع تعديلات طفيفة)
 # =========================================
-# ملاحظة: تم إضافة تنسيقات جديدة وتعديل بعض التنسيقات الموجودة
 responsive_menu_css = """
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -45,7 +45,7 @@ responsive_menu_css = """
     /* --- تنسيق شريط التنقل العلوي (للسطح المكتب) --- */
     .top-navbar {
         background-color: #f8f9fa; padding: 0.4rem 1rem; border-bottom: 1px solid #e7e7e7;
-        width: 100%; box-sizing: border-box;
+        width: 100%; box-sizing: border-box; margin-bottom: 1rem; /* Add margin below navbar */
     }
     .top-navbar ul { list-style: none; padding: 0; margin: 0; display: flex; justify-content: flex-start; align-items: center; flex-wrap: wrap; }
     .top-navbar li { position: relative; margin-left: 1rem; margin-bottom: 0.2rem; }
@@ -80,234 +80,30 @@ responsive_menu_css = """
     .mobile-menu-checkbox:checked ~ .mobile-menu-overlay { display: block; }
 
     /* --- تنسيقات عامة --- */
-    h1,h2,h3 { color: #1e88e5; font-weight: 600; }
-    h1 { padding-bottom: 10px; border-bottom: 1px solid #1e88e5; margin-bottom: 20px; font-size: calc(1rem + 0.6vw); }
-    h2 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.4vw); }
-    h3 { margin-top: 25px; margin-bottom: 15px; font-size: calc(0.9rem + 0.1vw); }
-    .metric-card { background-color: white; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); text-align: center; margin-bottom: 12px; }
-    .chart-container { background-color: white; border-radius: 8px; padding: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); margin-bottom: 15px; width: 100%; overflow: hidden; }
-    .stSelectbox label, .stMultiselect label, .stRadio label { font-weight: 500; font-size: 0.95rem; }
+    h1,h2,h3, h4 { color: #1e88e5; font-weight: 600; }
+    h1 { padding-bottom: 10px; border-bottom: 1px solid #1e88e5; margin-bottom: 20px; font-size: calc(1.1rem + 0.6vw); } /* Slightly smaller H1 */
+    h2 { margin-top: 25px; margin-bottom: 15px; font-size: calc(1rem + 0.4vw); }
+    h3 { margin-top: 20px; margin-bottom: 10px; font-size: calc(0.9rem + 0.2vw); }
+    h4 { margin-top: 15px; margin-bottom: 8px; font-size: calc(0.9rem + 0.1vw); color: #333; } /* Sub-headers within tabs */
+
+    .metric-card { background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); text-align: center; margin-bottom: 15px; height: 100%; display: flex; flex-direction: column; justify-content: center; } /* Ensure cards have same height in a row */
+    .chart-container { background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); margin-bottom: 15px; width: 100%; overflow: hidden; }
+    .stSelectbox label, .stMultiselect label, .stRadio label { font-weight: 500; font-size: 0.9rem; } /* Slightly smaller filter labels */
+    .stButton>button { background-color: #1e88e5; color: white; border-radius: 5px; padding: 0.3rem 1rem;}
+    .stButton>button:hover { background-color: #1565c0; color: white;}
+
     .back-to-top { position: fixed; bottom: 15px; left: 15px; width: 35px; height: 35px; background-color: #1e88e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 998; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: scale(0); }
     .back-to-top.visible { opacity: 1; transform: scale(1); }
     .back-to-top span { font-size: 1rem; }
 
-    /* تلوين البطاقات حسب قيمة المؤشر */
-    .metric-card.positive { background-color: rgba(39, 174, 96, 0.1); }
-    .metric-card.warning { background-color: rgba(241, 196, 15, 0.1); }
-    .metric-card.negative { background-color: rgba(231, 76, 60, 0.1); }
-
     /* خطوط المقاييس داخل البطاقات */
-    [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
-    [data-testid="stMetricLabel"] { font-size: 0.85rem !important; }
+    [data-testid="stMetricValue"] { font-size: 1.8rem !important; font-weight: 600; color: #1e88e5; }
+    [data-testid="stMetricLabel"] { font-size: 0.85rem !important; color: #555; }
+    [data-testid="stMetricDelta"] { font-size: 0.8rem !important; } /* Style delta if used */
 
-    /* --- تنسيقات خاصة بصفحة إنجاز المهام --- */
-    .task-card {
-        background-color: white;
-        border-radius: 8px;
-        border-right: 4px solid #1e88e5;
-        padding: 15px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-        display: flex;
-        flex-direction: column;
-    }
-    .task-card.completed { border-right-color: #27AE60; }
-    .task-card.in-progress { border-right-color: #F39C12; }
-    .task-card.planned { border-right-color: #E74C3C; }
-
-    .task-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 10px;
-    }
-    .task-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1e88e5;
-        margin-bottom: 3px;
-    }
-    .task-details {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 5px;
-    }
-    .task-detail-item {
-        font-size: 0.8rem;
-        background-color: #f0f2f6;
-        padding: 3px 6px;
-        border-radius: 4px;
-        white-space: nowrap;
-    }
-    .task-metrics {
-        display: flex;
-        gap: 10px;
-        margin-top: 8px;
-    }
-    .task-metric {
-        text-align: center;
-        flex-grow: 1;
-        padding: 4px;
-        border-radius: 5px;
-        background-color: rgba(30, 136, 229, 0.05);
-    }
-    .task-metric-value {
-        font-size: 1.1rem;
-        font-weight: bold;
-        color: #1e88e5;
-    }
-    .task-metric-label {
-        font-size: 0.75rem;
-        color: #666;
-    }
-
-    /* تنسيق قائمة المهام وجداول الأعضاء */
-    .achievements-table {
-        width: 100%;
-        table-layout: fixed; /* ضمان اتساق عرض الأعمدة */
-        border-collapse: collapse;
-        direction: rtl;
-        margin-top: 15px;
-        overflow-x: auto; /* Add horizontal scroll for very small screens if needed */
-    }
-    .achievements-table th, .achievements-table td {
-        text-align: center; /* Center align most columns */
-        padding: 8px 10px; /* Adjust padding */
-        border-bottom: 1px solid #eee;
-        border-left: 1px solid #eee; /* Add vertical lines */
-        font-size: 0.85rem;
-        vertical-align: middle; /* Ensure vertical alignment */
-        white-space: nowrap; /* Prevent text wrapping initially */
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .achievements-table th:first-child, .achievements-table td:first-child { border-right: 1px solid #eee; } /* Add right border to first column */
-    .achievements-table th {
-        background-color: #f0f2f6;
-        font-weight: 600;
-        font-size: 0.9rem;
-        position: sticky; /* Make header sticky */
-        top: 0; /* Stick to the top */
-        z-index: 1; /* Ensure header is above table content */
-    }
-     .achievements-table td:nth-child(2) { /* Member name column */
-        text-align: right; /* Right align member names */
-        white-space: normal; /* Allow member names to wrap if needed */
-    }
-    .achievements-table tr:hover {
-        background-color: rgba(30, 136, 229, 0.05);
-    }
-
-    /* تحديد عرض الأعمدة لجدول بيانات الأعضاء التفصيلية */
-    .member-details-table th:nth-child(1), .member-details-table td:nth-child(1) { width: 5%; } /* # */
-    .member-details-table th:nth-child(2), .member-details-table td:nth-child(2) { width: 30%; text-align: right;} /* العضو */
-    .member-details-table th:nth-child(3), .member-details-table td:nth-child(3) { width: 12%; } /* عدد الإنجازات */
-    .member-details-table th:nth-child(4), .member-details-table td:nth-child(4) { width: 13%; } /* مجموع النقاط */
-    .member-details-table th:nth-child(5), .member-details-table td:nth-child(5) { width: 13%; } /* مجموع الساعات */
-    .member-details-table th:nth-child(6), .member-details-table td:nth-child(6) { width: 12%; } /* متوسط النقاط */
-    .member-details-table th:nth-child(7), .member-details-table td:nth-child(7) { width: 15%; } /* مستوى الإنجاز */
-
-
-    /* تنسيق الشارات */
-    .badge {
-        display: inline-block;
-        padding: 3px 8px;
-        border-radius: 10px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        margin-right: 4px;
-        white-space: nowrap;
-    }
-    .badge-blue { background-color: rgba(30, 136, 229, 0.1); color: #1e88e5; }
-    .badge-green { background-color: rgba(39, 174, 96, 0.1); color: #27AE60; }
-    .badge-orange { background-color: rgba(243, 156, 18, 0.1); color: #F39C12; }
-    .badge-red { background-color: rgba(231, 76, 60, 0.1); color: #E74C3C; }
-
-    /* تنسيق مخطط الإنجازات */
-    .achievements-timeline {
-        margin-top: 20px;
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-    }
-    .timeline-item {
-        display: flex;
-        margin-bottom: 15px;
-        position: relative;
-    }
-    .timeline-date {
-        width: 100px;
-        text-align: left;
-        padding-left: 10px;
-        font-size: 0.8rem;
-        color: #666;
-    }
-    .timeline-content {
-        flex-grow: 1;
-        background-color: white;
-        padding: 10px;
-        border-radius: 5px;
-        border-right: 3px solid #1e88e5;
-        position: relative;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-    .timeline-content.completed { border-right-color: #27AE60; }
-    .timeline-content.in-progress { border-right-color: #F39C12; }
-    .timeline-content.planned { border-right-color: #E74C3C; }
-
-    .timeline-content h4 {
-        margin: 0;
-        font-size: 0.95rem;
-        color: #1e88e5;
-    }
-    .timeline-content p {
-        margin: 5px 0 0;
-        font-size: 0.85rem;
-        color: #666;
-    }
-    .timeline-meta {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 8px;
-    }
-    .timeline-meta-item {
-        font-size: 0.75rem;
-        color: #777;
-    }
-
-    /* تنسيق عرض الأعضاء المتميزين */
-    .member-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e3e6f0 100%);
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    }
-    .member-name {
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: #1e88e5;
-        margin-bottom: 3px;
-    }
-    .member-stats {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 5px;
-    }
-    .member-stat {
-        text-align: center;
-        flex-grow: 1;
-    }
-    .member-stat-value {
-        font-size: 1rem;
-        font-weight: bold;
-        color: #1e88e5;
-    }
-    .member-stat-label {
-        font-size: 0.7rem;
-        color: #666;
-    }
+    /* تنسيق الجداول */
+    .stDataFrame, .stDataEditor { width: 100%; }
+    .stDataFrame table, .stDataEditor table { width: 100%; }
 
     /* تنسيق مستوى الإنجاز المرتبط بالفئة */
     .level-category-display .level-name {
@@ -318,10 +114,14 @@ responsive_menu_css = """
         font-size: 0.9em;
         color: #555;
     }
-    .badge-details-expander div { /* تحسين التباعد في قائمة الأوسمة */
-       margin-bottom: 5px;
+
+    /* Progress bar styling */
+    .stProgress > div > div > div > div {
+        background-color: #1e88e5; /* Blue progress bar */
     }
 
+    /* Heatmap styling */
+    .plotly-heatmap .colorbar { margin-left: 10px !important; } /* Add space for heatmap colorbar */
 
     /* --- قواعد Media Query للتبديل بين القائمتين وتحسين عرض الجوال --- */
     @media only screen and (max-width: 768px) {
@@ -329,48 +129,25 @@ responsive_menu_css = """
         .mobile-menu-trigger { display: block; }
         .main .block-container { padding-right: 0.8rem !important; padding-left: 0.8rem !important; padding-top: 40px !important; }
 
-        /* تصغير الخطوط والهوامش للعناوين في الجوال */
-        h1 { font-size: 1.3rem; margin-bottom: 15px; padding-bottom: 8px; }
-        h2 { font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
-        h3 { font-size: 1.0rem; margin-top: 18px; margin-bottom: 8px; }
+        h1 { font-size: 1.4rem; }
+        h2 { font-size: 1.2rem; }
+        h3 { font-size: 1.1rem; }
+        h4 { font-size: 1.0rem; }
 
-        /* تصغير خطوط المقاييس في الجوال */
-        [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
+        [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
         [data-testid="stMetricLabel"] { font-size: 0.8rem !important; }
         .metric-card { padding: 10px; margin-bottom: 10px;}
 
-        /* تصغير خطوط بطاقات المهام في الجوال */
-        .task-title { font-size: 1rem; }
-        .task-detail-item { font-size: 0.75rem; padding: 2px 5px; }
-        .task-metric-value { font-size: 1rem; }
-        .task-metric-label { font-size: 0.7rem; }
-
-        /* تصغير خطوط التبويبات */
         button[data-baseweb="tab"] {
-            font-size: 0.85rem !important;
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
+            font-size: 0.8rem !important; /* Smaller tab font */
+            padding: 6px 8px !important; /* Adjust padding */
         }
-        /* تصغير خط منتقي السنة والفلاتر الأخرى */
-        .stSelectbox label, .stRadio label { font-size: 0.9rem !important; }
-        .stTextInput label { font-size: 0.9rem !important; }
+        .stSelectbox label, .stRadio label { font-size: 0.85rem !important; }
+        .stTextInput label { font-size: 0.85rem !important; }
 
-        /* تعديل الجدول للشاشات الصغيرة */
-        .achievements-table th { font-size: 0.8rem; padding: 6px 8px; }
-        .achievements-table td { font-size: 0.75rem; padding: 6px 8px; white-space: normal; } /* Allow wrapping in mobile */
-        .achievements-table td:nth-child(2) { text-align: right; } /* Keep name right-aligned */
-
-
-        /* تعديل بطاقة العضو للشاشات الصغيرة */
-        .member-name { font-size: 0.9rem; }
-        .member-stat-value { font-size: 0.9rem; }
-        .member-stat-label { font-size: 0.65rem; }
-
-        /* تعديل مخطط الإنجازات للشاشات الصغيرة */
-        .timeline-date { width: 80px; font-size: 0.75rem; }
-        .timeline-content h4 { font-size: 0.85rem; }
-        .timeline-content p { font-size: 0.8rem; }
-        .timeline-meta-item { font-size: 0.7rem; }
+         /* Adjust table font size for mobile */
+         .stDataFrame table, .stDataEditor table { font-size: 0.75rem; }
+         th, td { padding: 4px 6px !important; } /* Reduce padding */
     }
 
     @media only screen and (min-width: 769px) {
@@ -378,17 +155,12 @@ responsive_menu_css = """
         .mobile-menu-trigger, .mobile-menu, .mobile-menu-overlay, .mobile-menu-checkbox { display: none; }
     }
 
-    @media only screen and (min-width: 769px) and (max-width: 1024px) {
-        h1 { font-size: 1.5rem; }
-        h2, h3 { font-size: 1.1rem; }
-        .top-navbar a { font-size: 0.85rem; }
-    }
-
 </style>
 """
 # =========================================
 # القسم 3: هيكل HTML للقائمة وزر العودة للأعلى
 # =========================================
+# (نفس الكود السابق)
 responsive_menu_html = """
 <nav class="top-navbar">
     <ul>
@@ -429,6 +201,7 @@ responsive_menu_html = """
 # =========================================
 # القسم 4: منطق JavaScript للقائمة وزر العودة للأعلى
 # =========================================
+# (نفس الكود السابق)
 responsive_menu_js = """
 <script>
     // منطق التمرير إلى الأعلى
@@ -465,1329 +238,775 @@ st.markdown(responsive_menu_css, unsafe_allow_html=True)
 st.markdown(responsive_menu_html, unsafe_allow_html=True)
 st.markdown(responsive_menu_js, unsafe_allow_html=True)
 
-# --- العنوان الرئيسي للصفحة ---
-st.markdown("<h1>🏆 إنجاز المهام</h1>", unsafe_allow_html=True)
-
 # =========================================
-# القسم 5: الدوال المساعدة
+# القسم 5: ثوابت وإعدادات البيانات
 # =========================================
-def is_mobile():
-    """التحقق من كون العرض الحالي محتملاً أن يكون جهاز محمول"""
-    # ملاحظة: هذه الدالة تحتاج إلى طريقة لتحديد عرض الشاشة بشكل فعلي.
-    # يمكنك استخدام مكون مثل streamlit_js_eval أو اختبار العرض يدويًا بتغيير حجم المتصفح.
-    # حاليًا، ستُرجع False دائمًا.
-    return False # غير القيمة إلى True لاختبار تنسيقات الجوال
-
-def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar", show_legend=True):
-    """تطبيق تنسيق موحد على مخططات Plotly مع الاستجابة للجوال"""
-    try:
-        # Ensure fig is a Plotly figure object
-        if not isinstance(fig, (go.Figure, px.scatter, px.line, px.bar, px.pie)): # Add other plotly types if needed
-             st.warning(f"Invalid object passed to prepare_chart_layout for title '{title}'. Expected Plotly figure.")
-             # Return a default empty figure or the original object? Returning original for now.
-             return fig
-
-        fig.update_layout(dragmode=False)
-        # Check if axes exist before updating range (relevant for pie charts etc.)
-        if hasattr(fig.layout, 'xaxis'):
-            fig.update_xaxes(fixedrange=True)
-        if hasattr(fig.layout, 'yaxis'):
-             fig.update_yaxes(fixedrange=True)
-        # Handle polar axes for radar charts
-        if hasattr(fig.layout, 'polar'):
-             if hasattr(fig.layout.polar, 'angularaxis'):
-                  fig.update_polars(angularaxis_fixedrange=True)
-             if hasattr(fig.layout.polar, 'radialaxis'):
-                  fig.update_polars(radialaxis_fixedrange=True)
-
-
-        # إعدادات التخطيط المشتركة
-        layout_settings = {
-            "title": {"text": title, "x": 0.5, "xanchor": "center"}, # Center title
-            "font": {"family": "Tajawal"},
-            "plot_bgcolor": "rgba(240, 240, 240, 0.8)",
-            "paper_bgcolor": "white",
-            "showlegend": show_legend,
-            "legend": {
-                "orientation": "h",
-                "yanchor": "bottom",
-                "y": -0.2, # Adjusted legend position
-                "xanchor": "center",
-                "x": 0.5,
-            }
-        }
-
-        # تعديلات خاصة بالجوال
-        if is_mobile:
-            mobile_settings = {
-                "height": 300 if chart_type not in ["heatmap", "radar"] else 320, # Slightly taller for mobile
-                "margin": {"t": 40, "b": 70, "l": 5, "r": 5, "pad": 0}, # Adjusted margins
-                "font": {"size": 8},
-                "title": {"font": {"size": 11}}, # Slightly larger title
-                "legend": {"y": -0.3, "font": {"size": 7}}
-            }
-            layout_settings.update(mobile_settings)
-
-            # تعديلات خاصة بنوع المخطط للجوال
-            if chart_type == "pie":
-                layout_settings["legend"] = {"y": -0.15} # Adjust pie legend
-                fig.update_traces(textfont_size=8, textinfo='percent+label', insidetextorientation='radial')
-            elif chart_type == "line":
-                 # Check if fig has traces before updating
-                 if fig.data:
-                      fig.update_traces(marker=dict(size=4)) # Slightly larger markers
-            elif chart_type == "bar":
-                if hasattr(fig.layout, 'xaxis'): fig.update_xaxes(tickangle=-45, tickfont={"size": 7}) # Angle ticks for better fit
-                if hasattr(fig.layout, 'yaxis'): fig.update_yaxes(tickfont={"size": 7})
-            elif chart_type == "heatmap":
-                 if fig.data: fig.update_traces(textfont={"size": 8})
-                 if hasattr(fig.layout, 'yaxis'): fig.update_yaxes(tickfont=dict(size=7))
-            elif chart_type == "radar":
-                 if hasattr(fig.layout, 'polar'):
-                      layout_settings["polar"] = dict(angularaxis=dict(tickfont=dict(size=7)), radialaxis=dict(tickfont=dict(size=7)))
-                 layout_settings["legend"] = {"font": {"size": 7}}
-
-
-        else:
-            # إعدادات سطح المكتب
-            desktop_settings = {
-                "height": 400 if chart_type not in ["heatmap", "radar"] else 380,
-                "margin": {"t": 50, "b": 80, "l": 40, "r": 40, "pad": 4}, # Adjusted margins
-                "legend": {"y": -0.15, "font": {"size": 9}}, # Adjusted legend position
-                "title": {"font": {"size": 14}},
-                "font": {"size": 10}
-            }
-            layout_settings.update(desktop_settings)
-            if chart_type == "heatmap":
-                 if fig.data: fig.update_traces(textfont={"size": 10})
-                 if hasattr(fig.layout, 'yaxis'): fig.update_yaxes(tickfont=dict(size=9))
-            elif chart_type == "pie":
-                 if fig.data: fig.update_traces(textinfo='percent+label')
-            elif chart_type == "radar":
-                 if hasattr(fig.layout, 'polar'):
-                      layout_settings["polar"] = dict(angularaxis=dict(tickfont=dict(size=9)), radialaxis=dict(tickfont=dict(size=9)))
-                 layout_settings["legend"] = {"font": {"size": 9}}
-
-
-        fig.update_layout(**layout_settings)
-    except Exception as e:
-        st.warning(f"تعذر تطبيق إعدادات التخطيط للرسم '{title}': {e}")
-
-    return fig
-
-
-def get_status_badge(status):
-    """تحديد فئة الشارة بناءً على حالة المهمة"""
-    if status == "منجزة":
-        return "badge-green"
-    elif status == "قيد التنفيذ":
-        return "badge-orange"
-    elif status == "مخطط لها":
-        return "badge-red"
-    else:
-        return "badge-blue"
-
-def get_status_class(status):
-    """تحديد فئة CSS بناءً على حالة المهمة"""
-    if status == "منجزة":
-        return "completed"
-    elif status == "قيد التنفيذ":
-        return "in-progress"
-    elif status == "مخطط لها":
-        return "planned"
-    else:
-        return ""
-
-def format_date(date_str):
-    """تنسيق التاريخ بالشكل المطلوب"""
-    try:
-        date_obj = pd.to_datetime(date_str)
-        return date_obj.strftime("%Y/%m/%d")
-    except:
-        return date_str
-
-# =========================================
-# القسم 5.1: دوال مساعدة لتحليل المستويات حسب الفئات
-# =========================================
-
-def get_achievement_level(points):
-    """تحديد مستوى الإنجاز بناءً على عدد النقاط"""
-    # تعريف مستويات الإنجاز حسب النقاط داخل الدالة لتجنب الاعتماد على متغير عام قد لا يكون معرفًا بعد
-    ACHIEVEMENT_LEVELS_LOCAL = [
-        {"name": "ممارس", "min": 50, "max": 200, "color": "#5DADE2", "icon": "🔹"},  # أزرق فاتح
-        {"name": "متمكن", "min": 201, "max": 400, "color": "#3498DB", "icon": "🔷"},  # أزرق
-        {"name": "متميز", "min": 401, "max": 600, "color": "#27AE60", "icon": "🌟"},  # أخضر
-        {"name": "خبير", "min": 601, "max": 800, "color": "#F39C12", "icon": "✨"},   # برتقالي
-        {"name": "رائد", "min": 801, "max": float('inf'), "color": "#E74C3C", "icon": "🏆"}, # أحمر
-    ]
-
-    # Ensure points is a number
-    try:
-        points = float(points)
-    except (ValueError, TypeError):
-        points = 0 # Default to 0 if conversion fails
-
-    if points < ACHIEVEMENT_LEVELS_LOCAL[0]["min"]: # Check against the first level's minimum
-        return {"name": "مبتدئ", "min": 0, "max": ACHIEVEMENT_LEVELS_LOCAL[0]["min"] - 1, "color": "#95A5A6", "icon": "🔘"} # رمادي للمبتدئين
-
-    for level in ACHIEVEMENT_LEVELS_LOCAL:
-        if level["min"] <= points <= level["max"]:
-            return level
-
-    # Should not happen if points >= 50 due to the last level reaching infinity
-    return ACHIEVEMENT_LEVELS_LOCAL[-1] # Return highest level as fallback
-
-def calculate_points_by_category(achievements_df, member_name=None, filter_period=False, start_date=None, end_date=None):
-    """
-    حساب نقاط العضو (أو جميع الأعضاء) في كل فئة ومستوى الإنجاز لكل فئة.
-    يمكن تصفية البيانات لفترة زمنية محددة.
-    """
-    if achievements_df is None or achievements_df.empty or "الفئة" not in achievements_df.columns or "عدد النقاط" not in achievements_df.columns:
-        return pd.DataFrame(columns=["الفئة", "اسم العضو", "عدد النقاط", "مستوى_الإنجاز", "مستوى", "لون_المستوى", "أيقونة_المستوى"])
-
-    df_processed = achievements_df.copy()
-
-    # تصفية حسب العضو إذا تم تحديده
-    if member_name:
-        if "اسم العضو" not in df_processed.columns:
-             return pd.DataFrame(columns=["الفئة", "اسم العضو", "عدد النقاط", "مستوى_الإنجاز", "مستوى", "لون_المستوى", "أيقونة_المستوى"])
-        df_processed = df_processed[df_processed["اسم العضو"] == member_name]
-        if df_processed.empty:
-            return pd.DataFrame(columns=["الفئة", "اسم العضو", "عدد النقاط", "مستوى_الإنجاز", "مستوى", "لون_المستوى", "أيقونة_المستوى"])
-
-    # تصفية حسب الفترة الزمنية إذا طُلب ذلك
-    if filter_period and start_date and end_date and "التاريخ" in df_processed.columns:
-         # Ensure 'التاريخ' is datetime
-        if not pd.api.types.is_datetime64_any_dtype(df_processed['التاريخ']):
-             df_processed['التاريخ'] = pd.to_datetime(df_processed['التاريخ'], errors='coerce')
-        df_processed = df_processed.dropna(subset=['التاريخ']) # Drop rows where date conversion failed
-        if not df_processed.empty: # Check again after dropna
-            df_processed = df_processed[(df_processed["التاريخ"] >= start_date) & (df_processed["التاريخ"] <= end_date)]
-
-
-    if df_processed.empty:
-        return pd.DataFrame(columns=["الفئة", "اسم العضو", "عدد النقاط", "مستوى_الإنجاز", "مستوى", "لون_المستوى", "أيقونة_المستوى"])
-
-    # استبعاد السجلات بدون فئة أو ذات فئة فارغة
-    df_processed = df_processed[df_processed["الفئة"].notna() & (df_processed["الفئة"] != "") & (df_processed["الفئة"] != "— بدون فئة —")]
-
-    if df_processed.empty:
-        return pd.DataFrame(columns=["الفئة", "اسم العضو", "عدد النقاط", "مستوى_الإنجاز", "مستوى", "لون_المستوى", "أيقونة_المستوى"])
-
-    # تحديد أعمدة التجميع
-    grouping_cols = ["الفئة"]
-    if "اسم العضو" in df_processed.columns:
-         grouping_cols.append("اسم العضو")
-    else:
-         # If no member column, create a dummy one for aggregation logic consistency
-         df_processed["اسم العضو"] = "إجمالي"
-         grouping_cols.append("اسم العضو")
-
-
-    # مجموع النقاط حسب الفئة (والعضو إن وجد)
-    category_points = df_processed.groupby(grouping_cols)["عدد النقاط"].sum().reset_index()
-
-    # إضافة مستوى الإنجاز لكل فئة (أو فئة/عضو)
-    category_points["مستوى_الإنجاز"] = category_points["عدد النقاط"].apply(get_achievement_level)
-    category_points["مستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["name"])
-    category_points["لون_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["color"])
-    category_points["أيقونة_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-
-    return category_points
-
-
-def create_radar_chart(category_points_df, member_name, is_mobile=False):
-    """إنشاء مخطط عنكبوتي/رادار لتوزيع نقاط العضو حسب الفئات"""
-    if category_points_df is None or category_points_df.empty:
-        st.info(f"لا توجد بيانات نقاط كافية حسب الفئة للعضو {member_name} لإنشاء المخطط.")
-        return None
-
-    # التأكد من وجود الأعمدة المطلوبة
-    required_cols = ["الفئة", "عدد النقاط", "لون_المستوى", "مستوى"]
-    if not all(col in category_points_df.columns for col in required_cols):
-        st.error("بيانات الفئات للعضو المحدد غير مكتملة لإنشاء المخطط العنكبوتي.")
-        return None
-
-    # Ensure numeric points
-    category_points_df["عدد النقاط"] = pd.to_numeric(category_points_df["عدد النقاط"], errors='coerce').fillna(0)
-
-    # تحديد الألوان بناءً على مستويات الإنجاز
-    colors = category_points_df["لون_المستوى"].tolist()
-    max_points = category_points_df["عدد النقاط"].max()
-    if max_points == 0: # Avoid division by zero or empty range
-        max_points = 10 # Set a default small range if no points
-
-    # إنشاء المخطط العنكبوتي/الرادار
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatterpolar(
-        r=category_points_df["عدد النقاط"],
-        theta=category_points_df["الفئة"],
-        fill='toself',
-        name="النقاط",
-        line_color="#1e88e5",
-        fillcolor="rgba(30, 136, 229, 0.3)",
-        hoverinfo="skip" # Skip hover for the main area
-    ))
-
-    # إضافة نقاط لكل فئة مع اللون المناسب للمستوى وتلميح مخصص
-    for i, row in category_points_df.iterrows():
-        fig.add_trace(go.Scatterpolar(
-            r=[row["عدد النقاط"]],
-            theta=[row["الفئة"]],
-            mode="markers", # Changed from markers+text as text can overlap badly
-            marker=dict(size=10 if not is_mobile else 8, color=row["لون_المستوى"]),
-            name=f"{row['الفئة']}", # Legend entry per category
-            hoverinfo="text",
-            hovertext=f"<b>{row['الفئة']}</b><br>النقاط: {int(row['عدد النقاط'])}<br>المستوى: {row['مستوى']}<extra></extra>", # Use <extra> to remove trace info
-            showlegend=False # Hide individual points from legend
-        ))
-
-    # تنسيق المخطط
-    title_text = f"توزيع نقاط {member_name} حسب الفئات"
-    fig = prepare_chart_layout(fig, title_text, is_mobile=is_mobile, chart_type="radar", show_legend=False) # Use helper
-
-    # Specific radar layout adjustments
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                showticklabels=True,
-                range=[0, max(10, max_points * 1.1)] # Ensure a minimum range and some padding
-            )
-        ),
-         margin=dict(t=60, b=40, l=60, r=60) # Adjust margins for radar labels
-    )
-
-
-    return fig
-
-# =========================================
-# القسم 6: ثوابت وإعدادات البيانات
-# =========================================
-
-# تعريف قائمة الفئات
-INITIAL_CATEGORIES = [
-    "— بدون فئة —", # Default/Placeholder
-    "تطوير البرامج والمناهج", "ضمان الجودة والاعتماد", "الحوكمة والإدارة",
-    "الابتكار والتطوير", "المشاركة المهنية والمجتمعية", "الإرشاد والدعم الطلابي",
-]
-
-# تعريف خيارات البرامج
-PROGRAM_OPTIONS = [
-    "— اختر البرنامج —", # Placeholder
-    "بكالوريوس القراءات",
-    "بكالوريوس القرآن وعلومه",
-    "ماجستير الدراسات القرآنية المعاصرة",
-    "ماجستير القراءات",
-    "دكتوراه علوم القرآن",
-    "دكتوراه القراءات",
-    "غير مرتبط ببرنامج",
-    "جميع البرامج"
-]
-
-# تعريف مستويات التعقيد
-COMPLEXITY_LEVELS = [
-    "منخفض", "متوسط", "عالي", "عالي جداً"
-]
 
 # تعريف مستويات الإنجاز حسب النقاط (Global definition for reference)
 ACHIEVEMENT_LEVELS = [
-    {"name": "ممارس", "min": 50, "max": 200, "color": "#5DADE2", "icon": "🔹"},  # أزرق فاتح
-    {"name": "متمكن", "min": 201, "max": 400, "color": "#3498DB", "icon": "🔷"},  # أزرق
-    {"name": "متميز", "min": 401, "max": 600, "color": "#27AE60", "icon": "🌟"},  # أخضر
-    {"name": "خبير", "min": 601, "max": 800, "color": "#F39C12", "icon": "✨"},   # برتقالي
-    {"name": "رائد", "min": 801, "max": float('inf'), "color": "#E74C3C", "icon": "🏆"}, # أحمر
+    {"name": "ممارس", "min": 50, "max": 200, "color": "#AED6F1", "icon": "🔹"},  # Light Blue
+    {"name": "متمكن", "min": 201, "max": 400, "color": "#5DADE2", "icon": "🔷"},  # Blue
+    {"name": "متميز", "min": 401, "max": 600, "color": "#58D68D", "icon": "🌟"},  # Green
+    {"name": "خبير", "min": 601, "max": 800, "color": "#F5B041", "icon": "✨"},   # Orange
+    {"name": "رائد", "min": 801, "max": float('inf'), "color": "#EC7063", "icon": "🏆"}, # Red
 ]
 # Add 'مبتدئ' for consistency
-BEGINNER_LEVEL = {"name": "مبتدئ", "min": 0, "max": 49, "color": "#95A5A6", "icon": "🔘"}
+BEGINNER_LEVEL = {"name": "مبتدئ", "min": 0, "max": 49, "color": "#D5DBDB", "icon": "🔘"} # Grey
+
+# إنشاء قاموس لسهولة الوصول للألوان والرموز
+LEVEL_COLORS = {level["name"]: level["color"] for level in ACHIEVEMENT_LEVELS}
+LEVEL_COLORS[BEGINNER_LEVEL["name"]] = BEGINNER_LEVEL["color"]
+LEVEL_ICONS = {level["name"]: level["icon"] for level in ACHIEVEMENT_LEVELS}
+LEVEL_ICONS[BEGINNER_LEVEL["name"]] = BEGINNER_LEVEL["icon"]
+LEVEL_ORDER = {level["name"]: i for i, level in enumerate([BEGINNER_LEVEL] + ACHIEVEMENT_LEVELS)} # Order for sorting
 
 
 # تعريف خيارات التصفية الزمنية للنظرة العامة (جديد)
 OVERVIEW_TIME_FILTER_OPTIONS = {
     "آخر شهر": 1,
+    "آخر 3 أشهر": 3,
     "آخر 6 أشهر": 6,
     "آخر سنة": 12,
-    "آخر 3 سنوات": 36,
-    "آخر 5 سنوات": 60,
     "كل الوقت": None # Use None to represent all time
 }
 OVERVIEW_TIME_FILTER_LABELS = list(OVERVIEW_TIME_FILTER_OPTIONS.keys())
 
-
-# تعريف خيارات التصفية الزمنية لقائمة المهام (الأصلي)
-TASK_LIST_TIME_FILTER_OPTIONS = [
-    "جميع المهام",
-    "آخر شهر",
-    "آخر ستة أشهر",
-    "آخر سنة",
-    "آخر ثلاث سنوات"
-]
-
-
 # مسار الجدول الفعلي
 ACHIEVEMENTS_DATA_PATH = "data/department/achievements.csv"
 
-# تعريف الأعمدة المتوقعة في الجدول
+# تعريف الأعمدة المتوقعة وأساسية
 EXPECTED_ACHIEVEMENT_COLS = [
-    "عنوان المهمة",
-    "وصف مختصر",
-    "اسم العضو",
-    "تاريخ الإنجاز",
-    "عدد الساعات",
-    "عدد النقاط",
-    "مستوى التعقيد",
-    "الفئة",
-    "المهمة الرئيسية",
-    "البرنامج"
+    "عنوان المهمة", "وصف مختصر", "اسم العضو", "تاريخ الإنجاز",
+    "عدد الساعات", "عدد النقاط", "مستوى التعقيد", "الفئة",
+    "المهمة الرئيسية", "البرنامج"
 ]
-# =========================================
-# القسم 7: دوال تحميل ومعالجة البيانات
-# =========================================
+REQUIRED_COLS = ["اسم العضو", "تاريخ الإنجاز", "عدد النقاط", "الفئة", "البرنامج", "عنوان المهمة"] # الأعمدة الأساسية المطلوبة
 
-@st.cache_data(ttl=3600)
-def load_achievements_data():
-    """تحميل بيانات الإنجازات من الجدول الفعلي ومعالجتها"""
+# بيانات افتراضية لخطط البرامج (يمكن استبدالها ببيانات حقيقية)
+# المفتاح هو اسم البرنامج، القيمة هي النقاط المستهدفة
+PROGRAM_PLANS = {
+    "بكالوريوس القراءات": 5000,
+    "بكالوريوس القرآن وعلومه": 6000,
+    "ماجستير الدراسات القرآنية المعاصرة": 3000,
+    "ماجستير القراءات": 2500,
+    "دكتوراه علوم القرآن": 4000,
+    "دكتوراه القراءات": 3500,
+    "غير مرتبط ببرنامج": 1000, # خطة افتراضية للمهام غير المرتبطة
+    "جميع البرامج": 25000 # مجموع افتراضي
+}
+
+# =========================================
+# القسم 6: الدوال المساعدة (مع تحديثات)
+# =========================================
+def is_mobile():
+    """التحقق من كون العرض الحالي محتملاً أن يكون جهاز محمول (افتراضي حاليًا)"""
+    return False
+
+def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar", show_legend=True, height=None):
+    """تطبيق تنسيق موحد على مخططات Plotly مع الاستجابة للجوال"""
     try:
-        file_path = ACHIEVEMENTS_DATA_PATH
+        if not isinstance(fig, (go.Figure, px.scatter, px.line, px.bar, px.pie)):
+             st.warning(f"Invalid object passed to prepare_chart_layout for title '{title}'. Expected Plotly figure.")
+             return fig
 
-        # التحقق من وجود الملف
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            df = pd.read_csv(file_path)
+        fig.update_layout(dragmode=False)
+        if hasattr(fig.layout, 'xaxis'): fig.update_xaxes(fixedrange=True)
+        if hasattr(fig.layout, 'yaxis'): fig.update_yaxes(fixedrange=True)
+        if hasattr(fig.layout, 'polar'):
+             if hasattr(fig.layout.polar, 'angularaxis'): fig.update_polars(angularaxis_fixedrange=True)
+             if hasattr(fig.layout.polar, 'radialaxis'): fig.update_polars(radialaxis_fixedrange=True)
 
-            # ضمان وجود جميع الأعمدة المتوقعة وملء القيم المفقودة المناسبة
-            for col in EXPECTED_ACHIEVEMENT_COLS:
-                if col not in df.columns:
-                    if col in ["عدد الساعات", "عدد النقاط"]:
-                        df[col] = 0 # Default numeric to 0
-                    else:
-                        df[col] = "" # Default others to empty string
+        # تحديد الارتفاع
+        default_height_desktop = 400 if chart_type not in ["heatmap", "radar"] else 380
+        default_height_mobile = 300 if chart_type not in ["heatmap", "radar"] else 320
+        chart_height = height if height else (default_height_mobile if is_mobile else default_height_desktop)
 
-            # --- المعالجة الأساسية ---
-            # 1. تحويل التاريخ
-            if "تاريخ الإنجاز" in df.columns:
-                df["التاريخ"] = pd.to_datetime(df["تاريخ الإنجاز"], errors='coerce')
-                # Drop rows where date conversion failed as they cannot be filtered
-                df.dropna(subset=["التاريخ"], inplace=True)
-            else:
-                 st.warning("عمود 'تاريخ الإنجاز' غير موجود. لا يمكن تطبيق الفلاتر الزمنية.")
-                 # Return empty df but ensure 'التاريخ' column exists for downstream checks
-                 return pd.DataFrame(columns=EXPECTED_ACHIEVEMENT_COLS + ["التاريخ"])
+        # إعدادات التخطيط المشتركة
+        layout_settings = {
+            "title": {"text": title, "x": 0.5, "xanchor": "center", "font": {"size": 14 if not is_mobile else 11}},
+            "font": {"family": "Tajawal", "size": 10 if not is_mobile else 8},
+            "plot_bgcolor": "rgba(245, 245, 245, 0.8)", # Lighter plot background
+            "paper_bgcolor": "white",
+            "showlegend": show_legend,
+            "legend": {
+                "orientation": "h", "yanchor": "bottom", "y": -0.2,
+                "xanchor": "center", "x": 0.5, "font": {"size": 9 if not is_mobile else 7}
+            },
+            "height": chart_height,
+            "margin": {"t": 50, "b": 80 if show_legend else 40, "l": 40, "r": 40, "pad": 4} if not is_mobile else \
+                      {"t": 40, "b": 60 if show_legend else 30, "l": 5, "r": 5, "pad": 0}
+        }
 
-            # 2. تحويل الأعمدة الرقمية والتأكد من أنها رقمية
-            numeric_cols = ["عدد الساعات", "عدد النقاط"]
-            for col in numeric_cols:
-                 if col in df.columns:
-                    # Ensure the column is treated as numeric, coercing errors and filling NaNs
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                 else:
-                     df[col] = 0 # Ensure column exists and is numeric
+        fig.update_layout(**layout_settings)
 
-            # 3. تنظيف الأعمدة النصية (إزالة الفراغات الزائدة)
-            string_cols = ["عنوان المهمة", "وصف مختصر", "اسم العضو", "مستوى التعقيد", "الفئة", "المهمة الرئيسية", "البرنامج"]
-            for col in string_cols:
-                 if col in df.columns:
-                     # Ensure column is string, strip whitespace, fill NaN/None with 'غير محدد'
-                     df[col] = df[col].astype(str).str.strip().fillna("غير محدد")
-                     # Replace empty strings after stripping with 'غير محدد'
-                     df[col] = df[col].replace('', 'غير محدد')
-                 else:
-                      df[col] = "غير محدد" # Ensure column exists
-
-
-            # 4. استبدال القيم الفارغة أو المحددة بـ "— بدون فئة —" في عمود الفئة
-            if "الفئة" in df.columns:
-                df["الفئة"] = df["الفئة"].replace(["غير محدد", ""], "— بدون فئة —")
-
-
-            # 5. التأكد من أن عمود اسم العضو ليس فارغًا أو غير محدد
-            if "اسم العضو" in df.columns:
-                 df = df[df["اسم العضو"].notna() & (df["اسم العضو"] != "غير محدد") & (df["اسم العضو"] != "")]
-
-
-            return df
-        else:
-            # إذا لم يكن الملف موجودًا، عرض تنبيه وإعادة DataFrame فارغ
-            st.warning(f"ملف بيانات الإنجازات غير موجود أو فارغ في المسار: {ACHIEVEMENTS_DATA_PATH}")
-            # Return an empty DataFrame with expected columns plus 'التاريخ'
-            return pd.DataFrame(columns=EXPECTED_ACHIEVEMENT_COLS + ["التاريخ"])
+        # تعديلات خاصة بنوع المخطط (بعد تطبيق الإعدادات العامة)
+        if chart_type == "pie" or chart_type == "donut":
+            fig.update_traces(textposition='outside', textinfo='percent+label', hole=(0.4 if chart_type == "donut" else 0))
+            fig.update_layout(legend={"y": -0.1}) # Adjust legend slightly for pie/donut
+        elif chart_type == "bar":
+            if hasattr(fig.layout, 'xaxis'): fig.update_xaxes(tickangle=-45 if is_mobile else 0)
+        elif chart_type == "radar":
+             fig.update_layout(polar=dict(angularaxis=dict(tickfont=dict(size=9 if not is_mobile else 7)),
+                                          radialaxis=dict(tickfont=dict(size=9 if not is_mobile else 7))),
+                               margin=dict(l=60, r=60)) # Radar needs more margin
 
     except Exception as e:
-        st.error(f"خطأ في تحميل أو معالجة بيانات الإنجازات: {e}")
-        # Return an empty DataFrame with expected columns plus 'التاريخ'
-        return pd.DataFrame(columns=EXPECTED_ACHIEVEMENT_COLS + ["التاريخ"])
+        st.warning(f"تعذر تطبيق إعدادات التخطيط للرسم '{title}': {e}")
+        # st.error(traceback.format_exc()) # Uncomment for detailed debugging
 
+    return fig
 
-def filter_data_by_time(df, time_filter_label):
-    """تصفية DataFrame بناءً على فلتر زمني محدد من النظرة العامة"""
-    if df is None or df.empty or "التاريخ" not in df.columns:
-        return df # Return original df if no date column or df is empty
+def get_achievement_level(points):
+    """تحديد مستوى الإنجاز بناءً على عدد النقاط"""
+    try: points = float(points)
+    except (ValueError, TypeError): points = 0
 
-    # Ensure 'التاريخ' is datetime
-    if not pd.api.types.is_datetime64_any_dtype(df['التاريخ']):
-        df['التاريخ'] = pd.to_datetime(df['التاريخ'], errors='coerce')
-        df = df.dropna(subset=['التاريخ']) # Drop rows where conversion failed
+    if points < ACHIEVEMENT_LEVELS[0]["min"]:
+        return BEGINNER_LEVEL
+    for level in ACHIEVEMENT_LEVELS:
+        if level["min"] <= points <= level["max"]:
+            return level
+    return ACHIEVEMENT_LEVELS[-1] # Should be 'رائد'
 
-    if df.empty:
-        return df
+def calculate_member_levels_by_category(df, member_name):
+    """حساب مستوى العضو في كل فئة بناءً على مجموع نقاطه التاريخي في تلك الفئة"""
+    if df is None or df.empty or "اسم العضو" not in df.columns or "الفئة" not in df.columns or "عدد النقاط" not in df.columns:
+        return pd.DataFrame()
 
-    months_to_subtract = OVERVIEW_TIME_FILTER_OPTIONS.get(time_filter_label)
+    member_data = df[df["اسم العضو"] == member_name]
+    if member_data.empty:
+        return pd.DataFrame()
 
-    if months_to_subtract is None: # "كل الوقت"
-        return df
-    else:
-        current_date = pd.Timestamp.now().normalize() # Use pandas Timestamp
-        # Use dateutil.relativedelta for accurate month subtraction
-        start_date = current_date - dateutil.relativedelta.relativedelta(months=months_to_subtract)
-        # Filter between start_date (inclusive) and current_date (inclusive)
-        return df[(df["التاريخ"] >= start_date) & (df["التاريخ"] <= current_date)]
+    # Group by category and sum points historically for this member
+    category_points = member_data.groupby("الفئة")["عدد النقاط"].sum().reset_index()
 
+    # Get level for each category based on the summed points
+    category_points["مستوى_الإنجاز"] = category_points["عدد النقاط"].apply(get_achievement_level)
+    category_points["مستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["name"])
+    category_points["لون_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["color"])
+    category_points["أيقونة_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["icon"])
 
-@st.cache_data(ttl=3600)
-def get_member_list(achievements_df):
-    """استخراج قائمة أعضاء هيئة التدريس من بيانات الإنجازات"""
-    # قائمة الأعضاء الافتراضية في حالة عدم وجود بيانات
-    DEFAULT_MEMBERS = [
-        "عبد الله حماد حميد القرشي", "ناصر سعود حمود القثامي", "حاتم عابد عبد الله القرشي",
-        "ماجد عبد العزيز الحارثي", "رجاء محمد هوساوي", "عبد الله عيدان الزهراني",
-        "منال منصور محمد القرشي", "خلود شاكر فهيد العبدلي", "عبد العزيز عيضه حربي الحارثي",
-        "عبد العزيز عواض الثبيتي", "تهاني فيصل علي الحربي", "آمنة جمعة سعيد أحمد قحاف",
-        "غدير محمد سليم الشريف", "أسرار عايف سراج الخالدي", "سلوى أحمد محمد الحارثي",
-        "هويدا أبو بكر سعيد الخطيب", "تغريد أبو بكر سعيد الخطيب", "مهدي عبد الله قاري",
-        "مها عيفان نوار الخليدي", "سلمى معيوض زويد الجميعي", "أسماء محمد السلومي",
-        "رائد محمد عوضه الغامدي", "ماجد إبراهيم باقي الجهني", "مرام طلعت محمد أمين ينكصار",
-        "سعود سعد محمد الأنصاري", "عبد الرحمن محمد العبيسي", "ولاء حسن مسلم المذكوري",
-        "إسراء عبد الغني سندي", "وسام حسن مسلم المذكوري", "سمر علي محمد الشهراني",
-        "فاطمه أبكر داوود أبكر", "شيماء محمود صالح بركات", "عبد الله سعد عويض الثبيتي",
-        "عايده مصلح صالح المالكي", "أفنان عبد الله محمد السليماني", "أفنان مستور علي السواط"
-    ]
-
-    if achievements_df is not None and not achievements_df.empty and "اسم العضو" in achievements_df.columns:
-        # Filter out any potential placeholder values if necessary
-        members = sorted(achievements_df[achievements_df["اسم العضو"] != "غير محدد"]["اسم العضو"].dropna().unique())
-        if members:
-            return members
-
-    # إذا لم نجد أعضاء في البيانات، نستخدم القائمة الافتراضية
-    st.info("لم يتم العثور على أسماء أعضاء في البيانات، سيتم استخدام القائمة الافتراضية.")
-    return sorted(DEFAULT_MEMBERS)
-
-
-@st.cache_data(ttl=3600)
-def get_main_tasks_list(achievements_df):
-    """استخراج قائمة المهام الرئيسية من بيانات الإنجازات"""
-    DEFAULT_MAIN_TASKS = [
-        "توصيف المقررات", "توصيف البرامج", "الاعتماد الأكاديمي",
-        "تطوير مهارات الطلاب", "المراجعة الشاملة", "إدارة البرنامج",
-        "تقييم مخرجات التعلم", "لجان فحص متقدمي الدراسات العليا",
-        "إعداد الاختبارات", "التطوير الذاتي"
-    ]
-
-    if achievements_df is not None and not achievements_df.empty and "المهمة الرئيسية" in achievements_df.columns:
-         # Filter out placeholder values before getting unique tasks
-        main_tasks = sorted(achievements_df[achievements_df["المهمة الرئيسية"] != "غير محدد"]["المهمة الرئيسية"].dropna().unique())
-         # إزالة القيم الفارغة
-        main_tasks = [task for task in main_tasks if task and task.strip()]
-        if main_tasks:
-            return ["— بدون مهمة رئيسية —"] + main_tasks
-
-    st.info("لم يتم العثور على مهام رئيسية في البيانات، سيتم استخدام القائمة الافتراضية.")
-    return ["— بدون مهمة رئيسية —"] + DEFAULT_MAIN_TASKS
-
-@st.cache_data(ttl=3600)
-def get_category_list(achievements_df):
-    """استخراج قائمة الفئات المتاحة من بيانات الإنجازات"""
-    if achievements_df is not None and not achievements_df.empty and "الفئة" in achievements_df.columns:
-        # Exclude the placeholder category from the list of options
-        categories = sorted(achievements_df[achievements_df["الفئة"] != "— بدون فئة —"]["الفئة"].dropna().unique())
-        if categories:
-            return categories
-    st.info("لم يتم العثور على فئات في البيانات، سيتم استخدام القائمة الافتراضية.")
-    # Return default list excluding the placeholder
-    return [cat for cat in INITIAL_CATEGORIES if cat != "— بدون فئة —"]
-
-@st.cache_data(ttl=3600)
-def get_program_list(achievements_df):
-    """استخراج قائمة البرامج المتاحة من بيانات الإنجازات"""
-    if achievements_df is not None and not achievements_df.empty and "البرنامج" in achievements_df.columns:
-         # Filter out placeholder values before getting unique programs
-        programs = sorted(achievements_df[achievements_df["البرنامج"] != "غير محدد"]["البرنامج"].dropna().unique())
-        if programs:
-            return programs
-    st.info("لم يتم العثور على برامج في البيانات، سيتم استخدام القائمة الافتراضية.")
-     # Return default list excluding the placeholder
-    return [prog for prog in PROGRAM_OPTIONS if prog != "— اختر البرنامج —"]
+    return category_points[["الفئة", "عدد النقاط", "مستوى", "لون_المستوى", "أيقونة_المستوى"]]
 
 
 # =========================================
-# القسم 8: تحميل البيانات الأولية وإعدادات الجلسة
+# القسم 7: تحميل ومعالجة البيانات
 # =========================================
-mobile_view = is_mobile()
 
-# تحميل بيانات الإنجازات الأولية (الكاملة)
-all_achievements_data = load_achievements_data()
+@st.cache_data(ttl=3600)
+def load_and_prepare_data(file_path):
+    """تحميل بيانات الإنجازات، معالجتها، والتحقق من الأعمدة الأساسية"""
+    try:
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            st.warning(f"ملف بيانات الإنجازات غير موجود أو فارغ: {file_path}")
+            return None # Return None to indicate failure
 
-# استخراج قوائم الاختيارات من البيانات الكاملة
-# Add error handling in case data loading failed
-if all_achievements_data is not None and not all_achievements_data.empty:
-    members_list = get_member_list(all_achievements_data)
-    main_tasks_list = get_main_tasks_list(all_achievements_data)
-    category_list = get_category_list(all_achievements_data)
-    program_list = get_program_list(all_achievements_data)
+        df = pd.read_csv(file_path)
+
+        # التحقق من وجود الأعمدة الأساسية المطلوبة
+        missing_cols = [col for col in REQUIRED_COLS if col not in df.columns]
+        if missing_cols:
+            st.error(f"الأعمدة التالية مفقودة في الملف وهي أساسية: {', '.join(missing_cols)}")
+            return None
+
+        # ضمان وجود جميع الأعمدة المتوقعة الأخرى
+        for col in EXPECTED_ACHIEVEMENT_COLS:
+            if col not in df.columns:
+                if col in ["عدد الساعات", "عدد النقاط"]: df[col] = 0
+                else: df[col] = ""
+
+        # --- المعالجة الأساسية ---
+        # 1. تحويل التاريخ والتحقق منه
+        df["التاريخ"] = pd.to_datetime(df["تاريخ الإنجاز"], errors='coerce')
+        initial_rows = len(df)
+        df.dropna(subset=["التاريخ"], inplace=True)
+        if len(df) < initial_rows:
+            st.warning(f"تم حذف {initial_rows - len(df)} سجل بسبب مشاكل في تنسيق التاريخ.")
+        if df.empty:
+            st.error("لا توجد سجلات بتاريخ صالح بعد المعالجة.")
+            return None
+
+        # 2. تحويل الأعمدة الرقمية والتأكد من أنها رقمية
+        numeric_cols = ["عدد الساعات", "عدد النقاط"]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float) # Use float for points/hours
+
+        # 3. تنظيف الأعمدة النصية
+        string_cols = ["عنوان المهمة", "وصف مختصر", "اسم العضو", "مستوى التعقيد", "الفئة", "المهمة الرئيسية", "البرنامج"]
+        for col in string_cols:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip().fillna("غير محدد")
+                df[col] = df[col].replace(['', 'nan'], 'غير محدد') # Handle empty strings and 'nan'
+
+        # 4. معالجة خاصة للفئة والبرنامج
+        df["الفئة"] = df["الفئة"].replace(["غير محدد"], "— بدون فئة —")
+        df["البرنامج"] = df["البرنامج"].replace(["غير محدد"], "غير مرتبط ببرنامج")
+
+        # 5. التأكد من أن اسم العضو صالح
+        df = df[df["اسم العضو"].notna() & (df["اسم العضو"] != "غير محدد") & (df["اسم العضو"] != "")]
+        if df.empty:
+            st.error("لا توجد سجلات بأسماء أعضاء صالحة بعد المعالجة.")
+            return None
+
+        # 6. إضافة أعمدة مساعدة للزمن
+        df['Year'] = df['التاريخ'].dt.year
+        df['Month'] = df['التاريخ'].dt.to_period('M').astype(str) # YYYY-MM format
+        df['Week'] = df['التاريخ'].dt.to_period('W').astype(str) # YYYY-MM-DD/YYYY-MM-DD format
+        df['DateOnly'] = df['التاريخ'].dt.date # For heatmap grouping
+
+        # 7. حساب مستوى الإنجاز لكل مهمة (قد لا نحتاجه مباشرة لكن جيد توفره)
+        df['مستوى_المهمة'] = df['عدد النقاط'].apply(get_achievement_level)
+
+        # 8. ترتيب البيانات افتراضيًا حسب التاريخ الأحدث
+        df = df.sort_values(by="التاريخ", ascending=False).reset_index(drop=True)
+
+        return df
+
+    except Exception as e:
+        st.error(f"خطأ فادح في تحميل أو معالجة بيانات الإنجازات: {e}")
+        st.error(traceback.format_exc()) # Log detailed error
+        return None
+
+# =========================================
+# القسم 8: تحميل البيانات واستخراج القوائم
+# =========================================
+# تحميل البيانات
+all_data = load_and_prepare_data(ACHIEVEMENTS_DATA_PATH)
+
+# استخراج القوائم للاستخدام في الفلاتر (فقط إذا تم تحميل البيانات بنجاح)
+if all_data is not None:
+    members_list = sorted(all_data["اسم العضو"].unique())
+    category_list = sorted([cat for cat in all_data["الفئة"].unique() if cat != "— بدون فئة —"])
+    program_list = sorted([prog for prog in all_data["البرنامج"].unique() if prog != "غير مرتبط ببرنامج"])
+    # يمكنك إضافة قوائم أخرى هنا إذا لزم الأمر (مثل مستوى التعقيد)
 else:
+    # حالة فشل تحميل البيانات
     members_list = []
-    main_tasks_list = ["— بدون مهمة رئيسية —"]
     category_list = []
     program_list = []
-    st.error("فشل تحميل بيانات الإنجازات الأساسية. لا يمكن متابعة عرض اللوحة.")
-
-
-# تهيئة متغيرات الجلسة لحالة التصفية
-if "overview_time_filter" not in st.session_state:
-    st.session_state.overview_time_filter = OVERVIEW_TIME_FILTER_LABELS[-1] # Default to "كل الوقت"
-if "task_list_time_filter" not in st.session_state:
-    st.session_state.task_list_time_filter = TASK_LIST_TIME_FILTER_OPTIONS[0] # Default to "جميع المهام"
-if "selected_member_filter" not in st.session_state: # Renamed for clarity
-    st.session_state.selected_member_filter = "الكل"
-if "selected_category_filter" not in st.session_state: # Renamed for clarity
-    st.session_state.selected_category_filter = "الكل"
-if "selected_program_filter" not in st.session_state: # Renamed for clarity
-    st.session_state.selected_program_filter = "الكل"
-if "selected_main_task_filter" not in st.session_state: # Renamed for clarity
-    st.session_state.selected_main_task_filter = "الكل"
-if "selected_member_details" not in st.session_state: # For member details view
-    st.session_state.selected_member_details = None
-
+    st.stop() # إيقاف تنفيذ التطبيق إذا لم يتم تحميل البيانات الأساسية
 
 # =========================================
-# القسم 9: عرض النظرة العامة وفلترها الزمني
+# القسم 9: إعدادات الجلسة والفلاتر الرئيسية
 # =========================================
-st.subheader("نظرة عامة")
+# تهيئة متغيرات الجلسة للفلاتر
+if "time_filter" not in st.session_state:
+    st.session_state.time_filter = OVERVIEW_TIME_FILTER_LABELS[-1] # Default to "كل الوقت"
+if "program_filter" not in st.session_state:
+    st.session_state.program_filter = "الكل"
+if "category_filter" not in st.session_state:
+    st.session_state.category_filter = "الكل"
 
-# --- فلتر النظرة العامة الزمني ---
-st.session_state.overview_time_filter = st.selectbox(
-    "تحديد الفترة الزمنية للنظرة العامة:",
-    options=OVERVIEW_TIME_FILTER_LABELS,
-    index=OVERVIEW_TIME_FILTER_LABELS.index(st.session_state.overview_time_filter), # Maintain selection
-    key="overview_time_filter_selector"
-)
+# --- عرض الفلاتر الرئيسية في الأعلى ---
+st.markdown("#### فلترة البيانات")
+filter_cols = st.columns([1, 1, 1])
 
-# --- تصفية البيانات بناءً على فلتر النظرة العامة ---
-# Add check for all_achievements_data being valid before filtering
-if all_achievements_data is not None and not all_achievements_data.empty:
-    overview_filtered_data = filter_data_by_time(all_achievements_data, st.session_state.overview_time_filter)
-else:
-    overview_filtered_data = pd.DataFrame() # Use empty DataFrame if initial load failed
-
-# --- حساب المؤشرات الرئيسية من البيانات المصفاة للنظرة العامة ---
-total_tasks_overview = 0
-total_points_overview = 0
-total_hours_overview = 0
-active_members_overview = 0
-badges_earned_overview = 0
-badge_details_list = [] # قائمة لتفاصيل الأوسمة المكتسبة
-
-if overview_filtered_data is not None and not overview_filtered_data.empty:
-    total_tasks_overview = len(overview_filtered_data)
-    total_points_overview = overview_filtered_data["عدد النقاط"].sum()
-    total_hours_overview = overview_filtered_data["عدد الساعات"].sum()
-
-    # حساب الأعضاء النشطين في الفترة المحددة
-    if "اسم العضو" in overview_filtered_data.columns:
-        active_members_overview = overview_filtered_data["اسم العضو"].nunique()
-
-    # --- حساب الأوسمة المكتسبة في الفترة المحددة ---
-    # حساب النقاط لكل عضو في كل فئة خلال الفترة المحددة
-    member_category_points_period = calculate_points_by_category(
-        overview_filtered_data,
-        member_name=None, # Calculate for all members
-        filter_period=False # Data is already filtered for the period
+with filter_cols[0]:
+    st.session_state.time_filter = st.selectbox(
+        "الفترة الزمنية:",
+        options=OVERVIEW_TIME_FILTER_LABELS,
+        index=OVERVIEW_TIME_FILTER_LABELS.index(st.session_state.time_filter),
+        key="time_filter_selector_main"
+    )
+with filter_cols[1]:
+    program_options = ["الكل"] + program_list + ["غير مرتبط ببرنامج"]
+    st.session_state.program_filter = st.selectbox(
+        "البرنامج:",
+        options=program_options,
+        index=program_options.index(st.session_state.program_filter) if st.session_state.program_filter in program_options else 0,
+        key="program_filter_selector_main"
+    )
+with filter_cols[2]:
+    category_options = ["الكل"] + category_list + ["— بدون فئة —"]
+    st.session_state.category_filter = st.selectbox(
+        "الفئة:",
+        options=category_options,
+        index=category_options.index(st.session_state.category_filter) if st.session_state.category_filter in category_options else 0,
+        key="category_filter_selector_main"
     )
 
+# =========================================
+# القسم 10: تطبيق الفلاتر على البيانات
+# =========================================
+filtered_data = all_data.copy()
 
-    if not member_category_points_period.empty:
-         # تحديد المستوى لكل عضو في كل فئة بناءً على نقاط الفترة
-        # Note: calculate_points_by_category already adds level info based on points in that category
-        # We just need to filter out 'مبتدئ' level
-        earned_badges_df = member_category_points_period[member_category_points_period["مستوى"] != "مبتدئ"]
+# 1. تطبيق فلتر الفترة الزمنية
+months_to_subtract = OVERVIEW_TIME_FILTER_OPTIONS.get(st.session_state.time_filter)
+if months_to_subtract is not None:
+    current_date = pd.Timestamp.now().normalize()
+    start_date = current_date - dateutil.relativedelta.relativedelta(months=months_to_subtract)
+    filtered_data = filtered_data[(filtered_data["التاريخ"] >= start_date) & (filtered_data["التاريخ"] <= current_date)]
 
-        badges_earned_overview = len(earned_badges_df)
+# 2. تطبيق فلتر البرنامج
+if st.session_state.program_filter != "الكل":
+    filtered_data = filtered_data[filtered_data["البرنامج"] == st.session_state.program_filter]
 
-        # إعداد قائمة تفاصيل الأوسمة للعرض
-        badge_details_list = earned_badges_df.apply(
-             lambda row: {
-                 "member": row["اسم العضو"],
-                 "level_name": row["مستوى"],
-                 "category": row["الفئة"],
-                 "level_icon": row["أيقونة_المستوى"],
-                 "level_color": row["لون_المستوى"]
-             },
-             axis=1
-        ).tolist()
-         # Sort badge details maybe by member then category
-        badge_details_list.sort(key=lambda x: (x["member"], x["category"]))
+# 3. تطبيق فلتر الفئة
+if st.session_state.category_filter != "الكل":
+    filtered_data = filtered_data[filtered_data["الفئة"] == st.session_state.category_filter]
 
+# =========================================
+# القسم 11: عرض النظرة العامة (Overview)
+# =========================================
+st.markdown("---") # خط فاصل
+st.header("نظرة عامة على الإنجازات")
 
-# حساب إجمالي الأعضاء من القائمة الكاملة
-total_members_historical = len(members_list) if members_list else 0
-
-
-# --- عرض المقاييس في صف ---
-if mobile_view:
-    row1_cols = st.columns(2)
-    row2_cols = st.columns(2)
-    row3_cols = st.columns(2)
-    metric_cols = [row1_cols[0], row1_cols[1], row2_cols[0], row2_cols[1], row3_cols[0], row3_cols[1]]
+if filtered_data.empty:
+    st.warning(f"لا توجد بيانات تطابق الفلاتر المحددة للفترة: {st.session_state.time_filter}, البرنامج: {st.session_state.program_filter}, الفئة: {st.session_state.category_filter}")
 else:
-    metric_cols = st.columns(6)
+    # --- KPIs ---
+    st.markdown("#### المؤشرات الرئيسية")
+    kpi_cols = st.columns(5)
+    total_tasks = len(filtered_data)
+    total_hours = filtered_data["عدد الساعات"].sum()
+    total_points = filtered_data["عدد النقاط"].sum()
+    active_members = filtered_data["اسم العضو"].nunique()
 
-# عرض المقاييس (استخدام البيانات المصفاة للفترة)
-with metric_cols[0]: st.metric("إجمالي المهام (الفترة)", f"{total_tasks_overview:,}")
-with metric_cols[1]: st.metric("الأعضاء النشطين (الفترة)", f"{active_members_overview:,} من {total_members_historical:,}")
-with metric_cols[2]: st.metric("مجموع النقاط (الفترة)", f"{total_points_overview:,.0f}")
-with metric_cols[3]: st.metric("مجموع الساعات (الفترة)", f"{total_hours_overview:,.0f}")
-with metric_cols[4]: st.metric("متوسط النقاط (الفترة)", f"{total_points_overview/total_tasks_overview:.1f}" if total_tasks_overview > 0 else "0")
-# مقياس الأوسمة الجديد
-with metric_cols[5]: st.metric("الأوسمة المكتسبة (الفترة)", f"{badges_earned_overview:,}")
-
-# --- عرض تفاصيل الأوسمة المكتسبة ---
-if badge_details_list:
-    with st.expander("🏅 تفاصيل الأوسمة المكتسبة في الفترة المحددة", expanded=False):
-        st.markdown('<div class="badge-details-expander">', unsafe_allow_html=True)
-        current_member = None
-        for badge in badge_details_list:
-            if badge["member"] != current_member:
-                if current_member is not None: # Add a small separator between members
-                     st.markdown("---")
-                st.markdown(f"**{badge['member']}**")
-                current_member = badge["member"]
-
-            # عرض المستوى والفئة مع التنسيق المطلوب
-            st.markdown(f"""
-            <div class="level-category-display" style="margin-right: 15px; display: flex; align-items: center; gap: 8px;">
-                 <span style="font-size: 1.1rem;">{badge['level_icon']}</span>
-                 <div>
-                     <span class="level-name" style="color: {badge['level_color']};">{badge['level_name']}</span>
-                     <span class="category-name"> في {badge['category']}</span>
-                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-elif overview_filtered_data is not None and not overview_filtered_data.empty: # Only show info if data was loaded
-     st.info("لم يتم اكتساب أوسمة (مستوى ممارس فأعلى) في الفترة الزمنية المحددة.")
+    # حساب أعلى مستوى تم بلوغه في الفترة
+    # (يعتمد على مجموع نقاط كل عضو في كل فئة *خلال الفترة*)
+    highest_level_name = "مبتدئ"
+    if not filtered_data.empty:
+        member_category_points_period = filtered_data.groupby(['اسم العضو', 'الفئة'])['عدد النقاط'].sum().reset_index()
+        if not member_category_points_period.empty:
+             member_category_points_period['level_info'] = member_category_points_period['عدد النقاط'].apply(get_achievement_level)
+             member_category_points_period['level_order'] = member_category_points_period['level_info'].apply(lambda x: LEVEL_ORDER.get(x['name'], -1))
+             highest_level_order = member_category_points_period['level_order'].max()
+             highest_level_name = next((name for name, order in LEVEL_ORDER.items() if order == highest_level_order), "مبتدئ")
 
 
-# =========================================
-# القسم 10: إعداد التبويبات الرئيسية (جديد)
-# =========================================
-# استخدام البيانات المصفاة للنظرة العامة في التبويب الأول
-# استخدام البيانات الكاملة (التاريخية) في التبويب الثاني بشكل أساسي
+    with kpi_cols[0]: st.metric("مجموع المهام", f"{total_tasks:,}")
+    with kpi_cols[1]: st.metric("إجمالي الساعات", f"{total_hours:,.1f}")
+    with kpi_cols[2]: st.metric("إجمالي النقاط", f"{total_points:,.0f}")
+    with kpi_cols[3]: st.metric("الأعضاء النشطين", f"{active_members:,}")
+    with kpi_cols[4]:
+         st.metric("أعلى مستوى (الفترة)", highest_level_name,
+                   help="أعلى مستوى تم بلوغه من قبل أي عضو في أي فئة بناءً على النقاط المكتسبة في الفترة المحددة.")
 
-tab1, tab2 = st.tabs(["📊 عرض موجز", "👥 إنجازات الأعضاء"])
 
-# =========================================
-# القسم 11: تبويب عرض موجز (جديد)
-# =========================================
-with tab1:
-    st.markdown(f"### عرض موجز للإنجازات ({st.session_state.overview_time_filter})")
+    st.markdown("---")
+    overview_cols = st.columns([3, 2]) # قسم الرسوم البيانية
 
-    if overview_filtered_data is None or overview_filtered_data.empty:
-        # Check if the initial data loading failed or if the filter resulted in empty data
-        if all_achievements_data is None or all_achievements_data.empty:
-             st.warning("لا يمكن عرض الموجز بسبب فشل تحميل البيانات.")
+    with overview_cols[0]:
+        # --- مخطط النقاط المكدس حسب الفئة والمستوى ---
+        st.markdown("#### النقاط حسب الفئة والمستوى")
+        category_points_levels = filtered_data[filtered_data['الفئة'] != '— بدون فئة —'].copy()
+        if not category_points_levels.empty:
+             # حساب المستوى لكل مهمة بناءً على نقاطها (للتلوين)
+            category_points_levels['مستوى_المهمة_اسم'] = category_points_levels['مستوى_المهمة'].apply(lambda x: x['name'])
+             # تجميع النقاط حسب الفئة والمستوى
+            category_summary = category_points_levels.groupby(['الفئة', 'مستوى_المهمة_اسم'])['عدد النقاط'].sum().reset_index()
+
+            if not category_summary.empty:
+                 try:
+                     fig_cat_stacked = px.bar(category_summary, x='الفئة', y='عدد النقاط',
+                                              color='مستوى_المهمة_اسم',
+                                              title="", # Remove title
+                                              labels={'الفئة': 'الفئة', 'عدد النقاط': 'مجموع النقاط', 'مستوى_المهمة_اسم': 'المستوى'},
+                                              category_orders={'مستوى_المهمة_اسم': list(LEVEL_ORDER.keys())}, # Ensure correct level order
+                                              color_discrete_map=LEVEL_COLORS)
+                     fig_cat_stacked = prepare_chart_layout(fig_cat_stacked, "النقاط حسب الفئة والمستوى", is_mobile, "bar")
+                     st.plotly_chart(fig_cat_stacked, use_container_width=True, config={"displayModeBar": False})
+                 except Exception as e:
+                      st.error(f"خطأ في رسم مخطط الفئات المكدس: {e}")
+            else:
+                 st.info("لا توجد بيانات كافية لعرض مخطط النقاط حسب الفئة والمستوى.")
         else:
-             st.warning(f"لا توجد بيانات متاحة للفترة المحددة: {st.session_state.overview_time_filter}")
-    else:
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # 1. توزيع الإنجازات حسب الفئة (النقاط)
-            st.markdown("#### توزيع النقاط حسب الفئة")
-            if "الفئة" in overview_filtered_data.columns:
-                category_points_dist = overview_filtered_data[overview_filtered_data["الفئة"] != "— بدون فئة —"].groupby("الفئة")["عدد النقاط"].sum().reset_index()
-                category_points_dist = category_points_dist[category_points_dist["عدد النقاط"] > 0] # Filter out categories with 0 points
-
-                if not category_points_dist.empty:
-                    try:
-                        fig_cat_points = px.pie(category_points_dist, values="عدد النقاط", names="الفئة",
-                                                title="", hole=0.3, # Remove title from here, handled by prepare_chart_layout
-                                                color_discrete_sequence=px.colors.qualitative.Pastel)
-                        fig_cat_points = prepare_chart_layout(fig_cat_points, "توزيع النقاط حسب الفئة", is_mobile=mobile_view, chart_type="pie", show_legend=True)
-                        fig_cat_points.update_traces(textposition='inside', textinfo='percent+label')
-                        st.plotly_chart(fig_cat_points, use_container_width=True, config={"displayModeBar": False})
-                    except Exception as e:
-                         st.error(f"حدث خطأ أثناء إنشاء مخطط توزيع الفئات: {e}")
-
-                else:
-                    st.info("لا توجد نقاط مسجلة حسب الفئات في الفترة المحددة.")
-            else:
-                st.info("عمود 'الفئة' غير موجود لتحليل التوزيع.")
-
-        with col2:
-            # 2. توزيع الإنجازات حسب البرنامج (النقاط)
-            st.markdown("#### توزيع النقاط حسب البرنامج")
-            if "البرنامج" in overview_filtered_data.columns:
-                program_points_dist = overview_filtered_data[overview_filtered_data["البرنامج"] != "غير محدد"].groupby("البرنامج")["عدد النقاط"].sum().reset_index()
-                program_points_dist = program_points_dist[program_points_dist["عدد النقاط"] > 0] # Filter out programs with 0 points
-
-                if not program_points_dist.empty:
-                    try:
-                        fig_prog_points = px.pie(program_points_dist, values="عدد النقاط", names="البرنامج",
-                                                 title="", hole=0.3, # Remove title from here
-                                                 color_discrete_sequence=px.colors.qualitative.Set2)
-                        fig_prog_points = prepare_chart_layout(fig_prog_points, "توزيع النقاط حسب البرنامج", is_mobile=mobile_view, chart_type="pie", show_legend=True)
-                        fig_prog_points.update_traces(textposition='inside', textinfo='percent+label')
-
-                        st.plotly_chart(fig_prog_points, use_container_width=True, config={"displayModeBar": False})
-                    except Exception as e:
-                         st.error(f"حدث خطأ أثناء إنشاء مخطط توزيع البرامج: {e}")
-                else:
-                    st.info("لا توجد نقاط مسجلة حسب البرامج في الفترة المحددة.")
-            else:
-                st.info("عمود 'البرنامج' غير موجود لتحليل التوزيع.")
-
-        st.markdown("---") # Separator
-
-        col3, col4 = st.columns([3, 2]) # Adjust column ratio
-
-        with col3:
-            # 3. لوحة الصدارة (للفترة المحددة)
-            st.markdown("#### 🏆 لوحة الصدارة (الفترة المحددة)")
-            if "اسم العضو" in overview_filtered_data.columns:
-                 member_summary_period = overview_filtered_data.groupby("اسم العضو").agg(
-                     عدد_النقاط=("عدد النقاط", "sum"),
-                     عدد_المهام=("عنوان المهمة", "count"), # Count tasks
-                     عدد_الساعات=("عدد الساعات", "sum")
-                 ).reset_index()
-                 member_summary_period = member_summary_period.sort_values("عدد_النقاط", ascending=False).head(5) # Top 5 for the period
-
-                 if not member_summary_period.empty and all_achievements_data is not None and not all_achievements_data.empty:
-                     try:
-                         # Add overall level for context (calculated historically)
-                         # Ensure historical data is available for lookup
-                         historical_points = all_achievements_data.groupby('اسم العضو')['عدد النقاط'].sum()
-                         member_summary_period["مستوى_الإنجاز_الإجمالي"] = member_summary_period["اسم العضو"].apply(
-                             lambda name: get_achievement_level(historical_points.get(name, 0)) # Use .get for safety
-                         )
-                         member_summary_period["مستوى_إجمالي"] = member_summary_period["مستوى_الإنجاز_الإجمالي"].apply(lambda x: x["name"])
-                         member_summary_period["لون_إجمالي"] = member_summary_period["مستوى_الإنجاز_الإجمالي"].apply(lambda x: x["color"])
-                         member_summary_period["أيقونة_إجمالي"] = member_summary_period["مستوى_الإنجاز_الإجمالي"].apply(lambda x: x["icon"])
+             st.info("لا توجد بيانات مصنفة حسب الفئات لعرضها.")
 
 
-                         # Chart for leaderboard
-                         level_colors_map = {level["name"]: level["color"] for level in ACHIEVEMENT_LEVELS}
-                         level_colors_map[BEGINNER_LEVEL["name"]] = BEGINNER_LEVEL["color"]
+        # --- مخطط خطي تراكمي للمهام عبر الزمن (بالأسابيع) ---
+        st.markdown("#### تطور عدد المهام التراكمي (أسبوعي)")
+        if not filtered_data.empty and 'Week' in filtered_data.columns:
+             try:
+                 # Ensure 'التاريخ' is sorted for cumulative calculation if needed, though groupby handles it
+                 tasks_per_week = filtered_data.sort_values('التاريخ').groupby('Week').size().reset_index(name='count')
+                 # Ensure weeks are sorted chronologically
+                 tasks_per_week['WeekStart'] = tasks_per_week['Week'].apply(lambda w: pd.to_datetime(w.split('/')[0]))
+                 tasks_per_week = tasks_per_week.sort_values('WeekStart')
+                 tasks_per_week['cumulative_tasks'] = tasks_per_week['count'].cumsum()
 
-                         fig_leaderboard = px.bar(member_summary_period,
-                                                  y="اسم العضو", x="عدد_النقاط",
-                                                  title="", # Remove title from here
-                                                  orientation='h',
-                                                  color="مستوى_إجمالي", # Color by overall level
-                                                  color_discrete_map=level_colors_map,
-                                                  labels={"عدد_النقاط": "النقاط في الفترة", "اسم العضو": "العضو", "مستوى_إجمالي": "المستوى الإجمالي"},
-                                                  text="عدد_النقاط" # Show points on bars
-                                                 )
-                         fig_leaderboard.update_layout(yaxis={'categoryorder':'total ascending'}) # Sort bars by value
-                         fig_leaderboard = prepare_chart_layout(fig_leaderboard, "أعلى 5 أعضاء نقاطًا (الفترة)", is_mobile=mobile_view, chart_type="bar", show_legend=False)
-                         st.plotly_chart(fig_leaderboard, use_container_width=True, config={"displayModeBar": False})
-                     except Exception as e:
-                          st.error(f"حدث خطأ أثناء إنشاء مخطط لوحة الصدارة: {e}")
-
-                 else:
-                     st.info("لا توجد بيانات كافية لعرض لوحة الصدارة للفترة المحددة.")
-
-            else:
-                 st.info("عمود 'اسم العضو' غير موجود لعرض لوحة الصدارة.")
-
-
-        with col4:
-            # 4. أحدث الإنجازات (للفترة المحددة)
-            st.markdown("#### ✨ أحدث الإنجازات (الفترة المحددة)")
-            # Ensure 'التاريخ' exists before sorting
-            if "التاريخ" in overview_filtered_data.columns:
-                 latest_achievements = overview_filtered_data.sort_values("التاريخ", ascending=False).head(5)
-                 if not latest_achievements.empty:
-                     for _, task in latest_achievements.iterrows():
-                          task_title = task.get("عنوان المهمة", "مهمة غير محددة")
-                          member_name = task.get("اسم العضو", "غير معين")
-                          date_display = task.get("التاريخ", None)
-                          formatted_date = date_display.strftime("%Y/%m/%d") if pd.notna(date_display) else ""
-                          category = task.get("الفئة", "غير مصنفة")
-                          points = int(task.get("عدد النقاط", 0))
-
-                          st.markdown(f"""
-                          <div style="font-size: 0.85rem; margin-bottom: 8px; padding: 5px; background-color: #f9f9f9; border-radius: 4px;">
-                              <span style="font-weight: 500;">{task_title}</span> ({points} نقطة)
-                              <br>
-                              <span style="color: #555;">{member_name} - {formatted_date} - [{category}]</span>
-                          </div>
-                          """, unsafe_allow_html=True)
-                 else:
-                     st.info("لا توجد إنجازات حديثة في الفترة المحددة.")
-            else:
-                 st.info("عمود 'التاريخ' غير موجود لعرض أحدث الإنجازات.")
-
-
-        st.markdown("---") # Separator
-
-        # 5. التطور الزمني للإنجازات حسب الشهر (للفترة المحددة)
-        st.markdown("#### التطور الزمني للإنجازات حسب الشهر (الفترة المحددة)")
-        if "التاريخ" in overview_filtered_data.columns:
-            # Ensure 'التاريخ' is datetime before extracting month/year
-            monthly_summary = overview_filtered_data.copy()
-            if not pd.api.types.is_datetime64_any_dtype(monthly_summary['التاريخ']):
-                 monthly_summary['التاريخ'] = pd.to_datetime(monthly_summary['التاريخ'], errors='coerce')
-
-            # Check if 'التاريخ' column exists and is valid datetime after potential conversion
-            if 'التاريخ' in monthly_summary.columns and pd.api.types.is_datetime64_any_dtype(monthly_summary['التاريخ']):
-                monthly_summary = monthly_summary.dropna(subset=['التاريخ']) # Ensure no NaT dates
-                if not monthly_summary.empty:
-                    try:
-                        monthly_summary["الشهر_السنة"] = monthly_summary["التاريخ"].dt.to_period("M").astype(str)
-                        monthly_analysis = monthly_summary.groupby("الشهر_السنة").agg(
-                            عدد_النقاط=("عدد النقاط", "sum"),
-                            عدد_المهام=("عنوان المهمة", "count") # Count tasks per month
-                        ).reset_index()
-
-                        # Sort by date for the line chart
-                        monthly_analysis["sort_date"] = pd.to_datetime(monthly_analysis["الشهر_السنة"], format="%Y-%m")
-                        monthly_analysis = monthly_analysis.sort_values("sort_date").reset_index(drop=True)
-
-                        if not monthly_analysis.empty:
-                            fig_monthly_trend = go.Figure()
-                            # Add Points line
-                            fig_monthly_trend.add_trace(go.Scatter(x=monthly_analysis["الشهر_السنة"], y=monthly_analysis["عدد_النقاط"],
-                                                                   mode='lines+markers', name='مجموع النقاط', yaxis='y1',
-                                                                   line=dict(color='#1e88e5')))
-                            # Add Tasks bar on secondary axis
-                            fig_monthly_trend.add_trace(go.Bar(x=monthly_analysis["الشهر_السنة"], y=monthly_analysis["عدد_المهام"],
-                                                                name='عدد المهام', yaxis='y2',
-                                                                marker=dict(color='rgba(39, 174, 96, 0.6)'))) # Semi-transparent green bar
-
-
-                            # Apply general layout first using the helper function
-                            fig_monthly_trend = prepare_chart_layout(fig_monthly_trend,
-                                                                     "تطور النقاط وعدد المهام حسب الشهر (الفترة)",
-                                                                     is_mobile=mobile_view,
-                                                                     chart_type="line", # Keep chart type for potential specific adjustments
-                                                                     show_legend=True) # Ensure legend is shown initially
-
-                            # Now, apply the specific dual-axis configuration
-                            fig_monthly_trend.update_layout(
-                                xaxis_title="الشهر",
-                                yaxis=dict(
-                                    title="مجموع النقاط",
-                                    titlefont=dict(color="#1e88e5"),
-                                    tickfont=dict(color="#1e88e5")
-                                ),
-                                yaxis2=dict(
-                                    title="عدد المهام",
-                                    titlefont=dict(color="#27AE60"),
-                                    tickfont=dict(color="#27AE60"),
-                                    overlaying="y",
-                                    side="left", # Place secondary axis on the left
-                                    showgrid=False # Explicitly hide grid for secondary axis
-                                ),
-                                # Legend position is handled by prepare_chart_layout
-                            )
-
-                            st.plotly_chart(fig_monthly_trend, use_container_width=True, config={"displayModeBar": False})
-
-                        else:
-                            st.info("لا توجد بيانات شهرية كافية لعرض التطور الزمني في الفترة المحددة.")
-                    except Exception as e:
-                         st.error(f"حدث خطأ أثناء إنشاء مخطط التطور الزمني: {e}")
-                         st.error(f"Trace: {traceback.format_exc()}") # Display traceback for debugging
-                else:
-                    st.info("لا توجد بيانات صالحة بعد معالجة التواريخ لعرض التطور الزمني.")
-            else:
-                 st.info("لا يمكن إنشاء التطور الزمني بسبب مشاكل في بيانات التاريخ.")
+                 fig_area = px.area(tasks_per_week, x='WeekStart', y='cumulative_tasks',
+                                    title="", # Remove title
+                                    labels={'WeekStart': 'بداية الأسبوع', 'cumulative_tasks': 'إجمالي المهام التراكمي'},
+                                    markers=True)
+                 fig_area.update_xaxes(dtick="M1", tickformat="%Y-%m-%d") # Show monthly ticks approx
+                 fig_area = prepare_chart_layout(fig_area, "تطور عدد المهام التراكمي (أسبوعي)", is_mobile, "line") # Use line type for area
+                 st.plotly_chart(fig_area, use_container_width=True, config={"displayModeBar": False})
+             except Exception as e:
+                  st.error(f"خطأ في رسم المخطط الزمني التراكمي: {e}")
         else:
-            st.info("عمود 'التاريخ' غير موجود لعرض التطور الزمني.")
+             st.info("لا توجد بيانات كافية لعرض المخطط الزمني التراكمي.")
+
+
+    with overview_cols[1]:
+        # --- تقدم البرامج (بيانات افتراضية) ---
+        st.markdown("#### تقدم البرامج (مقابل الخطة)")
+        program_summary = filtered_data.groupby("البرنامج")["عدد النقاط"].sum()
+        for prog_name, target_points in PROGRAM_PLANS.items():
+            if prog_name == "جميع البرامج": continue # Skip overall target here
+            current_points = program_summary.get(prog_name, 0)
+            progress = min(100, (current_points / target_points) * 100) if target_points > 0 else 0
+            st.text(f"{prog_name}: ({int(current_points)} / {target_points} نقطة)")
+            st.progress(int(progress) / 100) # st.progress takes 0.0 to 1.0
+
+        # --- مخطط دائري لتوزيع المهام على البرامج ---
+        st.markdown("#### توزيع المهام حسب البرنامج")
+        program_tasks_dist = filtered_data['البرنامج'].value_counts().reset_index()
+        program_tasks_dist.columns = ['البرنامج', 'عدد المهام']
+
+        if not program_tasks_dist.empty:
+             try:
+                 fig_prog_donut = px.pie(program_tasks_dist, values='عدد المهام', names='البرنامج',
+                                         title="", # Remove title
+                                         hole=0.4, # Make it a donut chart
+                                         color_discrete_sequence=px.colors.qualitative.Set3)
+                 fig_prog_donut = prepare_chart_layout(fig_prog_donut, "توزيع المهام حسب البرنامج", is_mobile, "donut")
+                 st.plotly_chart(fig_prog_donut, use_container_width=True, config={"displayModeBar": False})
+             except Exception as e:
+                  st.error(f"خطأ في رسم مخطط توزيع البرامج: {e}")
+        else:
+             st.info("لا توجد مهام لعرض توزيعها حسب البرامج.")
+
 
 # =========================================
-# القسم 12: تبويب إنجازات الأعضاء (معدل)
+# القسم 12: التبويبات الفرعية
 # =========================================
-with tab2:
-    st.markdown("### إنجازات الأعضاء (التاريخية والتفصيلية)")
+st.markdown("---")
+st.header("التحليلات التفصيلية")
 
-    if all_achievements_data is None or all_achievements_data.empty:
-         st.warning("لا توجد بيانات إنجازات لعرضها.")
+tab_titles = ["البرامج", "الأعضاء", "الفئات", "المهام التفصيلية"]
+tabs = st.tabs(tab_titles)
+
+# --- Tab 1: البرامج ---
+with tabs[0]:
+    st.subheader("تحليل البرامج")
+
+    # Selector for program if "الكل" is selected in main filter
+    program_to_show = st.session_state.program_filter
+    if program_to_show == "الكل":
+        program_options_tab = program_list + ["غير مرتبط ببرنامج"]
+        program_to_show = st.selectbox("اختر برنامجًا لعرض تفاصيله:", program_options_tab, key="program_tab_selector")
+
+    # Filter data for the selected program
+    program_data = filtered_data[filtered_data["البرنامج"] == program_to_show]
+
+    if program_data.empty:
+        st.warning(f"لا توجد بيانات للبرنامج المحدد '{program_to_show}' ضمن الفلاتر الحالية.")
     else:
-        try: # Wrap major calculations in try-except
-            # --- حساب الإجماليات التاريخية لكل عضو ---
-            member_summary_historical = all_achievements_data.groupby("اسم العضو").agg(
-                عدد_النقاط_الإجمالي=("عدد النقاط", "sum"),
-                عدد_الساعات_الإجمالي=("عدد الساعات", "sum"),
-                عدد_الإنجازات_الإجمالي=("عنوان المهمة", "count")
-            ).reset_index()
+        st.markdown(f"#### تفاصيل برنامج: {program_to_show}")
+        prog_cols = st.columns(2)
+        with prog_cols[0]:
+            # KPIs for the program
+            prog_total_tasks = len(program_data)
+            prog_total_points = program_data["عدد النقاط"].sum()
+            prog_total_hours = program_data["عدد الساعات"].sum()
+            prog_active_members = program_data["اسم العضو"].nunique()
+            st.metric("مجموع المهام (البرنامج)", f"{prog_total_tasks:,}")
+            st.metric("مجموع النقاط (البرنامج)", f"{prog_total_points:,.0f}")
 
-            # إضافة مستوى الإنجاز الإجمالي (التاريخي)
-            member_summary_historical["مستوى_الإنجاز_الإجمالي"] = member_summary_historical["عدد_النقاط_الإجمالي"].apply(get_achievement_level)
-            member_summary_historical["مستوى_إجمالي"] = member_summary_historical["مستوى_الإنجاز_الإجمالي"].apply(lambda x: x["name"])
-            member_summary_historical["لون_إجمالي"] = member_summary_historical["مستوى_الإنجاز_الإجمالي"].apply(lambda x: x["color"])
-            member_summary_historical["أيقونة_إجمالي"] = member_summary_historical["مستوى_الإنجاز_الإجمالي"].apply(lambda x: x["icon"])
+        with prog_cols[1]:
+             st.metric("مجموع الساعات (البرنامج)", f"{prog_total_hours:,.1f}")
+             st.metric("الأعضاء النشطين (البرنامج)", f"{prog_active_members:,}")
 
-            # حساب متوسط النقاط التاريخي
-            member_summary_historical["متوسط_النقاط_الإجمالي"] = member_summary_historical.apply(
-                lambda row: row["عدد_النقاط_الإجمالي"] / row["عدد_الإنجازات_الإجمالي"] if row["عدد_الإنجازات_الإجمالي"] > 0 else 0, axis=1
+        # Progress bar vs Plan
+        st.markdown("##### التقدم مقابل الخطة")
+        prog_target = PROGRAM_PLANS.get(program_to_show, 0)
+        prog_progress = min(100, (prog_total_points / prog_target) * 100) if prog_target > 0 else 0
+        st.text(f"الخطة: {prog_target} نقطة | المحقق: {int(prog_total_points)} نقطة")
+        st.progress(int(prog_progress) / 100)
+
+        # Stacked bar: Points by Category within the program
+        st.markdown("##### النقاط حسب الفئة داخل البرنامج")
+        prog_cat_points = program_data[program_data['الفئة'] != '— بدون فئة —'].copy()
+        if not prog_cat_points.empty:
+             prog_cat_points['مستوى_المهمة_اسم'] = prog_cat_points['مستوى_المهمة'].apply(lambda x: x['name'])
+             prog_cat_summary = prog_cat_points.groupby(['الفئة', 'مستوى_المهمة_اسم'])['عدد النقاط'].sum().reset_index()
+
+             if not prog_cat_summary.empty:
+                  try:
+                      fig_prog_cat_stacked = px.bar(prog_cat_summary, x='الفئة', y='عدد النقاط',
+                                                    color='مستوى_المهمة_اسم', title="",
+                                                    labels={'الفئة': 'الفئة', 'عدد النقاط': 'مجموع النقاط', 'مستوى_المهمة_اسم': 'المستوى'},
+                                                    category_orders={'مستوى_المهمة_اسم': list(LEVEL_ORDER.keys())},
+                                                    color_discrete_map=LEVEL_COLORS)
+                      fig_prog_cat_stacked = prepare_chart_layout(fig_prog_cat_stacked, f"النقاط حسب الفئة ({program_to_show})", is_mobile, "bar")
+                      st.plotly_chart(fig_prog_cat_stacked, use_container_width=True, config={"displayModeBar": False})
+                  except Exception as e:
+                       st.error(f"خطأ في رسم مخطط الفئات المكدس للبرنامج: {e}")
+             else:
+                  st.info("لا توجد بيانات كافية لعرض مخطط النقاط حسب الفئة داخل البرنامج.")
+        else:
+             st.info("لا توجد مهام بفئات لعرضها لهذا البرنامج.")
+
+
+        # Simple table for recent tasks
+        st.markdown("##### أحدث المهام في البرنامج")
+        recent_tasks_prog = program_data.head(5)[["تاريخ الإنجاز", "عنوان المهمة", "اسم العضو", "عدد النقاط"]]
+        st.dataframe(recent_tasks_prog, use_container_width=True, hide_index=True)
+
+
+# --- Tab 2: الأعضاء ---
+with tabs[1]:
+    st.subheader("تحليل الأعضاء")
+
+    if filtered_data.empty:
+         st.warning("لا توجد بيانات لعرض تحليل الأعضاء بناءً على الفلاتر الحالية.")
+    else:
+        # Leaderboard (based on filtered data)
+        st.markdown("#### لوحة الشرف (حسب الفلاتر)")
+        member_summary_filtered = filtered_data.groupby("اسم العضو").agg(
+            عدد_النقاط_فترة=("عدد النقاط", "sum"),
+            عدد_الساعات_فترة=("عدد الساعات", "sum"),
+            عدد_المهام_فترة=("عنوان المهمة", "count")
+        ).reset_index().sort_values("عدد_النقاط_فترة", ascending=False)
+
+        if not member_summary_filtered.empty:
+            # Add overall historical level for context
+            historical_points = all_data.groupby('اسم العضو')['عدد النقاط'].sum()
+            member_summary_filtered["المستوى_الإجمالي"] = member_summary_filtered["اسم العضو"].apply(
+                lambda name: get_achievement_level(historical_points.get(name, 0))['name']
             )
+            member_summary_filtered["لون_المستوى_الإجمالي"] = member_summary_filtered["المستوى_الإجمالي"].map(LEVEL_COLORS)
 
-            # ترتيب حسب النقاط تنازليًا
-            member_summary_historical = member_summary_historical.sort_values("عدد_النقاط_الإجمالي", ascending=False).reset_index(drop=True)
-
-
-            # --- 1. قائمة الصدارة التاريخية (أعلى 10) ---
-            st.markdown("#### 🏆 قائمة الصدارة التاريخية (أعلى 10 أعضاء)")
-            top_10_historical = member_summary_historical.head(10)
-
-            # إنشاء جدول HTML لقائمة الصدارة
-            st.markdown("""
-            <table class="achievements-table">
-                <thead>
-                    <tr>
-                        <th style="width: 5%;">#</th>
-                        <th style="width: 40%; text-align: right;">العضو</th>
-                        <th style="width: 20%;">مجموع النقاط (الإجمالي)</th>
-                        <th style="width: 20%;">عدد الإنجازات (الإجمالي)</th>
-                        <th style="width: 15%;">المستوى الإجمالي</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """, unsafe_allow_html=True)
-
-            for i, (_, row) in enumerate(top_10_historical.iterrows()):
-                st.markdown(f"""
-                    <tr>
-                        <td>{i+1}</td>
-                        <td style="text-align: right;">{row['اسم العضو']}</td>
-                        <td>{int(row['عدد_النقاط_الإجمالي'])}</td>
-                        <td>{row['عدد_الإنجازات_الإجمالي']}</td>
-                        <td style="color: {row['لون_إجمالي']}; font-weight: bold;">{row['أيقونة_إجمالي']} {row['مستوى_إجمالي']}</td>
-                    </tr>
-                """, unsafe_allow_html=True)
-
-            st.markdown("</tbody></table>", unsafe_allow_html=True)
-            st.markdown("---") # Separator
-
-
-            # --- 2. بيانات الأعضاء التفصيلية (الجدول التاريخي) ---
-            st.markdown("#### بيانات الأعضاء التفصيلية (الإجمالية)")
-
-            # استخدام الفئة CSS المخصصة للتحكم في عرض الأعمدة
-            st.markdown('<div style="overflow-x: auto;">', unsafe_allow_html=True) # Add scroll for smaller screens
-            st.markdown('<table class="achievements-table member-details-table">', unsafe_allow_html=True) # Apply specific class
-            st.markdown("""
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>العضو</th>
-                        <th>عدد الإنجازات</th>
-                        <th>مجموع النقاط</th>
-                        <th>مجموع الساعات</th>
-                        <th>متوسط النقاط</th>
-                        <th>مستوى الإنجاز</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """, unsafe_allow_html=True)
-
-            for i, (_, row) in enumerate(member_summary_historical.iterrows()):
-                member_name = row["اسم العضو"]
-                total_points = row["عدد_النقاط_الإجمالي"]
-                total_hours = row["عدد_الساعات_الإجمالي"]
-                achievement_count = row["عدد_الإنجازات_الإجمالي"]
-                avg_points = row["متوسط_النقاط_الإجمالي"]
-                level_name = row["مستوى_إجمالي"]
-                level_color = row["لون_إجمالي"]
-                level_icon = row["أيقونة_إجمالي"]
-
-                # جعل اسم العضو قابلاً للنقر لتحديث حالة الجلسة
-                # We'll use a selectbox below instead for better Streamlit compatibility
-                member_display_name = member_name # Keep the name simple here
-
-                st.markdown(f"""
-                <tr>
-                    <td>{i+1}</td>
-                    <td style="text-align: right;">{member_display_name}</td>
-                    <td>{achievement_count}</td>
-                    <td>{int(total_points)}</td>
-                    <td>{int(total_hours)}</td>
-                    <td>{avg_points:.1f}</td>
-                    <td style="color: {level_color}; font-weight: bold;">{level_icon} {level_name}</td>
-                </tr>
-                """, unsafe_allow_html=True)
-
-            st.markdown("</tbody></table>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True) # Close scroll div
-            st.markdown("---") # Separator
-
-
-            # --- 3. تفاصيل إنجازات عضو محدد (باستخدام selectbox) ---
-            st.markdown("#### تفاصيل إنجازات عضو محدد")
-
-            # استخدام قائمة الأعضاء المرتبة تاريخياً
-            member_options = ["اختر عضوًا..."] + member_summary_historical["اسم العضو"].tolist()
-
-            # الحصول على العضو المحدد حاليًا من حالة الجلسة أو تركه None
-            current_selection = st.session_state.selected_member_details
             try:
-                # Find the index of the currently selected member, default to 0 ("اختر عضوًا...") if not found or None
-                default_index = member_options.index(current_selection) if current_selection in member_options else 0
-            except ValueError:
-                default_index = 0 # Fallback if index not found
+                fig_leaderboard_filt = px.bar(member_summary_filtered.head(15), # Show top 15
+                                             y="اسم العضو", x="عدد_النقاط_فترة",
+                                             orientation='h',
+                                             color="المستوى_الإجمالي",
+                                             color_discrete_map=LEVEL_COLORS,
+                                             labels={"عدد_النقاط_فترة": "النقاط (الفترة)", "اسم العضو": "العضو", "المستوى_الإجمالي": "المستوى التاريخي"},
+                                             text="عدد_النقاط_فترة")
+                fig_leaderboard_filt.update_layout(yaxis={'categoryorder':'total ascending'})
+                fig_leaderboard_filt = prepare_chart_layout(fig_leaderboard_filt, "لوحة الشرف (حسب الفلاتر)", is_mobile, "bar", show_legend=False)
+                st.plotly_chart(fig_leaderboard_filt, use_container_width=True, config={"displayModeBar": False})
+            except Exception as e:
+                 st.error(f"خطأ في رسم لوحة الشرف: {e}")
 
-            selected_detail_member = st.selectbox(
-                "اختر العضو لعرض تفاصيل إنجازاته:",
-                options=member_options,
-                index=default_index, # Set the initial selection based on session state
-                key="member_detail_selector" # Unique key for this selectbox
-                )
+            # Member Details Section
+            st.markdown("---")
+            st.markdown("#### تفاصيل العضو ومستوياته")
+            selected_member_tab = st.selectbox("اختر عضوًا لعرض تفاصيله:", ["اختر..."] + members_list, key="member_tab_selector")
 
-            # تحديث حالة الجلسة عند تغيير الاختيار
-            if selected_detail_member != "اختر عضوًا...":
-                st.session_state.selected_member_details = selected_detail_member
-            else:
-                st.session_state.selected_member_details = None # Reset if "اختر عضوًا..." is selected
+            if selected_member_tab != "اختر...":
+                 member_data_filtered = filtered_data[filtered_data["اسم العضو"] == selected_member_tab]
+                 member_data_all = all_data[all_data["اسم العضو"] == selected_member_tab] # For historical context
 
+                 if not member_data_filtered.empty:
+                     m_cols = st.columns(3)
+                     m_points_filt = member_data_filtered["عدد النقاط"].sum()
+                     m_hours_filt = member_data_filtered["عدد الساعات"].sum()
+                     m_tasks_filt = len(member_data_filtered)
+                     m_points_hist = member_data_all["عدد النقاط"].sum()
+                     m_level_hist_info = get_achievement_level(m_points_hist)
+                     m_level_hist_name = m_level_hist_info['name']
+                     m_level_hist_icon = m_level_hist_info['icon']
+                     m_level_hist_color = m_level_hist_info['color']
 
-            # عرض التفاصيل فقط إذا تم اختيار عضو
-            if st.session_state.selected_member_details:
-                member_name_to_display = st.session_state.selected_member_details
-                member_achievements_details = all_achievements_data[all_achievements_data["اسم العضو"] == member_name_to_display].copy()
+                     with m_cols[0]: st.metric("النقاط (الفترة)", f"{m_points_filt:,.0f}")
+                     with m_cols[1]: st.metric("الساعات (الفترة)", f"{m_hours_filt:,.1f}")
+                     with m_cols[2]: st.metric("المهام (الفترة)", f"{m_tasks_filt:,}")
 
-                if not member_achievements_details.empty:
-                    member_achievements_details = member_achievements_details.sort_values("التاريخ", ascending=False)
+                     st.markdown(f"**المستوى التاريخي الإجمالي:** <span style='color:{m_level_hist_color}; font-weight:bold;'>{m_level_hist_icon} {m_level_hist_name}</span> ({int(m_points_hist)} نقطة)", unsafe_allow_html=True)
 
-                    # --- معلومات ملخصة عن العضو (تاريخية) ---
-                    member_info_hist = member_summary_historical[member_summary_historical["اسم العضو"] == member_name_to_display].iloc[0]
-                    member_points_hist = member_info_hist["عدد_النقاط_الإجمالي"]
-                    level_info_hist = member_info_hist["مستوى_الإنجاز_الإجمالي"]
-                    level_name_hist = level_info_hist["name"]
-                    level_color_hist = level_info_hist["color"]
-                    level_icon_hist = level_info_hist["icon"]
+                     # Levels per Category (Historical)
+                     st.markdown("##### مستويات العضو حسب الفئة (التاريخي)")
+                     member_levels_cat = calculate_member_levels_by_category(all_data, selected_member_tab)
+                     if not member_levels_cat.empty:
+                          # Display as styled text or small table
+                          cat_level_html = "<div style='display: flex; flex-wrap: wrap; gap: 15px;'>"
+                          for _, row in member_levels_cat.iterrows():
+                               cat_level_html += f"""
+                               <div style='text-align: center; padding: 5px; border: 1px solid {row['لون_المستوى']}; border-radius: 5px; background-color: {row['لون_المستوى']}15;'>
+                                   <span style='font-size: 0.8em; color: #555;'>{row['الفئة']}</span><br>
+                                   <span style='font-size: 1.2em; color: {row['لون_المستوى']}; font-weight: bold;'>{row['أيقونة_المستوى']} {row['مستوى']}</span><br>
+                                   <span style='font-size: 0.75em;'>({int(row['عدد النقاط'])} نقطة)</span>
+                               </div>"""
+                          cat_level_html += "</div>"
+                          st.markdown(cat_level_html, unsafe_allow_html=True)
+                     else:
+                          st.info("لا توجد بيانات مستويات حسب الفئة لهذا العضو.")
 
-                    # حساب النقاط المتبقية للمستوى التالي (تاريخي)
-                    next_level_hist = None
-                    points_to_next_level_hist = 0
-                    current_level_min_hist = level_info_hist["min"]
-                    current_level_max_hist = level_info_hist["max"]
+                     # Activity Heatmap (based on filtered data)
+                     st.markdown("##### خريطة النشاط الحرارية (حسب الفلاتر)")
+                     if not member_data_filtered.empty and 'DateOnly' in member_data_filtered.columns:
+                          try:
+                              activity_counts = member_data_filtered.groupby('DateOnly').size().reset_index(name='tasks')
+                              activity_counts['DateOnly'] = pd.to_datetime(activity_counts['DateOnly'])
 
-                    if level_name_hist != "رائد":
-                        found_current = False
-                        for i, level in enumerate(ACHIEVEMENT_LEVELS):
-                             if level["name"] == level_name_hist:
-                                 found_current = True
-                                 if i < len(ACHIEVEMENT_LEVELS) - 1:
-                                     next_level_hist = ACHIEVEMENT_LEVELS[i + 1]
-                                     points_to_next_level_hist = next_level_hist["min"] - member_points_hist
-                                 break # Exit loop once current level is found
-                        # Handle beginner case if not found in main levels
-                        if not found_current and level_name_hist == BEGINNER_LEVEL["name"]:
-                             next_level_hist = ACHIEVEMENT_LEVELS[0] # First real level
-                             points_to_next_level_hist = next_level_hist["min"] - member_points_hist
+                              # Create a full date range for the filtered period
+                              if not filtered_data.empty:
+                                   min_date_filt = filtered_data['التاريخ'].min().normalize()
+                                   max_date_filt = filtered_data['التاريخ'].max().normalize()
+                                   all_days = pd.date_range(start=min_date_filt, end=max_date_filt, freq='D')
+                                   activity_full_range = pd.DataFrame(all_days, columns=['DateOnly'])
+                                   # Merge to get counts, fill missing days with 0
+                                   activity_merged = pd.merge(activity_full_range, activity_counts, on='DateOnly', how='left').fillna(0)
 
+                                   # Prepare data for heatmap
+                                   activity_merged['Year'] = activity_merged['DateOnly'].dt.year
+                                   activity_merged['MonthInt'] = activity_merged['DateOnly'].dt.month
+                                   activity_merged['DayOfMonth'] = activity_merged['DateOnly'].dt.day
+                                   activity_merged['Weekday'] = activity_merged['DateOnly'].dt.dayofweek # Monday=0, Sunday=6
+                                   activity_merged['WeekOfYear'] = activity_merged['DateOnly'].dt.isocalendar().week
 
-                    # حساب نسبة الإكمال للمستوى الحالي (تاريخي)
-                    level_range_hist = current_level_max_hist - current_level_min_hist if current_level_max_hist != float('inf') else member_points_hist # Avoid infinity issues
-                    level_progress_hist = 0
-                    if level_range_hist > 0:
-                         level_progress_hist = min(100, ((member_points_hist - current_level_min_hist) / level_range_hist) * 100)
-                    elif member_points_hist >= current_level_min_hist : # Handle cases like 'Raaed' or single point levels
-                         level_progress_hist = 100
+                                   # Pivot for heatmap (example: tasks per day of week vs week number)
+                                   # This requires more complex handling for a calendar view like GitHub's
+                                   # Let's do a simpler heatmap: Day vs Month
+                                   activity_pivot = activity_merged.pivot_table(index='MonthInt', columns='DayOfMonth', values='tasks', fill_value=0)
 
+                                   fig_heatmap = px.imshow(activity_pivot,
+                                                           labels=dict(x="يوم الشهر", y="الشهر", color="عدد المهام"),
+                                                           x=activity_pivot.columns,
+                                                           y=activity_pivot.index,
+                                                           aspect="auto",
+                                                           color_continuous_scale="Greens") # Green color scale
+                                   fig_heatmap = prepare_chart_layout(fig_heatmap, f"خريطة نشاط {selected_member_tab} (المهام اليومية)", is_mobile, "heatmap", height=250)
+                                   fig_heatmap.update_yaxes(tickmode='array', tickvals=list(range(1, 13)), ticktext=[f'{m:02d}' for m in range(1, 13)]) # Format month ticks
+                                   st.plotly_chart(fig_heatmap, use_container_width=True, config={"displayModeBar": False})
 
-                    # --- عرض معلومات العضو مع مستوى الإنجاز الإجمالي والتقدم ---
-                    st.markdown(f"""
-                    <div style="padding: 15px; background-color: #f0f8ff; border-radius: 8px; margin-bottom: 20px; border: 1px solid #d6eaff;">
-                        <h3 style="margin-top: 0; color: #0056b3;">{member_name_to_display}</h3>
-                        <div style="margin-top: 10px; margin-bottom: 15px;">
-                            <span style="font-size: 1.2rem; color: {level_color_hist}; font-weight: bold;">{level_icon_hist} المستوى الإجمالي: {level_name_hist}</span>
-                            <div style="background-color: #e9ecef; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden;">
-                                <div style="background-color: {level_color_hist}; height: 100%; width: {max(0, level_progress_hist)}%; border-radius: 5px;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.8rem;">
-                                <span>{current_level_min_hist} نقطة</span>
-                                <span>{int(current_level_max_hist) if current_level_max_hist != float('inf') else '∞'} نقطة</span>
-                            </div>
-                        </div>
+                              else:
+                                   st.info("لا يمكن تحديد نطاق زمني للحرائط الحرارية.")
 
-                        <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px; justify-content: space-around;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.5rem; font-weight: bold; color: #1e88e5;">{int(member_info_hist['عدد_النقاط_الإجمالي'])}</div>
-                                <div style="font-size: 0.9rem; color: #666;">مجموع النقاط</div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.5rem; font-weight: bold; color: #27AE60;">{int(member_info_hist['عدد_الإنجازات_الإجمالي'])}</div>
-                                <div style="font-size: 0.9rem; color: #666;">عدد الإنجازات</div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.5rem; font-weight: bold; color: #F39C12;">{int(member_info_hist['عدد_الساعات_الإجمالي'])}</div>
-                                <div style="font-size: 0.9rem; color: #666;">مجموع الساعات</div>
-                            </div>
-                        </div>
-
-                        {f'''
-                        <div style="margin-top: 15px; padding: 10px; background-color: #e8f4fc; border-radius: 5px; text-align: center; font-size: 0.9em;">
-                            <span>متبقي {int(max(0, points_to_next_level_hist))} نقطة للوصول إلى مستوى {next_level_hist["name"]} {next_level_hist["icon"]}</span>
-                        </div>
-                        ''' if next_level_hist and points_to_next_level_hist > 0 else ''}
-                    </div>
-                    """, unsafe_allow_html=True)
-
-
-                    # --- قسم مستويات الإنجاز حسب الفئة (تاريخي للعضو المحدد) ---
-                    category_points_hist = calculate_points_by_category(all_achievements_data, member_name_to_display)
-
-                    if not category_points_hist.empty:
-                        st.markdown("##### مستويات الإنجاز حسب الفئة (الإجمالي)")
-
-                        # إنشاء المخطط العنكبوتي/الرادار لتوزيع النقاط حسب الفئة
-                        radar_fig_hist = create_radar_chart(category_points_hist, member_name_to_display, is_mobile=mobile_view)
-
-                        # تقسيم الصفحة إلى عمودين
-                        radar_col, table_col = st.columns([3, 2]) # Adjust ratio if needed
-
-                        with radar_col:
-                            if radar_fig_hist:
-                                st.plotly_chart(radar_fig_hist, use_container_width=True, config={"displayModeBar": False})
-                            else:
-                                st.info("لا يمكن عرض المخطط العنكبوتي.")
-
-                        with table_col:
-                            # عرض جدول الفئات والمستويات
-                            st.markdown('<div style="max-height: 400px; overflow-y: auto;">', unsafe_allow_html=True) # Make table scrollable if too long
-                            st.markdown("""
-                            <table class="achievements-table">
-                                <thead>
-                                    <tr>
-                                        <th>الفئة</th>
-                                        <th>النقاط</th>
-                                        <th>المستوى</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                            """, unsafe_allow_html=True)
-
-                            for _, row in category_points_hist.iterrows():
-                                category = row["الفئة"]
-                                points = int(row["عدد النقاط"])
-                                level = row["مستوى"]
-                                level_color = row["لون_المستوى"]
-                                level_icon = row["أيقونة_المستوى"]
-
-                                st.markdown(f"""
-                                    <tr>
-                                        <td>{category}</td>
-                                        <td>{points}</td>
-                                        <td style="color: {level_color}; font-weight: bold;">{level_icon} {level}</td>
-                                    </tr>
-                                    """, unsafe_allow_html=True)
-
-                            st.markdown("</tbody></table>", unsafe_allow_html=True)
-                            st.markdown('</div>', unsafe_allow_html=True) # Close scroll div
-                    else:
-                        st.info(f"لا توجد بيانات إنجازات موزعة حسب الفئات للعضو {member_name_to_display}.")
+                          except Exception as e:
+                               st.error(f"خطأ في رسم الخريطة الحرارية: {e}")
+                     else:
+                          st.info("لا توجد بيانات كافية لرسم الخريطة الحرارية للعضو المحدد.")
 
 
-                    # --- قائمة إنجازات العضو المحدد (تاريخية) ---
-                    st.markdown("##### قائمة إنجازات العضو (جميع الأوقات)")
-
-                    st.markdown(f"<div>إجمالي المهام: <span style='font-weight: bold;'>{len(member_achievements_details)}</span></div>", unsafe_allow_html=True)
-
-                    # Display tasks in cards
-                    for _, achievement in member_achievements_details.iterrows():
-                        achievement_title = achievement.get("عنوان المهمة", "مهمة غير محددة")
-                        achievement_desc = achievement.get("وصف مختصر", "")
-                        achievement_date = achievement.get("التاريخ", None)
-                        achievement_points = float(achievement.get("عدد النقاط", 0))
-                        achievement_hours = float(achievement.get("عدد الساعات", 0))
-                        achievement_category = achievement.get("الفئة", "غير مصنفة")
-                        achievement_complexity = achievement.get("مستوى التعقيد", "غير محدد")
-                        achievement_program = achievement.get("البرنامج", "غير محدد")
-                        achievement_main_task = achievement.get("المهمة الرئيسية", "")
+                 else:
+                     st.info(f"لا توجد بيانات للعضو '{selected_member_tab}' ضمن الفلاتر الحالية.")
 
 
-                        formatted_date = achievement_date.strftime("%Y/%m/%d") if pd.notna(achievement_date) else ""
-
-                        # Complexity badge color
-                        complexity_class = ""
-                        if achievement_complexity == "منخفض": complexity_class = "badge-green"
-                        elif achievement_complexity == "متوسط": complexity_class = "badge-orange"
-                        elif achievement_complexity in ["عالي", "عالي جداً"]: complexity_class = "badge-red"
-                        else: complexity_class = "badge-blue"
-
-                        # Category color (using historical category points for consistency)
-                        category_color = "#dddddd" # Default grey
-                        category_icon = "📁"
-                        if not category_points_hist.empty and achievement_category in category_points_hist["الفئة"].values:
-                             try: # Add try-except for safety if category might not exist
-                                  category_info = category_points_hist[category_points_hist["الفئة"] == achievement_category].iloc[0]
-                                  category_color = category_info["لون_المستوى"] # Use level color associated with category for the member
-                             except IndexError:
-                                  pass # Keep default color if category not found
+        else: # If member summary is empty
+             st.info("لا توجد بيانات أعضاء لعرضها بناءً على الفلاتر الحالية.")
 
 
-                        st.markdown(f"""
-                        <div class="task-card completed" style="margin-bottom: 8px; border-right-color: {category_color};">
-                            <div class="task-header">
-                                <div>
-                                    <div class="task-title">{achievement_title}</div>
-                                    <div style="font-size: 0.8rem; color: #666;">{formatted_date}</div>
-                                </div>
-                                <div>
-                                    <span class="badge {complexity_class}">{achievement_complexity}</span>
-                                </div>
-                            </div>
-                            {f'<div style="font-size: 0.85rem; margin: 8px 0; color: #444;">{achievement_desc}</div>' if achievement_desc and achievement_desc != 'غير محدد' else ''}
-                            <div class="task-details">
-                                <span class="task-detail-item" style="background-color: {category_color}20;">{category_icon} {achievement_category}</span>
-                                 {f'<span class="task-detail-item">📚 {achievement_program}</span>' if achievement_program and achievement_program != 'غير محدد' else ''}
-                                 {f'<span class="task-detail-item">🔗 {achievement_main_task}</span>' if achievement_main_task and achievement_main_task != 'غير محدد' else ''}
-                            </div>
-                            <div class="task-metrics">
-                                <div class="task-metric">
-                                    <div class="task-metric-value">{int(achievement_points)}</div>
-                                    <div class="task-metric-label">النقاط</div>
-                                </div>
-                                <div class="task-metric">
-                                    <div class="task-metric-value">{int(achievement_hours)}</div>
-                                    <div class="task-metric-label">الساعات</div>
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+# --- Tab 3: الفئات ---
+with tabs[2]:
+    st.subheader("تحليل الفئات")
+    category_to_show = st.session_state.category_filter
+    if category_to_show == "الكل" or category_to_show == "— بدون فئة —":
+        category_to_show = st.selectbox("اختر فئة لعرض تفاصيلها:", category_list, key="category_tab_selector")
 
-                else:
-                    st.info(f"لا توجد إنجازات مسجلة للعضو المحدد: {member_name_to_display}")
-            else:
-                st.info("الرجاء اختيار عضو من القائمة أعلاه لعرض تفاصيله.")
+    # Filter data for the selected category (using the globally filtered data)
+    category_data = filtered_data[filtered_data["الفئة"] == category_to_show]
 
-        except Exception as e:
-             st.error(f"حدث خطأ أثناء عرض تبويب إنجازات الأعضاء: {e}")
-             # Optionally add traceback here as well for debugging
-             # import traceback
-             # st.error(f"Trace: {traceback.format_exc()}")
+    if category_data.empty:
+        st.warning(f"لا توجد بيانات للفئة المحددة '{category_to_show}' ضمن الفلاتر الحالية.")
+    else:
+        st.markdown(f"#### تحليل فئة: {category_to_show}")
+
+        # Distribution of members across levels within the category
+        st.markdown("##### توزيع الأعضاء حسب المستوى داخل الفئة (النقاط في الفترة)")
+        # Calculate points per member *within this category* based on *filtered data*
+        cat_member_points = category_data.groupby("اسم العضو")["عدد النقاط"].sum().reset_index()
+        if not cat_member_points.empty:
+            cat_member_points["level_info"] = cat_member_points["عدد النقاط"].apply(get_achievement_level)
+            cat_member_points["level_name"] = cat_member_points["level_info"].apply(lambda x: x['name'])
+
+            level_distribution = cat_member_points["level_name"].value_counts().reset_index()
+            level_distribution.columns = ['المستوى', 'عدد الأعضاء']
+
+            # Ensure correct order and colors
+            level_distribution['order'] = level_distribution['المستوى'].map(LEVEL_ORDER)
+            level_distribution = level_distribution.sort_values('order')
+
+            try:
+                fig_level_dist = px.bar(level_distribution, x='المستوى', y='عدد الأعضاء',
+                                        color='المستوى',
+                                        color_discrete_map=LEVEL_COLORS,
+                                        labels={'المستوى': 'المستوى', 'عدد الأعضاء': 'عدد الأعضاء'})
+                # Use categoryorderarray for specific order if needed, though mapping and sorting should work
+                # fig_level_dist.update_xaxes(categoryorder='array', categoryarray=list(LEVEL_ORDER.keys()))
+                fig_level_dist = prepare_chart_layout(fig_level_dist, f"توزيع مستويات الأعضاء في فئة '{category_to_show}'", is_mobile, "bar", show_legend=False)
+                st.plotly_chart(fig_level_dist, use_container_width=True, config={"displayModeBar": False})
+
+                # Optional: 100% Stacked Bar (might be less clear with many levels)
+                # try:
+                #     fig_level_dist_100 = px.bar(level_distribution, x=['الفئة'], y='عدد الأعضاء', # Need a dummy x if only one category
+                #                             color='المستوى', barnorm='percent',
+                #                             color_discrete_map=LEVEL_COLORS,
+                #                             labels={'المستوى': 'المستوى', 'value': 'النسبة المئوية للأعضاء'})
+                #     fig_level_dist_100 = prepare_chart_layout(fig_level_dist_100, f"نسبة مستويات الأعضاء في فئة '{category_to_show}' (%)", is_mobile, "bar", show_legend=True)
+                #     st.plotly_chart(fig_level_dist_100, use_container_width=True, config={"displayModeBar": False})
+                # except Exception as e:
+                #      st.error(f"خطأ في رسم مخطط المستويات النسبي: {e}")
+
+            except Exception as e:
+                 st.error(f"خطأ في رسم مخطط توزيع المستويات: {e}")
+
+        else:
+            st.info("لا يوجد أعضاء لديهم نقاط في هذه الفئة ضمن الفلاتر الحالية.")
+
+        # Time to promote: Skipped due to data complexity
+
+
+# --- Tab 4: المهام التفصيلية ---
+with tabs[3]:
+    st.subheader("قائمة المهام التفصيلية")
+    st.markdown("يعرض هذا الجدول المهام التي تطابق الفلاتر المحددة في أعلى الصفحة.")
+
+    if filtered_data.empty:
+        st.warning("لا توجد مهام تطابق الفلاتر الحالية.")
+    else:
+        # Select and rename columns for display
+        display_cols = {
+            "تاريخ الإنجاز": "التاريخ",
+            "اسم العضو": "العضو",
+            "عنوان المهمة": "المهمة",
+            "الفئة": "الفئة",
+            "البرنامج": "البرنامج",
+            "عدد النقاط": "النقاط",
+            "عدد الساعات": "الساعات",
+            "مستوى التعقيد": "التعقيد",
+            "المهمة الرئيسية": "المهمة الرئيسية",
+            # Add "وصف مختصر" if needed, but might make table too wide
+        }
+        tasks_display_df = filtered_data[list(display_cols.keys())].rename(columns=display_cols)
+
+        # Display the interactive dataframe
+        st.dataframe(tasks_display_df, use_container_width=True, hide_index=True)
+
+        # --- Export Button ---
+        st.markdown("---")
+        st.markdown("#### تصدير البيانات")
+
+        # Function to convert DF to CSV
+        @st.cache_data # Cache the conversion result
+        def convert_df_to_csv(df):
+            output = io.StringIO()
+            df.to_csv(output, index=False, encoding='utf-8-sig') # utf-8-sig for Excel compatibility
+            return output.getvalue()
+
+        csv_data = convert_df_to_csv(tasks_display_df)
+
+        # Get current filters for filename
+        time_f = st.session_state.time_filter.replace(" ", "_")
+        prog_f = st.session_state.program_filter.replace(" ", "_")
+        cat_f = st.session_state.category_filter.replace(" ", "_")
+        export_filename = f"tasks_{time_f}_{prog_f}_{cat_f}_{datetime.now().strftime('%Y%m%d')}.csv"
+
+        st.download_button(
+            label="📥 تحميل الجدول الحالي (CSV)",
+            data=csv_data,
+            file_name=export_filename,
+            mime='text/csv',
+        )
+        st.caption("سيتم تحميل البيانات المعروضة في الجدول أعلاه بناءً على الفلاتر المطبقة.")
 
 
 # =========================================
-# القسم 13 إلى 15: أقسام سابقة (تم دمج محتوياتها)
-# =========================================
-# هذه الأقسام أصبحت فارغة بعد إعادة الهيكلة
-
-# =========================================
-# القسم 16: نصائح الاستخدام وتذييل الصفحة
+# القسم 13: نصائح الاستخدام وتذييل الصفحة
 # =========================================
 with st.expander("💡 نصائح للاستخدام", expanded=False):
     st.markdown("""
-    - **فلتر النظرة العامة:** يؤثر على المقاييس والرسوم البيانية في تبويب "عرض موجز".
-    - **عرض موجز:** يقدم ملخصًا للإنجازات ولوحة الصدارة وأحدث المهام والتطور الزمني *للفترة المحددة*.
-    - **إنجازات الأعضاء:**
-        - يعرض **قائمة الصدارة التاريخية** (أعلى 10) بناءً على **كامل** البيانات.
-        - يعرض **جدول بيانات تفصيلي تاريخي** لجميع الأعضاء.
-        - استخدم **القائمة المنسدلة** لاختيار عضو وعرض **تفاصيله التاريخية الكاملة** (المستوى الإجمالي، المستويات حسب الفئة، قائمة جميع مهامه).
+    - **الفلاتر العلوية:** استخدم القوائم المنسدلة في الأعلى لتصفية البيانات المعروضة في *جميع* أقسام اللوحة (النظرة العامة والتبويبات).
+    - **النظرة العامة:** تعطيك ملخصًا سريعًا ومؤشرات أداء رئيسية بناءً على الفلاتر المحددة.
+    - **تبويب البرامج:** يعرض تفاصيل برنامج واحد في كل مرة. إذا اخترت "الكل" في الفلتر العلوي، استخدم القائمة المنسدلة داخل التبويب لاختيار البرنامج.
+    - **تبويب الأعضاء:** يعرض لوحة شرف للأعضاء الأكثر نقاطًا (حسب الفلاتر). اختر عضوًا من القائمة المنسدلة لرؤية تفاصيله التاريخية ومستوياته حسب الفئة وخريطة نشاطه.
+    - **تبويب الفئات:** اختر فئة من القائمة المنسدلة (إذا كان الفلتر العلوي "الكل") لتحليل توزيع مستويات الأعضاء داخلها.
+    - **تبويب المهام التفصيلية:** يعرض جدولاً بجميع المهام المطابقة للفلاتر، مع إمكانية تحميل البيانات كملف CSV.
     - **الرسوم البيانية تفاعلية:** مرر الفأرة فوقها لرؤية التفاصيل.
-    - **التبويبات:** انقر على التبويبات المختلفة للتنقل بين الأقسام الرئيسية.
     - **للعودة إلى أعلى الصفحة:** انقر على زر السهم ↑ في أسفل يسار الشاشة.
     """, unsafe_allow_html=True)
 
