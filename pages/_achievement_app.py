@@ -102,7 +102,7 @@ PREDEFINED_MAIN_TASKS = [
 # تهيئة الواجهة (UI Initialization)
 # -------------------------------------------------------------------------
 st.set_page_config(
-    "تسجيل المهام المكتملة", 
+    "تسجيل المهام المكتملة",
     layout="centered",
     initial_sidebar_state="collapsed"  # إضافة هذا الخيار لضمان طي القائمة الجانبية افتراضيًا
 )
@@ -131,7 +131,7 @@ st.markdown("""
     .achievement-display .caption { color: #555; font-size: 0.9em; }
     .achievement-display .task-title { font-weight: bold; margin-bottom: 3px; display: block; }
     /* تنسيقات لخيارات التصفية الزمنية */
-    .time-filter { 
+    .time-filter {
         margin-bottom: 15px;
         padding: 10px;
         background-color: #f8f9fa;
@@ -147,8 +147,36 @@ st.markdown("""
         padding: 5px 10px;
         border-radius: 4px;
         font-size: 0.9em;
-        margin-left: 10px;
+        margin-left: 10px; /* Changed from margin-right due to RTL */
     }
+
+    /* --- CSS to Hide Streamlit Header and Menu --- */
+    /* Hide Streamlit default header/menu */
+    header[data-testid="stHeader"] {
+        display: none !important; /* Hides the main header bar */
+        visibility: hidden !important;
+    }
+    /* Hide the decoration line below the header */
+    div[data-testid="stDecoration"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    /* Hide the specific toolbar within the header (might be redundant but safer) */
+    div[data-testid="stToolbar"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    /* Hide the main menu button if the above doesn't catch it */
+    #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    /* Add padding to the top of the app body to compensate for the removed header */
+    .main .block-container {
+        padding-top: 1rem !important; /* Adjust as needed */
+    }
+    /* --- End CSS to Hide Header --- */
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -197,8 +225,8 @@ def get_gh_repo():
         repo = g.get_repo(repo_name)
         return repo
     except UnknownObjectException:
-         show_error(f"خطأ 404: المستودع '{repo_name}' غير موجود.", "تأكد من صحة قيمة 'HARDCODED_REPO_NAME' في الكود وصلاحيات 'GITHUB_TOKEN'.")
-         return None
+        show_error(f"خطأ 404: المستودع '{repo_name}' غير موجود.", "تأكد من صحة قيمة 'HARDCODED_REPO_NAME' في الكود وصلاحيات 'GITHUB_TOKEN'.")
+        return None
     except Exception as e:
         show_error(f"خطأ في الاتصال بـ GitHub: {e}", traceback.format_exc())
         return None
@@ -355,7 +383,6 @@ with cache_col:
         st.info("تم مسح ذاكرة التخزين المؤقت.")
         time.sleep(1)
         st.rerun()
-import streamlit as st
 
 # خط أفقي للفصل
 st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px'>", unsafe_allow_html=True)
@@ -382,7 +409,7 @@ with st.expander("تعليمات هامة لأعضاء هيئة التدريس �
         * "قمت (وحدي) بإكمال ملف متعلق بأدلة الاعتماد أخذ مني قرابة الساعتين"
         * "أعددت توصيف مقرر 'المهارات اللغوية' الجديد بالكامل، وشمل ذلك تحديد المخرجات التعليمية ووضع أساليب التقييم (استغرق ٦ ساعات)"
         * "راجعت تقرير الدراسة الذاتية للبرنامج وقمت بتصحيح ١٥ صفحة من التقرير وإضافة البيانات الناقصة (عملت ٣ ساعات)"
-       
+
 
     **تنبيه هام**: لا تدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي)، أو المهام التي يتلقى عليها مكافأة مالية منفصلة.
 
@@ -404,12 +431,12 @@ st.selectbox("اختر اسم العضو", options=MEMBER_NAMES, key="selected_m
 # هذا القسم معطل الآن حيث تم نقل الأزرار إلى أعلى الصفحة الرئيسية
 # لم يتم حذفه لضمان عدم كسر الكود
 # هذا القسم لن يظهر بسبب CSS المضاف لإخفاء القائمة الجانبية
-with st.sidebar:
-    st.header("الإجراءات")
-    if st.button("تسجيل الخروج - غير مرئي", type="secondary", key="sidebar_logout"):
-        pass
-    if st.button("مسح ذاكرة التخزين المؤقت - غير مرئي", type="secondary", key="sidebar_cache"):
-        pass
+# with st.sidebar:
+#     st.header("الإجراءات")
+#     if st.button("تسجيل الخروج - غير مرئي", type="secondary", key="sidebar_logout"):
+#         pass
+#     if st.button("مسح ذاكرة التخزين المؤقت - غير مرئي", type="secondary", key="sidebar_cache"):
+#         pass
 
 # --- Validate User Selection ---
 member = st.session_state.selected_member
@@ -446,12 +473,12 @@ inline_form_placeholder = st.empty()
 with st.form("add_task_form", clear_on_submit=False):
     # عنوان المهمة
     task_title = st.text_input(
-        "عنوان مختصر للمهمة", 
+        "عنوان مختصر للمهمة",
         help="أدخل عنوانًا واضحًا ومختصرًا للمهمة (مثال: 'تطوير مقرر 101'، 'الإشراف على طالب الماجستير')",
         key="task_title_input"
     )
     achievement_date = st.date_input(
-        "تاريخ المهمة التقريبي", 
+        "تاريخ المهمة التقريبي",
         value=datetime.now(),
         help="يمكنك تحديد التاريخ التقريبي للمهمة، لا يلزم أن يكون التاريخ دقيقًا بشكل مطلق"
     )
@@ -460,11 +487,11 @@ with st.form("add_task_form", clear_on_submit=False):
         "وصف المهمة بالتفصيل",
         help="""
         قدم وصفًا تفصيليًا ودقيقًا للمهمة التي قمت بها. كلما كان الوصف أوضح، كان التقييم أدق.
-        
+
         من الأمثلة الخاطئة (غير الدقيقة):
-        • "اشتركت مع زميلي في إنجاز مهام متعلقة بالاعتماد" 
-        • "حضرت اجتماع اللجنة" 
-        • "ساعدت في إعداد الجدول الدراسي" 
+        • "اشتركت مع زميلي في إنجاز مهام متعلقة بالاعتماد"
+        • "حضرت اجتماع اللجنة"
+        • "ساعدت في إعداد الجدول الدراسي"
         • "شاركت في لجنة تطوير المناهج"
 
         من الأمثلة الصحيحة (الواضحة والدقيقة):
@@ -472,12 +499,12 @@ with st.form("add_task_form", clear_on_submit=False):
         • "أعددت توصيف مقرر 'المهارات اللغوية' الجديد بالكامل، وشمل ذلك تحديد المخرجات التعليمية ووضع أساليب التقييم (استغرق ٦ ساعات)"
         • "راجعت تقرير الدراسة الذاتية للبرنامج وقمت بتصحيح ١٥ صفحة من التقرير وإضافة البيانات الناقصة (عملت ٣ ساعات)"
         • "أشرفت على تدريب ٥ طالبات لإعداد ورشة عمل حول مهارات التلاوة، وتضمن ذلك ٣ لقاءات تدريبية مع متابعة مستمرة"
-        
-        تنبيه هام: لا تدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس والمهام المكلف بها رسميًا 
-        (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي، حضور اجتماعات القسم الرسمية)، 
+
+        تنبيه هام: لا تدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس والمهام المكلف بها رسميًا
+        (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي، حضور اجتماعات القسم الرسمية)،
         أو المهام التي يتلقى عليها مكافأة مالية منفصلة.
         """,
-        height=100, 
+        height=100,
         key="achievement_desc_input"
     )
 
@@ -495,7 +522,7 @@ with st.form("add_task_form", clear_on_submit=False):
     if selected_form_main_task_option == add_new_main_task_option:
         st.session_state.show_add_main_task_inline = True
     else:
-         st.session_state.show_add_main_task_inline = False
+        st.session_state.show_add_main_task_inline = False
 
     submit_task = st.form_submit_button("➕ إضافة وحفظ المهمة")
 
@@ -540,11 +567,11 @@ if submit_task:
     try:
         achievement_date_val = achievement_date
     except NameError:
-         st.error("خطأ: لم يتم العثور على قيمة تاريخ المهمة.")
-         st.stop()
+        st.error("خطأ: لم يتم العثور على قيمة تاريخ المهمة.")
+        st.stop()
 
     if selected_form_main_task_option_val == add_new_main_task_option:
-         st.warning("لقد اخترت 'إضافة مهمة رئيسية جديدة'. يرجى إدخال تفاصيل المهمة الجديدة وحفظها أولاً، أو اختيار مهمة أخرى.")
+        st.warning("لقد اخترت 'إضافة مهمة رئيسية جديدة'. يرجى إدخال تفاصيل المهمة الجديدة وحفظها أولاً، أو اختيار مهمة أخرى.")
     elif not task_title_val.strip(): st.error("عنوان مختصر للمهمة مطلوب.")
     elif not achievement_desc_val.strip(): st.error("وصف المهمة مطلوب.")
     elif selected_hour_range_val == HOUR_RANGES[0]: st.error("الرجاء اختيار نطاق الساعات المقدرة.")
@@ -618,7 +645,7 @@ try:
             (achievements_df_display["العضو"] == member) &
             (achievements_df_display['التاريخ_dt'].notna())
         ].copy()
-        
+
         # تطبيق الفلتر الزمني
         current_date = datetime.now()
         if st.session_state.time_filter == "آخر شهر":
@@ -648,40 +675,40 @@ try:
                      st.markdown("<div class='achievement-display'>", unsafe_allow_html=True)
                      col1, col2 = st.columns([0.9, 0.1])
                      with col1:
-                        task_title_display = my_tasks_display_df.loc[i].get('عنوان_المهمة', '')
-                        task_desc_display = my_tasks_display_df.loc[i].get('المهمة', "")
-                        achievement_date_dt = my_tasks_display_df.loc[i].get('التاريخ_dt')
-                        achievement_date_str = achievement_date_dt.strftime('%Y-%m-%d') if pd.notna(achievement_date_dt) else my_tasks_display_df.loc[i].get('التاريخ', "غير معروف")
-                        hour_range_display = my_tasks_display_df.loc[i].get('نطاق_الساعات_المقدرة', 'غير محدد')
-                        category_display = my_tasks_display_df.loc[i].get('الفئة', 'غير محدد')
-                        program_display = my_tasks_display_df.loc[i].get('البرنامج', 'غير محدد')
-                        task_main_id = my_tasks_display_df.loc[i].get('main_id', '')
-                        main_task_title_display = id_to_title_map_display.get(task_main_id, f"({task_main_id})") if task_main_id else "— بدون مهمة رئيسية —"
+                         task_title_display = my_tasks_display_df.loc[i].get('عنوان_المهمة', '')
+                         task_desc_display = my_tasks_display_df.loc[i].get('المهمة', "")
+                         achievement_date_dt = my_tasks_display_df.loc[i].get('التاريخ_dt')
+                         achievement_date_str = achievement_date_dt.strftime('%Y-%m-%d') if pd.notna(achievement_date_dt) else my_tasks_display_df.loc[i].get('التاريخ', "غير معروف")
+                         hour_range_display = my_tasks_display_df.loc[i].get('نطاق_الساعات_المقدرة', 'غير محدد')
+                         category_display = my_tasks_display_df.loc[i].get('الفئة', 'غير محدد')
+                         program_display = my_tasks_display_df.loc[i].get('البرنامج', 'غير محدد')
+                         task_main_id = my_tasks_display_df.loc[i].get('main_id', '')
+                         main_task_title_display = id_to_title_map_display.get(task_main_id, f"({task_main_id})") if task_main_id else "— بدون مهمة رئيسية —"
 
-                        display_title = task_title_display if task_title_display else f"{task_desc_display[:50]}..." if task_desc_display else "مهمة بدون عنوان"
-                        st.markdown(f"<span class='task-title'>{display_title}</span>", unsafe_allow_html=True)
-                        if task_desc_display and (task_desc_display != task_title_display or len(task_title_display) < 20):
-                             st.markdown(f"{task_desc_display}")
+                         display_title = task_title_display if task_title_display else f"{task_desc_display[:50]}..." if task_desc_display else "مهمة بدون عنوان"
+                         st.markdown(f"<span class='task-title'>{display_title}</span>", unsafe_allow_html=True)
+                         if task_desc_display and (task_desc_display != task_title_display or len(task_title_display) < 20):
+                              st.markdown(f"{task_desc_display}")
 
-                        st.markdown(f"<span class='caption'>التاريخ: {achievement_date_str} | الساعات: {hour_range_display} | الفئة: {category_display or 'غير محدد'} | البرنامج: {program_display or 'غير محدد'}<br>المهمة الرئيسية: {main_task_title_display}</span>", unsafe_allow_html=True)
+                         st.markdown(f"<span class='caption'>التاريخ: {achievement_date_str} | الساعات: {hour_range_display} | الفئة: {category_display or 'غير محدد'} | البرنامج: {program_display or 'غير محدد'}<br>المهمة الرئيسية: {main_task_title_display}</span>", unsafe_allow_html=True)
 
                      with col2:
-                        delete_key = f"del-{original_df_index}"
-                        if st.button("🗑️", key=delete_key, help="حذف هذه المهمة"):
-                            if original_df_index in achievements_df_display.index:
-                                task_to_delete_title = achievements_df_display.loc[original_df_index, 'عنوان_المهمة'] or achievements_df_display.loc[original_df_index, 'المهمة'][:20]
-                                achievements_df_updated_del = achievements_df_display.drop(index=original_df_index)
-                                if 'التاريخ_dt' in achievements_df_updated_del.columns:
-                                     achievements_df_updated_del = achievements_df_updated_del.drop(columns=['التاريخ_dt'])
+                         delete_key = f"del-{original_df_index}"
+                         if st.button("🗑️", key=delete_key, help="حذف هذه المهمة"):
+                             if original_df_index in achievements_df_display.index:
+                                 task_to_delete_title = achievements_df_display.loc[original_df_index, 'عنوان_المهمة'] or achievements_df_display.loc[original_df_index, 'المهمة'][:20]
+                                 achievements_df_updated_del = achievements_df_display.drop(index=original_df_index)
+                                 if 'التاريخ_dt' in achievements_df_updated_del.columns:
+                                      achievements_df_updated_del = achievements_df_updated_del.drop(columns=['التاريخ_dt'])
 
-                                if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated_del, achievements_sha_display, f"حذف مهمة '{task_to_delete_title}' بواسطة {member}", expected_cols=EXPECTED_ACHIEVEMENT_COLS):
-                                    st.success("تم حذف المهمة بنجاح.")
-                                    time.sleep(1); st.rerun()
-                                else: st.error("حدث خطأ أثناء حذف المهمة.")
-                            else: st.error("لم يتم العثور على المهمة المراد حذفها.")
+                                 if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated_del, achievements_sha_display, f"حذف مهمة '{task_to_delete_title}' بواسطة {member}", expected_cols=EXPECTED_ACHIEVEMENT_COLS):
+                                     st.success("تم حذف المهمة بنجاح.")
+                                     time.sleep(1); st.rerun()
+                                 else: st.error("حدث خطأ أثناء حذف المهمة.")
+                             else: st.error("لم يتم العثور على المهمة المراد حذفها.")
                      st.markdown("</div>", unsafe_allow_html=True)
     else:
-         if achievements_sha_display is not None: st.caption("ملف المهام فارغ.")
+        if achievements_sha_display is not None: st.caption("ملف المهام فارغ.")
 
 except Exception as e:
     show_error("خطأ في تحميل أو عرض المهام", traceback.format_exc())
@@ -715,3 +742,4 @@ with st.expander("إدارة المهام الرئيسية (إضافة/تعدي�
          st.dataframe(main_df.fillna('')[["title", "descr"]].rename(columns={"title": "العنوان", "descr": "الوصف"}), use_container_width=True)
     else:
          st.caption("لا توجد مهام رئيسية معرفة حتى الآن.")
+
