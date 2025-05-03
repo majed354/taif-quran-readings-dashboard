@@ -1638,338 +1638,23 @@ with main_tabs[0]:
 # =========================================
 # القسم 14: تبويب إنجازات الأعضاء
 # =========================================
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from datetime import datetime, timedelta
+# تأكد من أن المكتبات التالية مستوردة في بداية ملفك الرئيسي:
+# import streamlit as st
+# import pandas as pd
+# import plotly.express as px
+# from datetime import datetime, timedelta
 
-# --- دوال وهمية (استبدلها بالدوال الفعلية لديك) ---
-# (نفس الدوال المساعدة من الإصدار السابق: get_achievement_level, get_member_of_month, ...)
-# --- دوال وهمية (استبدلها بالدوال الفعلية لديك) ---
-def get_achievement_level(points):
-    """يحسب مستوى الإنجاز بناءً على النقاط."""
-    # التأكد من أن النقاط هي قيمة رقمية
-    try:
-        points = float(points)
-    except (ValueError, TypeError):
-        points = 0 # قيمة افتراضية إذا لم تكن رقمية
-
-    if points >= 200:
-        return {"name": "خبير", "color": "#D32F2F", "icon": "🏆"}
-    elif points >= 100:
-        return {"name": "ممارس", "color": "#1976D2", "icon": "🏅"}
-    elif points >= 50:
-        return {"name": "متعلم", "color": "#388E3C", "icon": "🧑‍🎓"}
-    else:
-        return {"name": "مبتدئ", "color": "#7B1FA2", "icon": "🌱"}
-
-def get_member_of_month(df, year, month):
-    """يحصل على نجم الشهر."""
-    # تأكد من أن عمود التاريخ هو من نوع datetime والأعمدة الأخرى موجودة
-    if not all(col in df.columns for col in ["التاريخ", "اسم العضو", "عدد النقاط", "عدد الساعات"]):
-         st.warning("أعمدة مطلوبة مفقودة في بيانات الإنجازات لحساب نجم الشهر.")
-         return None
-    try:
-        df['التاريخ'] = pd.to_datetime(df['التاريخ'], errors='coerce')
-        # التأكد من أن الأعمدة الرقمية رقمية
-        df['عدد النقاط'] = pd.to_numeric(df['عدد النقاط'], errors='coerce')
-        df['عدد الساعات'] = pd.to_numeric(df['عدد الساعات'], errors='coerce')
-        df = df.dropna(subset=['التاريخ', 'اسم العضو', 'عدد النقاط', 'عدد الساعات']) # إزالة الصفوف التي تحتوي على قيم فارغة في الأعمدة الأساسية
-    except Exception as e:
-        st.error(f"خطأ في تحويل أنواع البيانات لحساب نجم الشهر: {e}")
-        return None
-
-    df_filtered = df[(df['التاريخ'].dt.year == year) & (df['التاريخ'].dt.month == month)].copy()
-    if df_filtered.empty:
-        return None # لا يوجد بيانات للشهر المحدد
-
-    member_points = df_filtered.groupby("اسم العضو")["عدد النقاط"].sum()
-    if member_points.empty:
-        return None
-
-    star_name = member_points.idxmax()
-    star_data = df_filtered[df_filtered["اسم العضو"] == star_name]
-    if star_data.empty:
-        return None
-
-    # الحصول على اسم الشهر بالعربي
-    try:
-        months_ar = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
-        month_name_ar = months_ar[month - 1]
-    except IndexError:
-        month_name_ar = f"شهر {month}" # اسم احتياطي
-
-    return {
-        "اسم": star_name,
-        "النقاط": int(star_data["عدد النقاط"].sum()),
-        "الساعات": int(star_data["عدد الساعات"].sum()),
-        "المهام": len(star_data),
-        "اسم_الشهر": month_name_ar
-    }
-
-
-def detect_member_promotions(df, lookback_days=30):
-    """يكتشف ترقيات الأعضاء الأخيرة."""
-    if not all(col in df.columns for col in ["التاريخ", "اسم العضو", "عدد النقاط"]):
-         st.warning("أعمدة مطلوبة مفقودة في بيانات الإنجازات لكشف الترقيات.")
-         return []
-    try:
-        df['التاريخ'] = pd.to_datetime(df['التاريخ'], errors='coerce')
-        df['عدد النقاط'] = pd.to_numeric(df['عدد النقاط'], errors='coerce')
-        df = df.dropna(subset=['التاريخ', 'اسم العضو', 'عدد النقاط'])
-    except Exception as e:
-        st.error(f"خطأ في تحويل أنواع البيانات لكشف الترقيات: {e}")
-        return []
-
-
-    end_date = datetime.now()
-    start_date_current = end_date - timedelta(days=lookback_days)
-    # start_date_previous = start_date_current - timedelta(days=lookback_days) # فترة المقارنة - تم تبسيط المنطق أدناه
-
-    # حساب النقاط الكلية حتى نهاية الفترة الحالية وحتى بداية الفترة الحالية
-    total_points_at_end = df[df["التاريخ"] <= end_date].groupby("اسم العضو")["عدد النقاط"].sum()
-    total_points_at_start = df[df["التاريخ"] < start_date_current].groupby("اسم العضو")["عدد النقاط"].sum()
-    points_in_period = df[(df["التاريخ"] >= start_date_current) & (df["التاريخ"] <= end_date)].groupby("اسم العضو")["عدد النقاط"].sum()
-
-
-    promotions = []
-    for member, current_total in total_points_at_end.items():
-        previous_total = total_points_at_start.get(member, 0)
-        points_gained = points_in_period.get(member, 0) # النقاط المكتسبة في الفترة الحالية
-
-        level_current = get_achievement_level(current_total)
-        level_previous = get_achievement_level(previous_total)
-
-        # التحقق من حدوث ترقية وأن هناك نقاط مكتسبة في الفترة
-        if level_current["name"] != level_previous["name"] and current_total > previous_total and points_gained > 0:
-             promotions.append({
-                "اسم": member,
-                "المستوى_السابق": level_previous["name"],
-                "المستوى_الجديد": level_current["name"],
-                "لون_المستوى": level_current["color"],
-                "أيقونة_المستوى": level_current["icon"],
-                "النقاط_المكتسبة": points_gained # إظهار النقاط المكتسبة في الفترة
-            })
-
-    # فرز الترقيات حسب النقاط المكتسبة (الأعلى أولاً)
-    promotions.sort(key=lambda x: x['النقاط_المكتسبة'], reverse=True)
-    return promotions
-
-
-def get_category_leaders(df):
-    """يحصل على قادة الفئات."""
-    if not all(col in df.columns for col in ["الفئة", "اسم العضو", "عدد النقاط"]):
-        st.warning("أعمدة مطلوبة مفقودة في بيانات الإنجازات لحساب قادة الفئات.")
-        return {}
-    try:
-        df['عدد النقاط'] = pd.to_numeric(df['عدد النقاط'], errors='coerce')
-        df = df.dropna(subset=['الفئة', 'اسم العضو', 'عدد النقاط'])
-        df['عدد النقاط'] = df['عدد النقاط'].astype(int)
-    except Exception as e:
-         st.error(f"خطأ في تحويل أنواع البيانات لحساب قادة الفئات: {e}")
-         return {}
-
-
-    category_leaders = {}
-    valid_categories = df["الفئة"].unique() # لا داعي لإزالة NaN هنا، تم بالفعل
-    for category in valid_categories:
-        category_data = df[df["الفئة"] == category]
-        # لا داعي للتحقق من category_data.empty هنا
-        leader_points = category_data.groupby("اسم العضو")["عدد النقاط"].sum()
-        if not leader_points.empty:
-            leader_name = leader_points.idxmax()
-            category_leaders[category] = {
-                "اسم": leader_name,
-                "النقاط": leader_points.max()
-            }
-    return category_leaders
-
-def calculate_points_by_category(df, member_name):
-    """يحسب توزيع نقاط عضو معين حسب الفئة."""
-    if not all(col in df.columns for col in ["اسم العضو", "الفئة", "عدد النقاط"]):
-         st.warning(f"أعمدة مطلوبة مفقودة لحساب نقاط الفئات للعضو {member_name}.")
-         return pd.DataFrame()
-    try:
-        member_data = df[df["اسم العضو"] == member_name].copy()
-        if member_data.empty:
-            # st.info(f"لا توجد بيانات للعضو {member_name} في الفترة المحددة.") # يمكن إزالة هذه الرسالة لتجنب التكرار
-            return pd.DataFrame()
-
-        member_data['عدد النقاط'] = pd.to_numeric(member_data['عدد النقاط'], errors='coerce')
-        member_data = member_data.dropna(subset=['الفئة', 'عدد النقاط'])
-        member_data['عدد النقاط'] = member_data['عدد النقاط'].astype(int)
-    except Exception as e:
-        st.error(f"خطأ في تحويل البيانات لحساب نقاط الفئات للعضو {member_name}: {e}")
-        return pd.DataFrame()
-
-
-    category_points = member_data.groupby("الفئة")["عدد النقاط"].sum().reset_index()
-    if category_points.empty:
-        return pd.DataFrame()
-
-    # حساب مستوى الإنجاز لكل فئة
-    category_points["مستوى_الإنجاز"] = category_points["عدد النقاط"].apply(get_achievement_level)
-    category_points["مستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["name"])
-    category_points["لون_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["color"])
-    category_points["أيقونة_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-    return category_points
-
-def create_radar_chart(category_points_df, member_name, is_mobile=False):
-    """ينشئ مخطط رادار لتوزيع نقاط العضو حسب الفئة."""
-    if category_points_df.empty:
-        # st.info("لا توجد بيانات فئات لإنشاء مخطط الرادار.") # يمكن إزالة هذه الرسالة
-        return None
-
-    if not all(col in category_points_df.columns for col in ["الفئة", "عدد النقاط"]):
-        st.warning("بيانات الفئات غير مكتملة لإنشاء المخطط.")
-        return None
-
-    try:
-        category_points_df['عدد النقاط'] = pd.to_numeric(category_points_df['عدد النقاط'], errors='coerce')
-        category_points_df = category_points_df.dropna(subset=['عدد النقاط'])
-        if category_points_df.empty:
-            # st.info("لا توجد بيانات نقاط صالحة لإنشاء المخطط.") # يمكن إزالة هذه الرسالة
-            return None
-    except Exception as e:
-         st.error(f"خطأ في تحويل نقاط الفئات للرادار: {e}")
-         return None
-
-
-    fig = px.line_polar(category_points_df, r='عدد النقاط', theta='الفئة', line_close=True,
-                        # title=f"توزيع نقاط {member_name} حسب الفئة", # العنوان سيتم إضافته في prepare_chart_layout
-                        markers=True,
-                        color_discrete_sequence=px.colors.sequential.Plasma_r)
-
-    fig.update_traces(fill='toself')
-
-    fig = prepare_chart_layout(fig, f"توزيع نقاط {member_name} حسب الفئة", is_mobile=is_mobile, chart_type="polar") # استخدام prepare_chart_layout
-
-    # تحسينات خاصة بالرادار
-    max_r_value = category_points_df['عدد النقاط'].max()
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, max_r_value * 1.1 if max_r_value > 0 else 10] # تحديد النطاق ديناميكيًا مع حد أدنى
-            )),
-        showlegend=False,
-         margin=dict(l=40, r=40, t=80, b=40) # ضبط الهوامش للرادار
-    )
-    return fig
-
-
-def prepare_chart_layout(fig, title, is_mobile=False, chart_type="bar"):
-    """يجهز تنسيق المخطط."""
-    fig.update_layout(
-        title=dict(text=title, x=0.5, xanchor='center'), # طريقة أفضل لتوسيط العنوان
-        font=dict(family="Arial, sans-serif", size=12 if not is_mobile else 10, color="#333"),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=60, b=20), # تعديل الهوامش الافتراضية
-        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial") # تحسين صندوق المعلومات
-    )
-    # إعدادات خاصة بنوع المخطط
-    if chart_type == "bar":
-         fig.update_layout(
-             xaxis=dict(showgrid=False, zeroline=False),
-             yaxis=dict(showgrid=True, gridcolor='#e0e0e0', zeroline=False),
-             bargap=0.2 # إضافة فجوة بين الأعمدة
-         )
-         fig.update_traces(marker_line_width=0)
-    elif chart_type == "line":
-         fig.update_layout(
-             xaxis=dict(gridcolor='#e0e0e0'),
-             yaxis=dict(gridcolor='#e0e0e0')
-         )
-    elif chart_type == "pie":
-         fig.update_traces(textposition='inside', textinfo='percent+label', marker_line=dict(color='#ffffff', width=1)) # إضافة حدود للشرائح
-         fig.update_layout(showlegend=False, margin=dict(l=20, r=20, t=60, b=20)) # هوامش خاصة للفطيرة
-    elif chart_type == "polar":
-         # تم نقل إعدادات polar إلى دالة create_radar_chart
-         pass
-
-    # إعدادات المحاور العامة (يمكن تخصيصها أكثر إذا لزم الأمر)
-    fig.update_xaxes(title_font=dict(size=14), tickfont=dict(size=12))
-    fig.update_yaxes(title_font=dict(size=14), tickfont=dict(size=12))
-
-    return fig
-
-# --- بيانات وهمية (استبدلها ببياناتك الفعلية من Google Sheets أو مصدر آخر) ---
-data = {
-    "التاريخ": pd.to_datetime([
-        "2025-04-15", "2025-04-20", "2025-04-25", "2025-05-01", "2025-05-02", "2025-03-10", "2025-04-18", "2025-05-03",
-        "2025-04-10", "2025-04-22", "2025-04-28", "2025-05-01", "2025-05-03", "2025-03-15", "2025-04-19", "2025-05-02",
-        "2025-04-05", "2025-04-12", "2025-04-30", "2025-05-01", "2025-05-03", "2025-02-20", "2025-04-21", "2025-05-01"
-    ]),
-    "اسم العضو": [
-        "آمنة جمعة", "آمنة جمعة", "آمنة جمعة", "آمنة جمعة", "آمنة جمعة", "آمنة جمعة", "آمنة جمعة", "آمنة جمعة", # 8 مهام لآمنة
-        "فاطمة علي", "فاطمة علي", "فاطمة علي", "فاطمة علي", "فاطمة علي", "فاطمة علي", "فاطمة علي", "فاطمة علي", # 8 مهام لفاطمة
-        "محمد حسن", "محمد حسن", "محمد حسن", "محمد حسن", "محمد حسن", "محمد حسن", "محمد حسن", "محمد حسن"  # 8 مهام لمحمد
-    ],
-    "الفئة": [
-        "التطوير", "التصميم", "الكتابة", "التطوير", "التسويق", "التصميم", "الكتابة", "التطوير",
-        "التصميم", "التطوير", "التسويق", "الكتابة", "التصميم", "التطوير", "الكتابة", "التسويق",
-        "الكتابة", "التسويق", "التطوير", "التصميم", "الكتابة", "التسويق", "التطوير", "التصميم"
-    ],
-    "البرنامج": [
-        "البرنامج أ", "البرنامج ب", "البرنامج أ", "البرنامج ج", "البرنامج ب", "البرنامج أ", "البرنامج ج", "البرنامج أ",
-        "البرنامج ب", "البرنامج أ", "البرنامج ج", "البرنامج ب", "البرنامج أ", "البرنامج ج", "البرنامج ب", "البرنامج أ",
-        "البرنامج ج", "البرنامج أ", "البرنامج ب", "البرنامج ج", "البرنامج أ", "البرنامج ب", "البرنامج ج", "البرنامج أ"
-    ],
-    "عدد النقاط": [
-        50, 30, 40, 60, 25, 35, 45, 55, # آمنة
-        45, 55, 20, 35, 50, 60, 40, 30, # فاطمة
-        65, 25, 50, 40, 30, 55, 35, 45  # محمد
-    ],
-    "عدد الساعات": [
-        5, 3, 4, 6, 2.5, 3.5, 4.5, 5.5, # آمنة
-        4.5, 5.5, 2, 3.5, 5, 6, 4, 3, # فاطمة
-        6.5, 2.5, 5, 4, 3, 5.5, 3.5, 4.5 # محمد
-    ],
-    "عنوان المهمة": [f"مهمة {i+1}" for i in range(24)],
-    "وصف مختصر": [f"وصف للمهمة {i+1}" for i in range(24)]
-}
-achievements_data = pd.DataFrame(data)
-# تحويل عمود التاريخ إلى datetime إذا لم يكن كذلك بالفعل
-try:
-    achievements_data['التاريخ'] = pd.to_datetime(achievements_data['التاريخ'], errors='coerce')
-except Exception as e:
-    st.error(f"خطأ في تحويل عمود التاريخ الرئيسي: {e}")
-    # يمكنك إيقاف التنفيذ هنا أو استخدام بيانات فارغة
-    achievements_data = pd.DataFrame()
-
-
-# --- إعدادات Streamlit ---
-st.set_page_config(layout="wide", page_title="لوحة تحكم الإنجازات")
-
-# --- محاكاة Tabs ---
-# في تطبيقك الفعلي، ستكون هذه جزءًا من st.tabs
-class MockTab:
-    def __init__(self, label):
-        self.label = label
-        self._container = st.container() # إنشاء حاوية لكل "تبويب"
-
-    def __enter__(self):
-        self._container.__enter__() # الدخول إلى الحاوية
-        # st.subheader(self.label) # يمكنك إضافة عنوان للتبويب هنا إذا أردت
-        return self
-
-    def __exit__(self, type, value, traceback):
-         self._container.__exit__(type, value, traceback) # الخروج من الحاوية
-
-# إنشاء تبويبات وهمية
-main_tabs = [MockTab("التبويب 1"), MockTab("إنجازات الأعضاء")]
-
-# --- متغيرات وهمية أخرى ---
-mobile_view = st.checkbox("عرض الجوال (للمحاكاة)") # محاكاة عرض الجوال
-ACHIEVEMENT_LEVELS = [ # تعريف مستويات الإنجاز
-    {"name": "مبتدئ", "color": "#7B1FA2", "icon": "🌱", "min_points": 0},
-    {"name": "متعلم", "color": "#388E3C", "icon": "🧑‍🎓", "min_points": 50},
-    {"name": "ممارس", "color": "#1976D2", "icon": "🏅", "min_points": 100},
-    {"name": "خبير", "color": "#D32F2F", "icon": "🏆", "min_points": 200}
-]
+# !!! تأكد من أن st.set_page_config() هو أول أمر Streamlit في ملفك الرئيسي !!!
+# st.set_page_config(layout="wide", page_title="لوحة تحكم الإنجازات")
 
 # --- بداية القسم 14 ---
+# يفترض أن المتغيرات التالية معرفة قبل هذا الكود:
+# - achievements_data: DataFrame ببيانات الإنجازات
+# - main_tabs: قائمة التبويبات
+# - mobile_view: متغير boolean (إذا كنت تستخدمه)
+# - الدوال المساعدة: get_achievement_level, get_member_of_month, ...الخ
+# - ACHIEVEMENT_LEVELS: قائمة أو قاموس بمستويات الإنجاز
+
 with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجازات الأعضاء"
     st.markdown("### إنجازات الأعضاء")
 
@@ -1990,34 +1675,39 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
     st.markdown('</div>', unsafe_allow_html=True)
 
     # تطبيق الفلتر الزمني على البيانات
-    members_filtered_data = achievements_data.copy()
+    # تأكد من أن achievements_data معرفة ومتاحة هنا
+    if 'achievements_data' in locals() or 'achievements_data' in globals():
+        members_filtered_data = achievements_data.copy()
 
-    # التأكد من أن عمود التاريخ موجود وصالح قبل الفلترة
-    if "التاريخ" in members_filtered_data.columns and pd.api.types.is_datetime64_any_dtype(members_filtered_data['التاريخ']):
-        filter_date = None # إعادة تعيين filter_date
-        now = datetime.now()
+        # التأكد من أن عمود التاريخ موجود وصالح قبل الفلترة
+        if "التاريخ" in members_filtered_data.columns and pd.api.types.is_datetime64_any_dtype(members_filtered_data['التاريخ']):
+            filter_date = None # إعادة تعيين filter_date
+            now = datetime.now()
 
-        if achievement_time_period == "الشهر الحالي":
-            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            filter_date = start_of_month
-        elif achievement_time_period == "الربع الحالي":
-            current_quarter = (now.month - 1) // 3 + 1
-            start_month_of_quarter = 3 * (current_quarter - 1) + 1
-            start_of_quarter = now.replace(month=start_month_of_quarter, day=1, hour=0, minute=0, second=0, microsecond=0)
-            filter_date = start_of_quarter
-        elif achievement_time_period == "السنة الحالية":
-            start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-            filter_date = start_of_year
+            if achievement_time_period == "الشهر الحالي":
+                start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                filter_date = start_of_month
+            elif achievement_time_period == "الربع الحالي":
+                current_quarter = (now.month - 1) // 3 + 1
+                start_month_of_quarter = 3 * (current_quarter - 1) + 1
+                start_of_quarter = now.replace(month=start_month_of_quarter, day=1, hour=0, minute=0, second=0, microsecond=0)
+                filter_date = start_of_quarter
+            elif achievement_time_period == "السنة الحالية":
+                start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                filter_date = start_of_year
 
-        # تطبيق الفلتر فقط إذا تم تحديد فترة زمنية غير "كل الفترات"
-        if filter_date:
-            # التأكد من أن filter_date هو datetime object
-             if isinstance(filter_date, datetime):
-                 members_filtered_data = members_filtered_data[members_filtered_data["التاريخ"] >= filter_date].copy() # استخدام .copy() لتجنب SettingWithCopyWarning
+            # تطبيق الفلتر فقط إذا تم تحديد فترة زمنية غير "كل الفترات"
+            if filter_date:
+                # التأكد من أن filter_date هو datetime object
+                 if isinstance(filter_date, datetime):
+                     members_filtered_data = members_filtered_data[members_filtered_data["التاريخ"] >= filter_date].copy() # استخدام .copy() لتجنب SettingWithCopyWarning
 
+        else:
+             st.warning("عمود 'التاريخ' غير موجود أو ليس بتنسيق تاريخ صالح في achievements_data.")
+             members_filtered_data = pd.DataFrame() # إفراغ البيانات لتجنب أخطاء لاحقة
     else:
-         st.warning("عمود 'التاريخ' غير موجود أو ليس بتنسيق تاريخ صالح.")
-         members_filtered_data = pd.DataFrame() # إفراغ البيانات لتجنب أخطاء لاحقة
+        st.error("لم يتم العثور على بيانات الإنجازات (achievements_data). يرجى التأكد من تحميلها.")
+        members_filtered_data = pd.DataFrame()
 
 
     # التحقق من وجود بيانات وأعمدة ضرورية قبل المتابعة
@@ -2068,72 +1758,94 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
 
 
                 # إضافة مستوى الإنجاز لكل عضو
-                member_stats["مستوى_الإنجاز"] = member_stats["عدد النقاط"].apply(get_achievement_level)
-                member_stats["مستوى"] = member_stats["مستوى_الإنجاز"].apply(lambda x: x["name"])
-                member_stats["لون_المستوى"] = member_stats["مستوى_الإنجاز"].apply(lambda x: x["color"])
-                member_stats["أيقونة_المستوى"] = member_stats["مستوى_الإنجاز"].apply(lambda x: x["icon"])
+                # تأكد من أن دالة get_achievement_level معرفة ومتاحة
+                try:
+                    member_stats["مستوى_الإنجاز"] = member_stats["عدد النقاط"].apply(get_achievement_level)
+                    member_stats["مستوى"] = member_stats["مستوى_الإنجاز"].apply(lambda x: x["name"])
+                    member_stats["لون_المستوى"] = member_stats["مستوى_الإنجاز"].apply(lambda x: x["color"])
+                    member_stats["أيقونة_المستوى"] = member_stats["مستوى_الإنجاز"].apply(lambda x: x["icon"])
+                except NameError:
+                    st.error("الدالة get_achievement_level غير معرفة.")
+                    # يمكنك تعيين قيم افتراضية أو إيقاف التنفيذ
+                    member_stats["مستوى"] = "غير محدد"
+                    member_stats["لون_المستوى"] = "#777"
+                    member_stats["أيقونة_المستوى"] = "❓"
+
 
                 # --- عرض المكونات المختلفة ---
 
                 # 1. قسم نجم الشهر (يجب أن يظل يعمل حتى لو كانت member_stats فارغة)
                 current_month = datetime.now().month
                 current_year = datetime.now().year
-                star_of_month = get_member_of_month(achievements_data, current_year, current_month) # استخدام البيانات الأصلية
-
-                if star_of_month:
-                    st.subheader("🌟 نجم الشهر")
-                    st.markdown(f"""
-                    <div class="star-of-month" style="background: linear-gradient(135deg, #fceabb 0%, #f8b500 100%); padding: 20px; border-radius: 15px; text-align: center; color: #333; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <div class="star-badge" style="font-size: 3rem; margin-bottom: 10px;">🏆</div>
-                        <h3 style="margin-top: 5px; margin-bottom: 5px; font-weight: bold; font-size: 1.4rem;">نجم شهر {star_of_month["اسم_الشهر"]}</h3>
-                        <div class="star-name" style="font-size: 1.8rem; font-weight: bold; color: #BF360C; margin-bottom: 15px;">{star_of_month["اسم"]}</div>
-                        <div class="star-stats" style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
-                            <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
-                                <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{int(star_of_month["النقاط"])}</div>
-                                <div class="star-stat-label" style="font-size: 0.9rem;">النقاط</div>
-                            </div>
-                            <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
-                                <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{int(star_of_month["الساعات"])}</div>
-                                <div class="star-stat-label" style="font-size: 0.9rem;">الساعات</div>
-                            </div>
-                            <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
-                                <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{star_of_month["المهام"]}</div>
-                                <div class="star-stat-label" style="font-size: 0.9rem;">المهام</div>
+                # تأكد من أن دالة get_member_of_month معرفة ومتاحة
+                try:
+                    star_of_month = get_member_of_month(achievements_data, current_year, current_month) # استخدام البيانات الأصلية
+                    if star_of_month:
+                        st.subheader("🌟 نجم الشهر")
+                        st.markdown(f"""
+                        <div class="star-of-month" style="background: linear-gradient(135deg, #fceabb 0%, #f8b500 100%); padding: 20px; border-radius: 15px; text-align: center; color: #333; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                            <div class="star-badge" style="font-size: 3rem; margin-bottom: 10px;">🏆</div>
+                            <h3 style="margin-top: 5px; margin-bottom: 5px; font-weight: bold; font-size: 1.4rem;">نجم شهر {star_of_month["اسم_الشهر"]}</h3>
+                            <div class="star-name" style="font-size: 1.8rem; font-weight: bold; color: #BF360C; margin-bottom: 15px;">{star_of_month["اسم"]}</div>
+                            <div class="star-stats" style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
+                                <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
+                                    <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{int(star_of_month["النقاط"])}</div>
+                                    <div class="star-stat-label" style="font-size: 0.9rem;">النقاط</div>
+                                </div>
+                                <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
+                                    <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{int(star_of_month["الساعات"])}</div>
+                                    <div class="star-stat-label" style="font-size: 0.9rem;">الساعات</div>
+                                </div>
+                                <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
+                                    <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{star_of_month["المهام"]}</div>
+                                    <div class="star-stat-label" style="font-size: 0.9rem;">المهام</div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                     st.info("لم يتم تحديد نجم الشهر بعد.")
+                        """, unsafe_allow_html=True)
+                    else:
+                         st.info("لم يتم تحديد نجم الشهر بعد.")
+                except NameError:
+                    st.error("الدالة get_member_of_month غير معرفة.")
 
 
                 # 2. لوحة الصدارة (تعتمد على member_stats)
                 st.subheader("🏆 لوحة الصدارة (حسب الفترة المحددة)")
+                # تأكد من أن mobile_view معرفة
+                if 'mobile_view' not in locals() and 'mobile_view' not in globals():
+                    mobile_view = False # قيمة افتراضية
                 leaderboard_cols = st.columns([3, 2]) if not mobile_view else (st.container(), st.container())
 
                 with leaderboard_cols[0]:
                      top_10_members = member_stats.head(10).copy()
                      if not top_10_members.empty:
                          top_10_members = top_10_members.sort_values("عدد النقاط", ascending=True)
-                         fig_top_members = px.bar(
-                             top_10_members,
-                             y="اسم العضو" if not mobile_view else "عدد النقاط",
-                             x="عدد النقاط" if not mobile_view else "اسم العضو",
-                             orientation='h' if not mobile_view else 'v',
-                             color="عدد النقاط",
-                             color_continuous_scale=px.colors.sequential.Viridis,
-                             text="مستوى" if not mobile_view else None,
-                             height=400
-                         )
-                         fig_top_members.update_layout(
-                             yaxis_title="اسم العضو" if not mobile_view else "النقاط",
-                             xaxis_title="عدد النقاط" if not mobile_view else "اسم العضو",
-                             coloraxis_showscale=False,
-                         )
-                         if not mobile_view:
-                             fig_top_members.update_traces(textposition='outside')
-                         fig_top_members = prepare_chart_layout(fig_top_members, "أعلى 10 أعضاء", is_mobile=mobile_view, chart_type="bar")
-                         st.plotly_chart(fig_top_members, use_container_width=True, config={"displayModeBar": False})
+                         # تأكد من أن prepare_chart_layout معرفة
+                         try:
+                             fig_top_members = px.bar(
+                                 top_10_members,
+                                 y="اسم العضو" if not mobile_view else "عدد النقاط",
+                                 x="عدد النقاط" if not mobile_view else "اسم العضو",
+                                 orientation='h' if not mobile_view else 'v',
+                                 color="عدد النقاط",
+                                 color_continuous_scale=px.colors.sequential.Viridis,
+                                 text="مستوى" if not mobile_view else None,
+                                 height=400
+                             )
+                             fig_top_members.update_layout(
+                                 yaxis_title="اسم العضو" if not mobile_view else "النقاط",
+                                 xaxis_title="عدد النقاط" if not mobile_view else "اسم العضو",
+                                 coloraxis_showscale=False,
+                             )
+                             if not mobile_view:
+                                 fig_top_members.update_traces(textposition='outside')
+                             fig_top_members = prepare_chart_layout(fig_top_members, "أعلى 10 أعضاء", is_mobile=mobile_view, chart_type="bar")
+                             st.plotly_chart(fig_top_members, use_container_width=True, config={"displayModeBar": False})
+                         except NameError:
+                             st.error("الدالة prepare_chart_layout غير معرفة.")
+                         except Exception as e:
+                             st.error(f"حدث خطأ عند رسم مخطط أعلى الأعضاء: {e}")
+
                      else:
                          st.info("لا توجد بيانات كافية لعرض مخطط أعلى الأعضاء.")
 
@@ -2144,14 +1856,23 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                          for i, (_, row) in enumerate(member_stats.head(5).iterrows()):
                              rank_color = "#FFD700" if i == 0 else ("#C0C0C0" if i == 1 else ("#CD7F32" if i == 2 else "#6c757d"))
                              rank_icon = "🥇" if i == 0 else ("🥈" if i == 1 else ("🥉" if i == 2 else f"{i+1}."))
+                             # تأكد من وجود الأعمدة قبل استخدامها
+                             member_name = row.get('اسم العضو', 'N/A')
+                             level_icon = row.get('أيقونة_المستوى', '')
+                             level_name = row.get('مستوى', 'N/A')
+                             tasks_count = int(row.get('عدد المهام', 0))
+                             hours_count = int(row.get('عدد الساعات', 0))
+                             level_color = row.get('لون_المستوى', '#777')
+                             points_count = int(row.get('عدد النقاط', 0))
+
                              st.markdown(f"""
                              <div class="leaderboard-item" style="display: flex; align-items: center; margin-bottom: 12px; padding: 8px; border-radius: 6px; background-color: {'rgba(255, 255, 255, 0.7)' if i>=3 else 'transparent'}; border-left: 5px solid {rank_color};">
                                  <div class="leaderboard-rank" style="font-weight: bold; color: {rank_color}; font-size: 1.1rem; margin-right: 10px; min-width: 30px; text-align: center;">{rank_icon}</div>
                                  <div class="leaderboard-info" style="flex-grow: 1; margin-right: 10px;">
-                                     <div class="leaderboard-name" style="font-weight: 600; font-size: 1rem;">{row['اسم العضو']} <span style="font-size: 0.9rem;">{row['أيقونة_المستوى']}</span></div>
-                                     <div class="leaderboard-details" style="font-size: 0.8rem; color: #555;">{row['مستوى']} • {int(row['عدد المهام'])} مهمة • {int(row['عدد الساعات'])} ساعة</div>
+                                     <div class="leaderboard-name" style="font-weight: 600; font-size: 1rem;">{member_name} <span style="font-size: 0.9rem;">{level_icon}</span></div>
+                                     <div class="leaderboard-details" style="font-size: 0.8rem; color: #555;">{level_name} • {tasks_count} مهمة • {hours_count} ساعة</div>
                                  </div>
-                                 <div class="leaderboard-score" style="font-weight: bold; font-size: 1.1rem; color: {row['لون_المستوى']};">{int(row['عدد النقاط'])}</div>
+                                 <div class="leaderboard-score" style="font-weight: bold; font-size: 1.1rem; color: {level_color};">{points_count}</div>
                              </div>
                              """, unsafe_allow_html=True)
                     else:
@@ -2160,46 +1881,64 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
 
 
                 # 3. ترقيات الأعضاء الأخيرة (تعتمد على achievements_data)
-                promotions = detect_member_promotions(achievements_data, lookback_days=30)
-                if promotions:
-                    st.subheader("🚀 أحدث ترقيات الأعضاء (آخر 30 يوم)")
-                    st.markdown('<div class="promotions-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">', unsafe_allow_html=True)
-                    for promotion in promotions[:6]:
-                        st.markdown(f"""
-                        <div class="promotion-item" style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 5px solid {promotion['لون_المستوى']};">
-                            <div class="promotion-name" style="font-weight: 600; font-size: 1.1rem;">{promotion['اسم']} <span class="promotion-badge" style="color: {promotion['لون_المستوى']};">{promotion['أيقونة_المستوى']}</span></div>
-                            <div class="promotion-details" style="font-size: 0.9rem; margin-top: 8px; color: #333;">
-                                ترقى من <span style="color: #777; font-weight: 500;">{promotion['المستوى_السابق']}</span> إلى <span style="color: {promotion['لون_المستوى']}; font-weight: 600;">{promotion['المستوى_الجديد']}</span>
-                                <div style="margin-top: 5px; font-size: 0.85rem; color: #555;">+{int(promotion['النقاط_المكتسبة'])} نقطة</div>
+                # تأكد من أن detect_member_promotions معرفة
+                try:
+                    promotions = detect_member_promotions(achievements_data, lookback_days=30)
+                    if promotions:
+                        st.subheader("🚀 أحدث ترقيات الأعضاء (آخر 30 يوم)")
+                        st.markdown('<div class="promotions-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">', unsafe_allow_html=True)
+                        for promotion in promotions[:6]:
+                             # تأكد من وجود المفاتيح في القاموس
+                             member_name = promotion.get('اسم', 'N/A')
+                             level_color = promotion.get('لون_المستوى', '#777')
+                             level_icon = promotion.get('أيقونة_المستوى', '')
+                             prev_level = promotion.get('المستوى_السابق', 'N/A')
+                             new_level = promotion.get('المستوى_الجديد', 'N/A')
+                             gained_points = int(promotion.get('النقاط_المكتسبة', 0))
+
+                             st.markdown(f"""
+                            <div class="promotion-item" style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 5px solid {level_color};">
+                                <div class="promotion-name" style="font-weight: 600; font-size: 1.1rem;">{member_name} <span class="promotion-badge" style="color: {level_color};">{level_icon}</span></div>
+                                <div class="promotion-details" style="font-size: 0.9rem; margin-top: 8px; color: #333;">
+                                    ترقى من <span style="color: #777; font-weight: 500;">{prev_level}</span> إلى <span style="color: {level_color}; font-weight: 600;">{new_level}</span>
+                                    <div style="margin-top: 5px; font-size: 0.85rem; color: #555;">+{gained_points} نقطة</div>
+                                </div>
                             </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                            """, unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                except NameError:
+                    st.error("الدالة detect_member_promotions غير معرفة.")
 
 
                 # 4. قادة الفئات (تعتمد على members_filtered_data)
-                category_leaders = get_category_leaders(members_filtered_data)
-                if category_leaders:
-                    st.subheader("🏅 قادة الفئات (حسب الفترة المحددة)")
-                    categories = list(category_leaders.keys())
-                    num_categories = len(categories)
-                    num_cols = min(num_categories, 4)
-                    if num_cols > 0:
-                         cols = st.columns(num_cols)
-                         col_index = 0
-                         for category in categories:
-                             leader = category_leaders[category]
-                             with cols[col_index % num_cols]:
-                                 st.markdown(f"""
-                                 <div style="padding: 12px; border-radius: 8px; background-color: #e3f2fd; text-align: center; height: 100%; margin-bottom: 10px; border: 1px solid #bbdefb;">
-                                     <div style="font-size: 0.9rem; color: #1565c0; margin-bottom: 5px; font-weight: 600;">{category}</div>
-                                     <div style="font-weight: 600; color: #0d47a1; font-size: 1.1rem; margin-bottom: 5px;">{leader['اسم']}</div>
-                                     <div><span style="font-weight: bold; font-size: 1.2rem; color: #1e88e5;">{int(leader['النقاط'])}</span> <span style="font-size: 0.8rem; color: #555;">نقطة</span></div>
-                                 </div>
-                                 """, unsafe_allow_html=True)
-                             col_index += 1
-                    else:
-                         st.info("لا توجد فئات لعرض القادة في الفترة المحددة.")
+                # تأكد من أن get_category_leaders معرفة
+                try:
+                    category_leaders = get_category_leaders(members_filtered_data)
+                    if category_leaders:
+                        st.subheader("🏅 قادة الفئات (حسب الفترة المحددة)")
+                        categories = list(category_leaders.keys())
+                        num_categories = len(categories)
+                        num_cols = min(num_categories, 4)
+                        if num_cols > 0:
+                             cols = st.columns(num_cols)
+                             col_index = 0
+                             for category in categories:
+                                 leader = category_leaders[category]
+                                 leader_name = leader.get('اسم', 'N/A')
+                                 leader_points = int(leader.get('النقاط', 0))
+                                 with cols[col_index % num_cols]:
+                                     st.markdown(f"""
+                                     <div style="padding: 12px; border-radius: 8px; background-color: #e3f2fd; text-align: center; height: 100%; margin-bottom: 10px; border: 1px solid #bbdefb;">
+                                         <div style="font-size: 0.9rem; color: #1565c0; margin-bottom: 5px; font-weight: 600;">{category}</div>
+                                         <div style="font-weight: 600; color: #0d47a1; font-size: 1.1rem; margin-bottom: 5px;">{leader_name}</div>
+                                         <div><span style="font-weight: bold; font-size: 1.2rem; color: #1e88e5;">{leader_points}</span> <span style="font-size: 0.8rem; color: #555;">نقطة</span></div>
+                                     </div>
+                                     """, unsafe_allow_html=True)
+                                 col_index += 1
+                        else:
+                             st.info("لا توجد فئات لعرض القادة في الفترة المحددة.")
+                except NameError:
+                     st.error("الدالة get_category_leaders غير معرفة.")
 
 
                 # 5. عرض تفاصيل إنجازات الأعضاء باختيار عضو محدد
@@ -2210,13 +1949,12 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                 filter_cols = st.columns([2, 2, 2])
 
                 # --- تحديد القوائم المتاحة للفلاتر بناءً على member_stats ---
-                # (لأن الفلاتر تعمل على قائمة الأعضاء الإجمالية للفترة)
                 available_categories_for_filter = ["الكل"]
-                if "الفئة" in members_filtered_data.columns: # نستخدم البيانات المفلترة زمنياً لتحديد الفئات المتاحة فعلاً
+                if "الفئة" in members_filtered_data.columns:
                     available_categories_for_filter += sorted(members_filtered_data["الفئة"].dropna().unique())
 
                 available_programs_for_filter = ["الكل"]
-                if "البرنامج" in members_filtered_data.columns: # نستخدم البيانات المفلترة زمنياً لتحديد البرامج المتاحة فعلاً
+                if "البرنامج" in members_filtered_data.columns:
                     available_programs_for_filter += sorted(members_filtered_data["البرنامج"].dropna().unique())
 
                 available_levels_for_filter = ["الكل"] + sorted(member_stats["مستوى"].unique())
@@ -2225,37 +1963,34 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                 with filter_cols[0]:
                     category_filter = st.selectbox(
                         "تصفية حسب الفئة",
-                        available_categories_for_filter, # استخدام القائمة المحدثة
+                        available_categories_for_filter,
                         key="category_filter_detail"
                     )
 
                 with filter_cols[1]:
                     program_filter = st.selectbox(
                         "تصفية حسب البرنامج",
-                         available_programs_for_filter, # استخدام القائمة المحدثة
+                         available_programs_for_filter,
                         key="program_filter_detail"
                     )
 
                 with filter_cols[2]:
                     level_filter = st.selectbox(
                         "تصفية حسب المستوى",
-                         available_levels_for_filter, # استخدام القائمة المحدثة
+                         available_levels_for_filter,
                         key="level_filter_detail"
                     )
 
                 # --- تطبيق الفلاتر على قائمة الأعضاء (member_stats) ---
-                filtered_members_df = member_stats.copy() # ابدأ بنسخة من إحصائيات الأعضاء المحسوبة للفترة الزمنية
+                filtered_members_df = member_stats.copy()
 
-                # فلترة حسب المستوى (من member_stats)
                 if level_filter != "الكل":
                     filtered_members_df = filtered_members_df[filtered_members_df["مستوى"] == level_filter]
 
-                # فلترة حسب البرنامج (يتطلب الرجوع إلى members_filtered_data)
                 if program_filter != "الكل":
                     program_members_in_period = members_filtered_data[members_filtered_data["البرنامج"] == program_filter]["اسم العضو"].unique()
                     filtered_members_df = filtered_members_df[filtered_members_df["اسم العضو"].isin(program_members_in_period)]
 
-                # فلترة حسب الفئة (يتطلب الرجوع إلى members_filtered_data)
                 if category_filter != "الكل":
                      category_members_in_period = members_filtered_data[members_filtered_data["الفئة"] == category_filter]["اسم العضو"].unique()
                      filtered_members_df = filtered_members_df[filtered_members_df["اسم العضو"].isin(category_members_in_period)]
@@ -2266,10 +2001,9 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
 
                 st.markdown("##### الأعضاء المطابقون للتصفية:")
                 if final_filtered_member_list:
-                    # عرض القائمة في أعمدة لتحسين التنسيق
-                    max_cols = 4 # عدد الأعمدة المرغوب
+                    max_cols = 4
                     num_members = len(final_filtered_member_list)
-                    members_per_col = (num_members + max_cols - 1) // max_cols # حساب عدد الأعضاء لكل عمود
+                    members_per_col = (num_members + max_cols - 1) // max_cols
 
                     list_cols = st.columns(max_cols)
                     member_index = 0
@@ -2278,248 +2012,189 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                             for i in range(members_per_col):
                                 if member_index < num_members:
                                     member_name = final_filtered_member_list[member_index]
-                                    # عرض اسم العضو مع أيقونة المستوى والنقاط
-                                    member_row = filtered_members_df[filtered_members_df["اسم العضو"] == member_name].iloc[0]
-                                    icon = member_row['أيقونة_المستوى']
-                                    points = member_row['عدد النقاط']
-                                    st.markdown(f"- {member_name} ({icon} {points} نقطة)")
+                                    member_row_df = filtered_members_df[filtered_members_df["اسم العضو"] == member_name]
+                                    if not member_row_df.empty:
+                                        member_row = member_row_df.iloc[0]
+                                        icon = member_row.get('أيقونة_المستوى', '')
+                                        points = int(member_row.get('عدد النقاط', 0))
+                                        st.markdown(f"- {member_name} ({icon} {points} نقطة)")
+                                    else:
+                                         st.markdown(f"- {member_name} (بيانات غير متوفرة)")
                                     member_index += 1
                                 else:
-                                    break # الخروج من الحلقة الداخلية إذا انتهت القائمة
-                    st.markdown("---") # خط فاصل بعد القائمة
+                                    break
+                    st.markdown("---")
                 else:
                     st.info("لا يوجد أعضاء يطابقون معايير التصفية المحددة.")
-                    st.markdown("---") # خط فاصل
+                    st.markdown("---")
 
                 # --- القائمة المنسدلة للاختيار ---
-                # لا تزال القائمة المنسدلة مفيدة لتحديد العضو الذي سيتم عرض تفاصيله
                 if final_filtered_member_list:
-                     # تحديد القيمة الافتراضية للمربع المنسدل
-                     # إذا كان العضو المحدد سابقًا لا يزال في القائمة المصفاة، احتفظ به. وإلا، ارجع إلى "اختر عضوًا..."
                      default_index = 0
                      if st.session_state.selected_member_detail in final_filtered_member_list:
                          default_index = (["اختر عضوًا..."] + final_filtered_member_list).index(st.session_state.selected_member_detail)
                      else:
-                         # إذا لم يعد العضو المحدد سابقًا موجودًا بسبب الفلترة، أعد التعيين
                          st.session_state.selected_member_detail = "اختر عضوًا..."
 
-
                      current_selection = st.selectbox(
-                         "اختر عضوًا من القائمة أعلاه لعرض تفاصيله", # تغيير التسمية
+                         "اختر عضوًا من القائمة أعلاه لعرض تفاصيله",
                          ["اختر عضوًا..."] + final_filtered_member_list,
-                         index=default_index, # استخدام الفهرس الافتراضي المحسوب
+                         index=default_index,
                          key="member_select"
                      )
-                     # تحديث session_state فقط إذا تغير الاختيار
                      if current_selection != st.session_state.selected_member_detail:
                           st.session_state.selected_member_detail = current_selection
-                          st.rerun() # إعادة تشغيل السكربت لتحديث العرض بناءً على الاختيار الجديد
-                # else: # لا داعي لعرض selectbox إذا كانت القائمة فارغة
+                          st.rerun()
 
 
                 # --- عرض تفاصيل العضو المحدد ---
                 selected_member_to_display = st.session_state.selected_member_detail
 
                 if selected_member_to_display and selected_member_to_display != "اختر عضوًا...":
-                    # الحصول على بيانات العضو المحدد *من البيانات المفلترة زمنياً*
                     member_data = members_filtered_data[members_filtered_data["اسم العضو"] == selected_member_to_display].copy()
 
                     if not member_data.empty:
-                        # الحصول على معلومات العضو *من إحصائيات الفترة المحددة* (filtered_members_df)
-                        # التأكد من أن العضو لا يزال موجودًا في filtered_members_df
                         member_info_rows = filtered_members_df[filtered_members_df["اسم العضو"] == selected_member_to_display]
                         if not member_info_rows.empty:
                             member_info = member_info_rows.iloc[0]
 
-                            # حساب مستوى الإنجاز ومعلومات إضافية للفترة المحددة
-                            achievement_level = member_info["مستوى_الإنجاز"]
-                            total_points = member_info["عدد النقاط"]
-                            total_hours = member_info["عدد الساعات"]
-                            total_tasks = member_info["عدد المهام"]
+                            # تأكد من أن get_achievement_level و create_metric_card معرفة
+                            try:
+                                achievement_level = member_info["مستوى_الإنجاز"] # يفترض أنه تم حسابه سابقًا
+                                total_points = member_info["عدد النقاط"]
+                                total_hours = member_info["عدد الساعات"]
+                                total_tasks = member_info["عدد المهام"]
 
-                            # حساب توزيع النقاط حسب الفئة *للفترة المحددة*
-                            category_points = calculate_points_by_category(member_data, selected_member_to_display)
+                                # حساب توزيع النقاط حسب الفئة
+                                # تأكد من أن calculate_points_by_category معرفة
+                                category_points = calculate_points_by_category(member_data, selected_member_to_display)
 
-                            # --- عرض معلومات العضو (للفترة المحددة) ---
-                            st.markdown(f"""
-                            <div style="padding: 20px; background-color: #ffffff; border-radius: 12px; margin-top: 20px; margin-bottom: 20px; direction: rtl; text-align: right; border: 1px solid #dee2e6; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                                <h3 style="margin-top: 0; margin-bottom: 15px; color: {achievement_level['color']}; border-bottom: 2px solid {achievement_level['color']}; padding-bottom: 10px;">{selected_member_to_display} {achievement_level['icon']}</h3>
-                                <div style="margin-bottom: 20px;">
-                                    <span style="font-size: 1.3rem; color: {achievement_level['color']}; font-weight: bold; background-color: {achievement_level['color']}20; padding: 5px 10px; border-radius: 5px;">المستوى ({achievement_time_period}): {achievement_level['name']}</span>
+                                # عرض معلومات العضو
+                                st.markdown(f"""
+                                <div style="padding: 20px; background-color: #ffffff; border-radius: 12px; margin-top: 20px; margin-bottom: 20px; direction: rtl; text-align: right; border: 1px solid #dee2e6; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                    <h3 style="margin-top: 0; margin-bottom: 15px; color: {achievement_level['color']}; border-bottom: 2px solid {achievement_level['color']}; padding-bottom: 10px;">{selected_member_to_display} {achievement_level['icon']}</h3>
+                                    <div style="margin-bottom: 20px;">
+                                        <span style="font-size: 1.3rem; color: {achievement_level['color']}; font-weight: bold; background-color: {achievement_level['color']}20; padding: 5px 10px; border-radius: 5px;">المستوى ({achievement_time_period}): {achievement_level['name']}</span>
+                                    </div>
+                                    <div style="display: flex; flex-direction: row-reverse; flex-wrap: wrap; gap: 20px; justify-content: space-around;">
+                                        {create_metric_card(int(total_points), "مجموع النقاط", "#1e88e5")}
+                                        {create_metric_card(int(total_tasks), "عدد المهام", "#27AE60")}
+                                        {create_metric_card(int(total_hours), "مجموع الساعات", "#F39C12")}
+                                    </div>
                                 </div>
+                                """, unsafe_allow_html=True)
 
-                                <div style="display: flex; flex-direction: row-reverse; flex-wrap: wrap; gap: 20px; justify-content: space-around;">
-                                    {create_metric_card(int(total_points), "مجموع النقاط", "#1e88e5")}
-                                    {create_metric_card(int(total_tasks), "عدد المهام", "#27AE60")}
-                                    {create_metric_card(int(total_hours), "مجموع الساعات", "#F39C12")}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                                # عرض المخططات والجدول
+                                # تأكد من أن mobile_view معرفة
+                                if 'mobile_view' not in locals() and 'mobile_view' not in globals():
+                                     mobile_view = False # قيمة افتراضية
+                                member_charts_cols = st.columns([3, 2]) if not mobile_view else (st.container(), st.container())
 
-                            # --- عرض المخططات والجدول للعضو المحدد ---
-                            member_charts_cols = st.columns([3, 2]) if not mobile_view else (st.container(), st.container())
+                                with member_charts_cols[0]:
+                                    # عرض الرادار
+                                    if not category_points.empty:
+                                        st.markdown("#### توزيع نقاط العضو حسب الفئات")
+                                        # تأكد من أن create_radar_chart معرفة
+                                        radar_chart = create_radar_chart(category_points, selected_member_to_display, is_mobile=mobile_view)
+                                        if radar_chart:
+                                            st.plotly_chart(radar_chart, use_container_width=True, config={"displayModeBar": False})
+                                    else:
+                                        st.info(f"لا توجد بيانات فئات للعضو {selected_member_to_display} في الفترة المحددة.")
 
-                            with member_charts_cols[0]: # العمود الأكبر للمخططات
-                                # عرض التحليل حسب الفئة (Radar Chart)
-                                 if not category_points.empty:
-                                     st.markdown("#### توزيع نقاط العضو حسب الفئات")
-                                     radar_chart = create_radar_chart(category_points, selected_member_to_display, is_mobile=mobile_view)
-                                     if radar_chart:
-                                         st.plotly_chart(radar_chart, use_container_width=True, config={"displayModeBar": False})
-                                     # else: # لا داعي لعرض رسالة هنا
-                                 else:
-                                     st.info(f"لا توجد بيانات فئات للعضو {selected_member_to_display} في الفترة المحددة.")
+                                    # عرض مخطط التطور الزمني
+                                    if "التاريخ" in member_data.columns and pd.api.types.is_datetime64_any_dtype(member_data['التاريخ']):
+                                        st.markdown("#### تطور نقاط العضو عبر الزمن")
+                                        if len(member_data) > 1:
+                                            member_data_ts = member_data.copy()
+                                            member_data_ts["الشهر-السنة"] = member_data_ts["التاريخ"].dt.strftime("%Y-%m")
+                                            member_monthly_stats = member_data_ts.groupby("الشهر-السنة").agg(
+                                                عدد_النقاط=('عدد النقاط', 'sum'),
+                                                عدد_الساعات=('عدد الساعات', 'sum'),
+                                                عدد_المهام=('اسم العضو', 'size')
+                                            ).reset_index()
+                                            member_monthly_stats["تاريخ_للترتيب"] = pd.to_datetime(member_monthly_stats["الشهر-السنة"] + "-01")
+                                            member_monthly_stats = member_monthly_stats.sort_values("تاريخ_للترتيب")
 
+                                            # تأكد من أن prepare_chart_layout معرفة
+                                            fig_member_time_series = px.line(
+                                                member_monthly_stats, x="الشهر-السنة", y=["عدد_النقاط", "عدد_الساعات", "عدد_المهام"],
+                                                markers=True, labels={"value": "القيمة", "variable": "المقياس", "الشهر-السنة": "الشهر"},
+                                                color_discrete_map={"عدد_النقاط": "#1e88e5", "عدد_الساعات": "#F39C12", "عدد_المهام": "#27AE60"}
+                                            )
+                                            fig_member_time_series.update_layout(legend_title_text='المقاييس')
+                                            fig_member_time_series = prepare_chart_layout(fig_member_time_series, f"تطور إنجازات {selected_member_to_display} الشهرية", is_mobile=mobile_view, chart_type="line")
+                                            st.plotly_chart(fig_member_time_series, use_container_width=True, config={"displayModeBar": False})
+                                        else:
+                                            st.info(f"لا توجد بيانات زمنية كافية لعرض تطور إنجازات {selected_member_to_display}.")
 
-                                 # عرض مخطط التطور الزمني للنقاط (إذا كان هناك تاريخ)
-                                 if "التاريخ" in member_data.columns and pd.api.types.is_datetime64_any_dtype(member_data['التاريخ']):
-                                     st.markdown("#### تطور نقاط العضو عبر الزمن")
-                                     if len(member_data) > 1:
-                                         member_data_ts = member_data.copy()
-                                         member_data_ts["الشهر-السنة"] = member_data_ts["التاريخ"].dt.strftime("%Y-%m")
-                                         member_monthly_stats = member_data_ts.groupby("الشهر-السنة").agg(
-                                             عدد_النقاط=('عدد النقاط', 'sum'),
-                                             عدد_الساعات=('عدد الساعات', 'sum'),
-                                             عدد_المهام=('اسم العضو', 'size')
-                                         ).reset_index()
-                                         member_monthly_stats["تاريخ_للترتيب"] = pd.to_datetime(member_monthly_stats["الشهر-السنة"] + "-01")
-                                         member_monthly_stats = member_monthly_stats.sort_values("تاريخ_للترتيب")
+                                    # عرض مخطط البرامج
+                                    if "البرنامج" in member_data.columns:
+                                        program_data = member_data[member_data["البرنامج"].notna() & (member_data["البرنامج"] != "")].copy()
+                                        if not program_data.empty:
+                                            st.markdown("#### توزيع نقاط العضو حسب البرنامج")
+                                            program_points = program_data.groupby("البرنامج")["عدد النقاط"].sum().reset_index().sort_values("عدد النقاط", ascending=False)
+                                            # تأكد من أن prepare_chart_layout معرفة
+                                            fig_program_points = px.pie(
+                                                program_points, values="عدد النقاط", names="البرنامج",
+                                                color_discrete_sequence=px.colors.qualitative.Pastel, hole=0.3
+                                            )
+                                            fig_program_points = prepare_chart_layout(fig_program_points, f"توزيع نقاط {selected_member_to_display} حسب البرنامج", is_mobile=mobile_view, chart_type="pie")
+                                            st.plotly_chart(fig_program_points, use_container_width=True, config={"displayModeBar": False})
 
-                                         fig_member_time_series = px.line(
-                                             member_monthly_stats, x="الشهر-السنة", y=["عدد_النقاط", "عدد_الساعات", "عدد_المهام"],
-                                             markers=True, labels={"value": "القيمة", "variable": "المقياس", "الشهر-السنة": "الشهر"},
-                                             color_discrete_map={"عدد_النقاط": "#1e88e5", "عدد_الساعات": "#F39C12", "عدد_المهام": "#27AE60"}
-                                         )
-                                         fig_member_time_series.update_layout(legend_title_text='المقاييس')
-                                         fig_member_time_series = prepare_chart_layout(fig_member_time_series, f"تطور إنجازات {selected_member_to_display} الشهرية", is_mobile=mobile_view, chart_type="line")
-                                         st.plotly_chart(fig_member_time_series, use_container_width=True, config={"displayModeBar": False})
+                                with member_charts_cols[1]:
+                                    # عرض جدول الفئات
+                                     if not category_points.empty:
+                                         st.markdown("##### تفاصيل الفئات والمستويات")
+                                         st.markdown("""<style>.achievements-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; } .achievements-table th, .achievements-table td { border: 1px solid #ddd; padding: 8px; text-align: right; } .achievements-table th { background-color: #f2f2f2; font-weight: bold; } .achievements-table tr:nth-child(even){background-color: #f9f9f9;} .achievements-table tr:hover {background-color: #e9e9e9;} </style> <table class="achievements-table"> <tr><th>الفئة</th><th>النقاط</th><th>المستوى</th></tr>""", unsafe_allow_html=True)
+                                         for _, row in category_points.sort_values("عدد النقاط", ascending=False).iterrows():
+                                             st.markdown(f"""<tr> <td>{row["الفئة"]}</td> <td>{int(row["عدد النقاط"])}</td> <td style="color: {row['لون_المستوى']}; font-weight: 500;">{row['أيقونة_المستوى']} {row['مستوى']}</td> </tr>""", unsafe_allow_html=True)
+                                         st.markdown("</table>", unsafe_allow_html=True)
+
+                                     # عرض آخر المهام
+                                     st.markdown("#### آخر مهام العضو (آخر 5)")
+                                     if "التاريخ" in member_data.columns and pd.api.types.is_datetime64_any_dtype(member_data['التاريخ']):
+                                         latest_tasks = member_data.sort_values("التاريخ", ascending=False).head(5)
+                                         if not latest_tasks.empty:
+                                             for _, task in latest_tasks.iterrows():
+                                                 task_title = task.get("عنوان المهمة", "مهمة غير محددة")
+                                                 task_desc = task.get("وصف مختصر", "")
+                                                 task_date = task.get("التاريخ", None)
+                                                 task_points = float(task.get("عدد النقاط", 0))
+                                                 task_hours = float(task.get("عدد الساعات", 0))
+                                                 task_category = task.get("الفئة", "غير مصنفة")
+                                                 task_program = task.get("البرنامج", "غير محدد")
+                                                 formatted_date = task_date.strftime("%Y/%m/%d") if pd.notna(task_date) else "غير محدد"
+                                                 st.markdown(f""" <div class="task-card completed" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; background-color: #fff;"> <div class="task-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;"> <div class="task-title" style="font-weight: 600; color: #333;">{task_title}</div> </div> {f'<div style="font-size: 0.85rem; margin-bottom: 8px; color: #666;">{task_desc}</div>' if task_desc else ''} <div class="task-details" style="font-size: 0.8rem; color: #777; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 10px;"> <span class="task-detail-item">📅 {formatted_date}</span> <span class="task-detail-item">🏷️ {task_category}</span> <span class="task-detail-item">📚 {task_program}</span> </div> <div class="task-metrics" style="display: flex; gap: 15px; justify-content: flex-end;"> <div class="task-metric" style="text-align: center;"> <div class="task-metric-value" style="font-weight: bold; color: #1e88e5;">{int(task_points)}</div> <div class="task-metric-label" style="font-size: 0.75rem;">النقاط</div> </div> <div class="task-metric" style="text-align: center;"> <div class="task-metric-value" style="font-weight: bold; color: #F39C12;">{int(task_hours)}</div> <div class="task-metric-label" style="font-size: 0.75rem;">الساعات</div> </div> </div> </div> """, unsafe_allow_html=True)
+                                         else:
+                                             st.info(f"لا توجد مهام مسجلة للعضو {selected_member_to_display} في الفترة المحددة.")
                                      else:
-                                         st.info(f"لا توجد بيانات زمنية كافية لعرض تطور إنجازات {selected_member_to_display}.")
+                                         st.warning("لا يمكن عرض آخر المهام لعدم وجود عمود تاريخ صالح.")
 
-
-                                 # عرض مخطط توزيع النقاط حسب البرنامج (إذا كان هناك برامج)
-                                 if "البرنامج" in member_data.columns:
-                                     program_data = member_data[member_data["البرنامج"].notna() & (member_data["البرنامج"] != "")].copy()
-                                     if not program_data.empty:
-                                         st.markdown("#### توزيع نقاط العضو حسب البرنامج")
-                                         program_points = program_data.groupby("البرنامج")["عدد النقاط"].sum().reset_index().sort_values("عدد النقاط", ascending=False)
-                                         fig_program_points = px.pie(
-                                             program_points, values="عدد النقاط", names="البرنامج",
-                                             color_discrete_sequence=px.colors.qualitative.Pastel, hole=0.3
-                                         )
-                                         fig_program_points = prepare_chart_layout(fig_program_points, f"توزيع نقاط {selected_member_to_display} حسب البرنامج", is_mobile=mobile_view, chart_type="pie")
-                                         st.plotly_chart(fig_program_points, use_container_width=True, config={"displayModeBar": False})
-                                     # else: # لا داعي لرسالة هنا
-
-                            with member_charts_cols[1]: # العمود الأصغر للجدول والمهام
-                                # عرض جدول تفصيلي للفئات ومستويات الإنجاز
-                                 if not category_points.empty:
-                                     st.markdown("##### تفاصيل الفئات والمستويات")
-                                     st.markdown("""
-                                     <style>
-                                         .achievements-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-                                         .achievements-table th, .achievements-table td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-                                         .achievements-table th { background-color: #f2f2f2; font-weight: bold; }
-                                         .achievements-table tr:nth-child(even){background-color: #f9f9f9;}
-                                         .achievements-table tr:hover {background-color: #e9e9e9;}
-                                     </style>
-                                     <table class="achievements-table">
-                                         <tr><th>الفئة</th><th>النقاط</th><th>المستوى</th></tr>
-                                     """, unsafe_allow_html=True)
-                                     for _, row in category_points.sort_values("عدد النقاط", ascending=False).iterrows():
-                                         st.markdown(f"""
-                                         <tr>
-                                             <td>{row["الفئة"]}</td>
-                                             <td>{int(row["عدد النقاط"])}</td>
-                                             <td style="color: {row['لون_المستوى']}; font-weight: 500;">{row['أيقونة_المستوى']} {row['مستوى']}</td>
-                                         </tr>
-                                         """, unsafe_allow_html=True)
-                                     st.markdown("</table>", unsafe_allow_html=True)
-
-
-                                 # عرض قائمة آخر 5 مهام للعضو
-                                 st.markdown("#### آخر مهام العضو (آخر 5)")
-                                 if "التاريخ" in member_data.columns and pd.api.types.is_datetime64_any_dtype(member_data['التاريخ']):
-                                     latest_tasks = member_data.sort_values("التاريخ", ascending=False).head(5)
-                                     if not latest_tasks.empty:
-                                         for _, task in latest_tasks.iterrows():
-                                             task_title = task.get("عنوان المهمة", "مهمة غير محددة")
-                                             task_desc = task.get("وصف مختصر", "")
-                                             task_date = task.get("التاريخ", None)
-                                             task_points = float(task.get("عدد النقاط", 0))
-                                             task_hours = float(task.get("عدد الساعات", 0))
-                                             task_category = task.get("الفئة", "غير مصنفة")
-                                             task_program = task.get("البرنامج", "غير محدد")
-                                             formatted_date = task_date.strftime("%Y/%m/%d") if pd.notna(task_date) else "غير محدد"
-                                             st.markdown(f"""
-                                             <div class="task-card completed" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; background-color: #fff;">
-                                                 <div class="task-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                                     <div class="task-title" style="font-weight: 600; color: #333;">{task_title}</div>
-                                                 </div>
-                                                 {f'<div style="font-size: 0.85rem; margin-bottom: 8px; color: #666;">{task_desc}</div>' if task_desc else ''}
-                                                 <div class="task-details" style="font-size: 0.8rem; color: #777; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 10px;">
-                                                     <span class="task-detail-item">📅 {formatted_date}</span>
-                                                     <span class="task-detail-item">🏷️ {task_category}</span>
-                                                     <span class="task-detail-item">📚 {task_program}</span>
-                                                 </div>
-                                                 <div class="task-metrics" style="display: flex; gap: 15px; justify-content: flex-end;">
-                                                     <div class="task-metric" style="text-align: center;">
-                                                         <div class="task-metric-value" style="font-weight: bold; color: #1e88e5;">{int(task_points)}</div>
-                                                         <div class="task-metric-label" style="font-size: 0.75rem;">النقاط</div>
-                                                     </div>
-                                                     <div class="task-metric" style="text-align: center;">
-                                                         <div class="task-metric-value" style="font-weight: bold; color: #F39C12;">{int(task_hours)}</div>
-                                                         <div class="task-metric-label" style="font-size: 0.75rem;">الساعات</div>
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                             """, unsafe_allow_html=True)
-                                     else:
-                                         st.info(f"لا توجد مهام مسجلة للعضو {selected_member_to_display} في الفترة المحددة.")
-                                 else:
-                                     st.warning("لا يمكن عرض آخر المهام لعدم وجود عمود تاريخ صالح.")
+                            except NameError as ne:
+                                st.error(f"خطأ: الدالة المساعدة غير معرفة: {ne}. يرجى التأكد من تعريف جميع الدوال المساعدة.")
+                            except Exception as detail_error:
+                                st.error(f"حدث خطأ أثناء عرض تفاصيل العضو: {detail_error}")
 
                         else:
-                             # هذه الحالة تحدث إذا تم اختيار عضو لم يعد موجودًا في filtered_members_df بعد تغيير الفلاتر
                              st.warning(f"العضو المحدد '{selected_member_to_display}' لا يطابق الفلاتر الحالية.")
-
-
                     else:
-                        # هذه الحالة تحدث إذا كانت member_data فارغة للعضو المحدد
                         st.warning(f"لم يتم العثور على بيانات إنجازات للعضو المحدد '{selected_member_to_display}' في الفترة الزمنية المحددة.")
-
-            # --- نهاية قسم عرض التفاصيل ---
+                else:
+                     # إذا لم يتم اختيار عضو
+                     pass # لا تعرض شيئًا إضافيًا هنا
 
             else:
-                 # إذا لم يتم اختيار عضو (القيمة هي "اختر عضوًا...")
-                 st.info("يرجى اختيار عضو من القائمة أعلاه لعرض تفاصيله.")
-
-
+                 # إذا كانت member_stats فارغة
+                 st.info("لا توجد إحصائيات متاحة للأعضاء في الفترة الزمنية المحددة.")
         else:
-            # هذه الحالة تحدث إذا كانت member_stats فارغة بعد الدمج الأولي
-            st.info("لا توجد إحصائيات متاحة للأعضاء في الفترة الزمنية المحددة.")
+            # إذا كانت members_filtered_data فارغة بعد التحقق من الأنواع
+            st.info("لا توجد بيانات صالحة بعد تطبيق الفلتر الزمني والتحقق من الأعمدة.")
 
     else:
-        # هذه الحالة تحدث إذا كانت members_filtered_data فارغة من البداية أو تفتقد للأعمدة الأساسية
+        # إذا كانت members_filtered_data فارغة من البداية أو تفتقد للأعمدة الأساسية
         st.info("لا توجد بيانات كافية لإظهار إنجازات الأعضاء للفترة الزمنية المحددة.")
 
 
-# --- دالة مساعدة لإنشاء بطاقات المقاييس ---
-def create_metric_card(value, label, color):
-    """ينشئ كود HTML لبطاقة مقياس."""
-    # تحديد لون الخلفية بناءً على لون النص الرئيسي لمزيد من التباين
-    bg_color_map = {
-        "#1e88e5": "#e3f2fd", # أزرق -> سماوي فاتح
-        "#27AE60": "#e8f5e9", # أخضر -> أخضر فاتح
-        "#F39C12": "#fff3e0"  # برتقالي -> برتقالي فاتح
-    }
-    bg_color = bg_color_map.get(color, "#f8f9fa") # لون افتراضي
-    return f"""
-    <div style="flex: 1; min-width: 120px; text-align: center; background-color: {bg_color}; padding: 15px; border-radius: 8px;">
-        <div style="font-size: 2rem; font-weight: bold; color: {color}; line-height: 1.2;">{value}</div>
-        <div style="font-size: 0.9rem; color: #555; margin-top: 5px;">{label}</div>
-    </div>
-    """
 # =========================================
 # القسم 15: تبويب قائمة المهام
 # =========================================
