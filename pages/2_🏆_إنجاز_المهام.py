@@ -1639,10 +1639,10 @@ with main_tabs[0]:
 # القسم 14: تبويب إنجازات الأعضاء
 # =========================================
 # تأكد من أن المكتبات التالية مستوردة في بداية ملفك الرئيسي:
-# import streamlit as st
-# import pandas as pd
-# import plotly.express as px
-# from datetime import datetime, timedelta
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from datetime import datetime, timedelta
 
 # !!! تأكد من أن st.set_page_config() هو أول أمر Streamlit في ملفك الرئيسي !!!
 # st.set_page_config(layout="wide", page_title="لوحة تحكم الإنجازات")
@@ -1652,15 +1652,48 @@ with main_tabs[0]:
 # - achievements_data: DataFrame ببيانات الإنجازات
 # - main_tabs: قائمة التبويبات
 # - mobile_view: متغير boolean (إذا كنت تستخدمه)
-# - الدوال المساعدة: get_achievement_level, get_member_of_month, ...الخ
+# - الدوال المساعدة الأخرى: get_achievement_level, get_member_of_month, ...الخ
 # - ACHIEVEMENT_LEVELS: قائمة أو قاموس بمستويات الإنجاز
+
+# --- دالة مساعدة لإنشاء بطاقات المقاييس ---
+# تمت إعادة إضافتها هنا
+def create_metric_card(value, label, color):
+    """ينشئ كود HTML لبطاقة مقياس."""
+    # تحديد لون الخلفية بناءً على لون النص الرئيسي لمزيد من التباين
+    bg_color_map = {
+        "#1e88e5": "#e3f2fd", # أزرق -> سماوي فاتح
+        "#27AE60": "#e8f5e9", # أخضر -> أخضر فاتح
+        "#F39C12": "#fff3e0"  # برتقالي -> برتقالي فاتح
+    }
+    bg_color = bg_color_map.get(color, "#f8f9fa") # لون افتراضي
+    # التأكد من أن القيمة رقمية قبل تنسيقها
+    try:
+        formatted_value = f"{int(value):,}" # إضافة فواصل الآلاف
+    except (ValueError, TypeError):
+        formatted_value = str(value) # عرض القيمة كما هي إذا لم تكن رقمية
+
+    return f"""
+    <div style="flex: 1; min-width: 120px; text-align: center; background-color: {bg_color}; padding: 15px; border-radius: 8px;">
+        <div style="font-size: 2rem; font-weight: bold; color: {color}; line-height: 1.2;">{formatted_value}</div>
+        <div style="font-size: 0.9rem; color: #555; margin-top: 5px;">{label}</div>
+    </div>
+    """
+
+# --- دالة لتحديث العضو المختار ---
+def set_selected_member(member_name):
+    """تحديث العضو المختار في حالة الجلسة."""
+    # إذا تم النقر على نفس العضو مرة أخرى، قم بإلغاء التحديد
+    if st.session_state.selected_member_detail == member_name:
+        st.session_state.selected_member_detail = None # أو "اختر عضوًا..." إذا كنت تفضل
+    else:
+        st.session_state.selected_member_detail = member_name
 
 with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجازات الأعضاء"
     st.markdown("### إنجازات الأعضاء")
 
     # --- تهيئة متغير الجلسة ---
     if 'selected_member_detail' not in st.session_state:
-        st.session_state.selected_member_detail = "اختر عضوًا..." # قيمة افتراضية
+        st.session_state.selected_member_detail = None # قيمة افتراضية تشير إلى عدم الاختيار
 
     # تصفية زمنية
     st.markdown('<div class="time-filter">', unsafe_allow_html=True)
@@ -1996,10 +2029,10 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                      filtered_members_df = filtered_members_df[filtered_members_df["اسم العضو"].isin(category_members_in_period)]
 
 
-                # --- عرض القائمة المصفاة ---
+                # --- عرض القائمة المصفاة كأزرار قابلة للنقر ---
                 final_filtered_member_list = filtered_members_df["اسم العضو"].tolist()
 
-                st.markdown("##### الأعضاء المطابقون للتصفية:")
+                st.markdown("##### اختر عضوًا لعرض تفاصيله:")
                 if final_filtered_member_list:
                     max_cols = 4
                     num_members = len(final_filtered_member_list)
@@ -2017,8 +2050,19 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                         member_row = member_row_df.iloc[0]
                                         icon = member_row.get('أيقونة_المستوى', '')
                                         points = int(member_row.get('عدد النقاط', 0))
-                                        st.markdown(f"- {member_name} ({icon} {points} نقطة)")
+                                        button_label = f"{member_name} ({icon} {points} نقطة)"
+                                        button_key = f"member_button_{member_name.replace(' ', '_')}" # مفتاح فريد للزر
+
+                                        # استخدام on_click لتحديث حالة الجلسة
+                                        st.button(
+                                            button_label,
+                                            key=button_key,
+                                            on_click=set_selected_member, # استدعاء الدالة عند النقر
+                                            args=(member_name,), # تمرير اسم العضو للدالة
+                                            use_container_width=True # جعل الزر يملأ عرض العمود
+                                        )
                                     else:
+                                         # عرض اسم العضو كنص عادي إذا لم توجد بيانات له
                                          st.markdown(f"- {member_name} (بيانات غير متوفرة)")
                                     member_index += 1
                                 else:
@@ -2028,28 +2072,14 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                     st.info("لا يوجد أعضاء يطابقون معايير التصفية المحددة.")
                     st.markdown("---")
 
-                # --- القائمة المنسدلة للاختيار ---
-                if final_filtered_member_list:
-                     default_index = 0
-                     if st.session_state.selected_member_detail in final_filtered_member_list:
-                         default_index = (["اختر عضوًا..."] + final_filtered_member_list).index(st.session_state.selected_member_detail)
-                     else:
-                         st.session_state.selected_member_detail = "اختر عضوًا..."
-
-                     current_selection = st.selectbox(
-                         "اختر عضوًا من القائمة أعلاه لعرض تفاصيله",
-                         ["اختر عضوًا..."] + final_filtered_member_list,
-                         index=default_index,
-                         key="member_select"
-                     )
-                     if current_selection != st.session_state.selected_member_detail:
-                          st.session_state.selected_member_detail = current_selection
-                          st.rerun()
+                # --- إزالة القائمة المنسدلة selectbox ---
+                # تم حذف st.selectbox الذي كان هنا
 
 
                 # --- عرض تفاصيل العضو المحدد ---
                 selected_member_to_display = st.session_state.selected_member_detail
 
+                # التحقق من أن قيمة selected_member_detail ليست None أو القيمة الافتراضية القديمة
                 if selected_member_to_display and selected_member_to_display != "اختر عضوًا...":
                     member_data = members_filtered_data[members_filtered_data["اسم العضو"] == selected_member_to_display].copy()
 
@@ -2058,7 +2088,7 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                         if not member_info_rows.empty:
                             member_info = member_info_rows.iloc[0]
 
-                            # تأكد من أن get_achievement_level و create_metric_card معرفة
+                            # تأكد من أن الدوال المساعدة معرفة
                             try:
                                 achievement_level = member_info["مستوى_الإنجاز"] # يفترض أنه تم حسابه سابقًا
                                 total_points = member_info["عدد النقاط"]
@@ -2066,7 +2096,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                 total_tasks = member_info["عدد المهام"]
 
                                 # حساب توزيع النقاط حسب الفئة
-                                # تأكد من أن calculate_points_by_category معرفة
                                 category_points = calculate_points_by_category(member_data, selected_member_to_display)
 
                                 # عرض معلومات العضو
@@ -2085,7 +2114,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                 """, unsafe_allow_html=True)
 
                                 # عرض المخططات والجدول
-                                # تأكد من أن mobile_view معرفة
                                 if 'mobile_view' not in locals() and 'mobile_view' not in globals():
                                      mobile_view = False # قيمة افتراضية
                                 member_charts_cols = st.columns([3, 2]) if not mobile_view else (st.container(), st.container())
@@ -2094,7 +2122,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                     # عرض الرادار
                                     if not category_points.empty:
                                         st.markdown("#### توزيع نقاط العضو حسب الفئات")
-                                        # تأكد من أن create_radar_chart معرفة
                                         radar_chart = create_radar_chart(category_points, selected_member_to_display, is_mobile=mobile_view)
                                         if radar_chart:
                                             st.plotly_chart(radar_chart, use_container_width=True, config={"displayModeBar": False})
@@ -2115,7 +2142,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                             member_monthly_stats["تاريخ_للترتيب"] = pd.to_datetime(member_monthly_stats["الشهر-السنة"] + "-01")
                                             member_monthly_stats = member_monthly_stats.sort_values("تاريخ_للترتيب")
 
-                                            # تأكد من أن prepare_chart_layout معرفة
                                             fig_member_time_series = px.line(
                                                 member_monthly_stats, x="الشهر-السنة", y=["عدد_النقاط", "عدد_الساعات", "عدد_المهام"],
                                                 markers=True, labels={"value": "القيمة", "variable": "المقياس", "الشهر-السنة": "الشهر"},
@@ -2133,7 +2159,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                         if not program_data.empty:
                                             st.markdown("#### توزيع نقاط العضو حسب البرنامج")
                                             program_points = program_data.groupby("البرنامج")["عدد النقاط"].sum().reset_index().sort_values("عدد النقاط", ascending=False)
-                                            # تأكد من أن prepare_chart_layout معرفة
                                             fig_program_points = px.pie(
                                                 program_points, values="عدد النقاط", names="البرنامج",
                                                 color_discrete_sequence=px.colors.qualitative.Pastel, hole=0.3
@@ -2181,7 +2206,8 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                         st.warning(f"لم يتم العثور على بيانات إنجازات للعضو المحدد '{selected_member_to_display}' في الفترة الزمنية المحددة.")
                 else:
                      # إذا لم يتم اختيار عضو
-                     pass # لا تعرض شيئًا إضافيًا هنا
+                     st.info("يرجى النقر على اسم عضو من القائمة أعلاه لعرض تفاصيله.") # رسالة توضيحية جديدة
+
 
             else:
                  # إذا كانت member_stats فارغة
@@ -2193,7 +2219,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
     else:
         # إذا كانت members_filtered_data فارغة من البداية أو تفتقد للأعمدة الأساسية
         st.info("لا توجد بيانات كافية لإظهار إنجازات الأعضاء للفترة الزمنية المحددة.")
-
 
 # =========================================
 # القسم 15: تبويب قائمة المهام
