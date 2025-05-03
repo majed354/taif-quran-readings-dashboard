@@ -339,9 +339,43 @@ responsive_menu_css = """
         h2, h3 { font-size: 1.1rem; }
         .top-navbar a { font-size: 0.85rem; }
     }
+
+    /* تنسيق معدل للجداول لضمان التوازن والمحاذاة */
+    .achievements-table {
+        width: 100%;
+        table-layout: fixed; /* ضمان اتساق عرض الأعمدة */
+        border-collapse: collapse;
+        direction: rtl;
+        margin-top: 15px;
+    }
+    .achievements-table th, .achievements-table td {
+        text-align: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    /* تحديد عرض ثابت لكل عمود */
+    .achievements-table th:nth-child(1), .achievements-table td:nth-child(1) { width: 5%; } /* # */
+    .achievements-table th:nth-child(2), .achievements-table td:nth-child(2) { width: 25%; text-align: right; } /* العضو */
+    .achievements-table th:nth-child(3), .achievements-table td:nth-child(3) { width: 12%; } /* عدد الإنجازات */
+    .achievements-table th:nth-child(4), .achievements-table td:nth-child(4) { width: 15%; } /* مجموع النقاط */
+    .achievements-table th:nth-child(5), .achievements-table td:nth-child(5) { width: 15%; } /* مجموع الساعات */
+    .achievements-table th:nth-child(6), .achievements-table td:nth-child(6) { width: 13%; } /* متوسط النقاط */
+    .achievements-table th:nth-child(7), .achievements-table td:nth-child(7) { width: 15%; } /* مستوى الإنجاز */
+    
+    /* تنسيق خاص للأسماء القابلة للنقر */
+    .member-link {
+        color: #1e88e5;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .member-link:hover {
+        text-decoration: underline;
+        color: #0d47a1;
+    }
 </style>
 """
-
 # =========================================
 # القسم 3: هيكل HTML للقائمة وزر العودة للأعلى
 # =========================================
