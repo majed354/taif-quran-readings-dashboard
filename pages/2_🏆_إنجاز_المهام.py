@@ -1889,23 +1889,23 @@ with main_tabs[1]:
                 
                 # عرض معلومات العضو
                 st.markdown(f"""
-                <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+                <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 20px; direction: rtl; text-align: right;">
                     <h3 style="margin-top: 0; color: {achievement_level['color']};">{selected_member} {achievement_level['icon']}</h3>
                     <div style="margin-top: 10px; margin-bottom: 15px;">
                         <span style="font-size: 1.2rem; color: {achievement_level['color']}; font-weight: bold;">المستوى الإجمالي: {achievement_level['name']}</span>
                     </div>
                     
-                    <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;">
-                        <div style="flex: 1; min-width: 150px;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #1e88e5;">{int(total_points)}</div>
+                    <div style="display: flex; flex-direction: row-reverse; flex-wrap: wrap; gap: 20px; margin-top: 10px;">
+                        <div style="flex: 1; min-width: 150px; text-align: center;">
+                            <div style="direction: ltr; font-size: 1.5rem; font-weight: bold; color: #1e88e5;">{int(total_points)}</div>
                             <div style="font-size: 0.9rem; color: #666;">مجموع النقاط</div>
                         </div>
-                        <div style="flex: 1; min-width: 150px;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #27AE60;">{int(total_tasks)}</div>
+                        <div style="flex: 1; min-width: 150px; text-align: center;">
+                            <div style="direction: ltr; font-size: 1.5rem; font-weight: bold; color: #27AE60;">{int(total_tasks)}</div>
                             <div style="font-size: 0.9rem; color: #666;">عدد المهام</div>
                         </div>
-                        <div style="flex: 1; min-width: 150px;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #F39C12;">{int(total_hours)}</div>
+                        <div style="flex: 1; min-width: 150px; text-align: center;">
+                            <div style="direction: ltr; font-size: 1.5rem; font-weight: bold; color: #F39C12;">{int(total_hours)}</div>
                             <div style="font-size: 0.9rem; color: #666;">مجموع الساعات</div>
                         </div>
                     </div>
@@ -2058,7 +2058,6 @@ with main_tabs[1]:
                 st.info(f"لا توجد بيانات متاحة للعضو {selected_member}.")
     else:
         st.info("لا توجد بيانات كافية لإظهار إنجازات الأعضاء.")
-
 # =========================================
 # القسم 15: تبويب قائمة المهام
 # =========================================
