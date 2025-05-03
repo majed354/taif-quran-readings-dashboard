@@ -4,7 +4,7 @@ import requests # Keep for potential future use
 import base64
 import io
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 import time
 import json
@@ -68,6 +68,13 @@ PROGRAM_OPTIONS = [
     "جميع البرامج"
 ]
 
+TIME_FILTER_OPTIONS = [
+    "جميع المهام",
+    "آخر شهر",
+    "آخر ستة أشهر",
+    "آخر سنة",
+    "آخر ثلاث سنوات"
+]
 
 ARABIC_MONTHS = {
     1: "يناير", 2: "فبراير", 3: "مارس", 4: "أبريل", 5: "مايو", 6: "يونيو",
@@ -119,6 +126,25 @@ st.markdown("""
     .achievement-display { border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; margin-bottom: 10px; background-color: #fafafa; }
     .achievement-display .caption { color: #555; font-size: 0.9em; }
     .achievement-display .task-title { font-weight: bold; margin-bottom: 3px; display: block; }
+    /* تنسيقات لخيارات التصفية الزمنية */
+    .time-filter { 
+        margin-bottom: 15px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    .time-filter-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    /* نمط لعنوان قسم المهام المعروضة مع عدد المهام */
+    .tasks-count {
+        background-color: #e6f2ff;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -272,13 +298,12 @@ def save_csv(path: str, df: pd.DataFrame, sha: str | None, msg: str, expected_co
 # -------------------------------------------------------------------------
 
 # --- Session State Initialization ---
-default_year = 2025
+default_year = datetime.now().year
 current_month = datetime.now().month
 # Added auth state back
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "selected_member" not in st.session_state: st.session_state.selected_member = MEMBER_NAMES[0]
-if "selected_year" not in st.session_state: st.session_state.selected_year = default_year
-if "selected_month" not in st.session_state: st.session_state.selected_month = current_month
+if "time_filter" not in st.session_state: st.session_state.time_filter = TIME_FILTER_OPTIONS[0]
 if "selected_category" not in st.session_state: st.session_state.selected_category = INITIAL_CATEGORIES[0]
 if "selected_program" not in st.session_state: st.session_state.selected_program = PROGRAM_OPTIONS[0]
 if "show_add_main_task_inline" not in st.session_state: st.session_state.show_add_main_task_inline = False
@@ -316,12 +341,27 @@ with st.expander("تعليمات هامة لأعضاء هيئة التدريس �
 
     يهدف هذا النظام إلى توثيق جهودكم القيمة ومتابعة إنجاز المهام المختلفة. لضمان دقة البيانات والاستفادة القصوى من النظام، يرجى اتباع التعليمات التالية عند تعبئة النموذج:
 
-    1.  **اختيار العضو والتاريخ:** تأكد من اختيار اسمك الصحيح من القائمة، ثم حدد الشهر والسنة التقريبية التي تمت فيها المهمة (السنة الافتراضية هي 2025).
+    1.  **اختيار العضو:** تأكد من اختيار اسمك الصحيح من القائمة.
     2.  **عنوان المهمة:** أدخل عنوانًا مختصرًا وواضحًا للمهمة (مثال: "تطوير مقرر 101"، "الإشراف على طالب الماجستير").
-    3.  **وصف المهمة:** قدم وصفًا تفصيليًا ودقيقًا للمهمة التي قمت بها. كلما كان الوصف أوضح، كان التقييم أدق.
-    4.  **الساعات المقدرة:** اختر أقرب نطاق زمني يعكس الجهد المبذول في إنجاز المهمة.
-    5.  **الفئة والبرنامج (اختياري):** يمكنك تصنيف المهمة ضمن فئة محددة أو ربطها ببرنامج أكاديمي معين إذا كان ذلك مناسبًا.
-    6.  **المهمة الرئيسية (اختياري):** إذا كانت هذه المهمة جزءًا من مهمة أكبر أو مشروع مستمر (مثل "الاعتماد الأكاديمي")، يمكنك ربطها بالمهمة الرئيسية المقابلة من القائمة. يمكنك أيضًا إضافة مهمة رئيسية جديدة إذا لم تكن موجودة باختيار "➕ إضافة مهمة رئيسية…".
+    3.      **وصف المهمة:** قدم وصفًا تفصيليًا ودقيقًا للمهمة التي قمت بها. كلما كان الوصف أوضح، كان التقييم أدق. 
+    
+    من الأمثلة الخاطئة (غير الدقيقة):
+    - "اشتركت مع زميلي في إنجاز مهام متعلقة بالاعتماد" 
+    - "حضرت اجتماع اللجنة" 
+    - "ساعدت في إعداد الجدول الدراسي" 
+    - "شاركت في لجنة تطوير المناهج"
+
+    من الأمثلة الصحيحة (الواضحة والدقيقة):
+    - "قمت (وحدي) بإكمال ملف متعلق بأدلة الاعتماد أخذ مني قرابة الساعتين"
+    - "أعددت توصيف مقرر 'المهارات اللغوية' الجديد بالكامل، وشمل ذلك تحديد المخرجات التعليمية ووضع أساليب التقييم (استغرق ٦ ساعات)"
+    - "راجعت تقرير الدراسة الذاتية للبرنامج وقمت بتصحيح ١٥ صفحة من التقرير وإضافة البيانات الناقصة (عملت ٣ ساعات)"
+    - "أشرفت على تدريب ٥ طالبات لإعداد ورشة عمل حول مهارات التلاوة، وتضمن ذلك ٣ لقاءات تدريبية مع متابعة مستمرة"
+    
+    **تنبيه هام**: لا تدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس والمهام المكلف بها رسميًا (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي، حضور اجتماعات القسم الرسمية)، أو المهام التي يتلقى عليها مكافأة مالية منفصلة.
+    4.  **تاريخ المهمة:** حدد التاريخ الفعلي الذي تمت فيه المهمة.
+    5.  **الساعات المقدرة:** اختر أقرب نطاق زمني يعكس الجهد المبذول في إنجاز المهمة.
+    6.  **الفئة والبرنامج (اختياري):** يمكنك تصنيف المهمة ضمن فئة محددة أو ربطها ببرنامج أكاديمي معين إذا كان ذلك مناسبًا.
+    7.  **المهمة الرئيسية (اختياري):** إذا كانت هذه المهمة جزءًا من مهمة أكبر أو مشروع مستمر (مثل "الاعتماد الأكاديمي")، يمكنك ربطها بالمهمة الرئيسية المقابلة من القائمة. يمكنك أيضًا إضافة مهمة رئيسية جديدة إذا لم تكن موجودة باختيار "➕ إضافة مهمة رئيسية…".
 
     **ملاحظة هامة:** سيتم مستقبلًا الاعتماد على التصنيف بالذكاء الآلي للمهام المدخلة لتحديد النقاط المستحقة لكل مهمة بناءً على الوصف ونطاق الساعات والفئة. لذا، فإن دقة البيانات المدخلة أساسية لضمان تقييم عادل ومنصف لجهودكم.
 
@@ -329,12 +369,8 @@ with st.expander("تعليمات هامة لأعضاء هيئة التدريس �
     """)
 
 
-# --- User & Date Selection ---
+# --- User Selection ---
 st.selectbox("اختر اسم العضو", options=MEMBER_NAMES, key="selected_member")
-st.markdown("<div class='approx-date-header'>التاريخ التقريبي للمهام</div>", unsafe_allow_html=True)
-col_month, col_year = st.columns(2)
-with col_month: st.selectbox("الشهر", options=list(ARABIC_MONTHS.keys()), format_func=lambda m: ARABIC_MONTHS[m], key="selected_month")
-with col_year: st.number_input("السنة", min_value=2010, max_value=default_year + 5, value=st.session_state.selected_year, key="selected_year", step=1)
 
 # --- Sidebar ---
 # Added Logout button back
@@ -344,8 +380,7 @@ with st.sidebar:
         st.session_state.authenticated = False # Set auth to False
         # Reset other relevant states if needed
         st.session_state.selected_member = MEMBER_NAMES[0]
-        st.session_state.selected_year = default_year
-        st.session_state.selected_month = current_month
+        st.session_state.time_filter = TIME_FILTER_OPTIONS[0]
         st.session_state.selected_category = INITIAL_CATEGORIES[0]
         st.session_state.selected_program = PROGRAM_OPTIONS[0]
         st.session_state.show_add_main_task_inline = False
@@ -355,8 +390,6 @@ with st.sidebar:
 
 # --- Validate User Selection ---
 member = st.session_state.selected_member
-year = st.session_state.selected_year
-month = st.session_state.selected_month
 if member == MEMBER_NAMES[0]:
     st.info("👈 الرجاء اختيار اسم العضو للمتابعة.")
     st.stop()
@@ -389,10 +422,30 @@ inline_form_placeholder = st.empty()
 
 with st.form("add_task_form", clear_on_submit=False):
     task_title = st.text_input("عنوان مختصر للمهمة", key="task_title_input")
-    try: default_date_val = datetime(year, month, 1)
-    except ValueError: default_date_val = datetime(year, month, calendar.monthrange(year, month)[1])
-    achievement_date = st.date_input("تاريخ المهمة الفعلي", value=default_date_val)
-    achievement_desc = st.text_area("وصف المهمة بالتفصيل", height=100, key="achievement_desc_input")
+    achievement_date = st.date_input("تاريخ المهمة الفعلي", value=datetime.now())
+    achievement_desc = st.text_area(
+        "وصف المهمة بالتفصيل",
+        help="""
+        قدم وصفًا تفصيليًا ودقيقًا للمهمة التي قمت بها. كلما كان الوصف أوضح، كان التقييم أدق.
+        
+        من الأمثلة الخاطئة (غير الدقيقة):
+        • "اشتركت مع زميلي في إنجاز مهام متعلقة بالاعتماد" 
+        • "حضرت اجتماع اللجنة" 
+        • "ساعدت في إعداد الجدول الدراسي" 
+        • "شاركت في لجنة تطوير المناهج"
+
+        من الأمثلة الصحيحة (الواضحة والدقيقة):
+        • "قمت (وحدي) بإكمال ملف متعلق بأدلة الاعتماد أخذ مني قرابة الساعتين"
+        • "أعددت توصيف مقرر 'المهارات اللغوية' الجديد بالكامل، وشمل ذلك تحديد المخرجات التعليمية ووضع أساليب التقييم (استغرق ٦ ساعات)"
+        • "راجعت تقرير الدراسة الذاتية للبرنامج وقمت بتصحيح ١٥ صفحة من التقرير وإضافة البيانات الناقصة (عملت ٣ ساعات)"
+        
+        تنبيه هام: لا يدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس والمهام المكلف بها رسميًا 
+        (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي)، 
+        أو المهام التي يتلقى عليها مكافأة مالية منفصلة.
+        """,
+        height=100, 
+        key="achievement_desc_input"
+    )
 
     selected_hour_range = st.selectbox( "نطاق الساعات المقدرة", options=HOUR_RANGES, key="hour_range_selector")
     selected_category = st.selectbox("تحديد فئة المهمة (اختياري)", options=INITIAL_CATEGORIES, key="selected_category")
@@ -453,12 +506,8 @@ if submit_task:
     try:
         achievement_date_val = achievement_date
     except NameError:
-         # If achievement_date is not accessible, try getting from session state if key was added
-         # achievement_date_val = st.session_state.get("achievement_date_key") # Need to add key to date_input
-         # Or show error
          st.error("خطأ: لم يتم العثور على قيمة تاريخ المهمة.")
          st.stop()
-
 
     if selected_form_main_task_option_val == add_new_main_task_option:
          st.warning("لقد اخترت 'إضافة مهمة رئيسية جديدة'. يرجى إدخال تفاصيل المهمة الجديدة وحفظها أولاً، أو اختيار مهمة أخرى.")
@@ -501,14 +550,25 @@ if submit_task:
                 commit_message = f"إضافة مهمة '{task_title_val.strip()}' بواسطة {member} ({achievement_date_val.isoformat()})"
                 if save_csv(ALL_ACHIEVEMENTS_PATH, achievements_df_updated, achievements_sha_reloaded, commit_message, expected_cols=EXPECTED_ACHIEVEMENT_COLS):
                     st.success(f"✅ تم حفظ المهمة بنجاح!")
-                    # --- Removed session state clearing lines that caused error ---
                     time.sleep(1); st.rerun()
                 else: st.error("❌ حدث خطأ أثناء حفظ المهمة.")
             except Exception as e: show_error("خطأ في إضافة المهمة", traceback.format_exc())
 
 
 # --- Display Existing Tasks ---
-st.header(f"2. المهام المسجلة ({member} - {ARABIC_MONTHS.get(month, month)} {year})")
+st.header(f"2. المهام المسجلة لـ {member}")
+
+# --- Time Filter Selection ---
+st.markdown('<div class="time-filter">', unsafe_allow_html=True)
+st.markdown('<div class="time-filter-title">تصفية المهام حسب الفترة الزمنية:</div>', unsafe_allow_html=True)
+st.session_state.time_filter = st.radio(
+    "",
+    options=TIME_FILTER_OPTIONS,
+    horizontal=True,
+    key="time_filter_radio"
+)
+st.markdown('</div>', unsafe_allow_html=True)
+
 try:
     achievements_df_display, achievements_sha_display = load_csv(ALL_ACHIEVEMENTS_PATH, expected_cols=EXPECTED_ACHIEVEMENT_COLS)
 
@@ -519,19 +579,35 @@ try:
         id_to_title_map_display = {None: "— بدون مهمة رئيسية —", '': "— بدون مهمة رئيسية —"}
         if not main_df.empty: id_to_title_map_display.update(main_df.fillna('').set_index('id')['title'].to_dict())
 
+        # فلترة المهام حسب العضو
         my_tasks_display_df = achievements_df_display[
             (achievements_df_display["العضو"] == member) &
-            (achievements_df_display['التاريخ_dt'].notna()) &
-            (achievements_df_display['التاريخ_dt'].dt.year == year) &
-            (achievements_df_display['التاريخ_dt'].dt.month == month)
+            (achievements_df_display['التاريخ_dt'].notna())
         ].copy()
+        
+        # تطبيق الفلتر الزمني
+        current_date = datetime.now()
+        if st.session_state.time_filter == "آخر شهر":
+            filter_date = current_date - timedelta(days=30)
+            my_tasks_display_df = my_tasks_display_df[my_tasks_display_df['التاريخ_dt'] >= filter_date]
+        elif st.session_state.time_filter == "آخر ستة أشهر":
+            filter_date = current_date - timedelta(days=180)
+            my_tasks_display_df = my_tasks_display_df[my_tasks_display_df['التاريخ_dt'] >= filter_date]
+        elif st.session_state.time_filter == "آخر سنة":
+            filter_date = current_date - timedelta(days=365)
+            my_tasks_display_df = my_tasks_display_df[my_tasks_display_df['التاريخ_dt'] >= filter_date]
+        elif st.session_state.time_filter == "آخر ثلاث سنوات":
+            filter_date = current_date - timedelta(days=365*3)
+            my_tasks_display_df = my_tasks_display_df[my_tasks_display_df['التاريخ_dt'] >= filter_date]
+        # الخيار "جميع المهام" يُظهر جميع المهام دون تصفية زمنية
+
         my_tasks_display_df['original_index'] = my_tasks_display_df.index
         my_tasks_display_df = my_tasks_display_df.sort_values(by='التاريخ_dt', ascending=False)
 
         if my_tasks_display_df.empty:
-            st.caption("لا توجد مهام مسجلة لهذا العضو في هذا الشهر وهذه السنة.")
+            st.info(f"لا توجد مهام مسجلة لهذا العضو ضمن الفترة المحددة: {st.session_state.time_filter}")
         else:
-            st.write(f"إجمالي المهام المعروضة: {len(my_tasks_display_df)}")
+            st.markdown(f'<div>المهام المعروضة: <span class="tasks-count">{len(my_tasks_display_df)}</span></div>', unsafe_allow_html=True)
             for i in my_tasks_display_df.index:
                 original_df_index = my_tasks_display_df.loc[i, 'original_index']
                 with st.container():
@@ -605,4 +681,3 @@ with st.expander("إدارة المهام الرئيسية (إضافة/تعدي�
          st.dataframe(main_df.fillna('')[["title", "descr"]].rename(columns={"title": "العنوان", "descr": "الوصف"}), use_container_width=True)
     else:
          st.caption("لا توجد مهام رئيسية معرفة حتى الآن.")
-
