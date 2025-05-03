@@ -101,7 +101,11 @@ PREDEFINED_MAIN_TASKS = [
 # -------------------------------------------------------------------------
 # تهيئة الواجهة (UI Initialization)
 # -------------------------------------------------------------------------
-st.set_page_config("تسجيل المهام المكتملة", layout="centered")
+st.set_page_config(
+    "تسجيل المهام المكتملة", 
+    layout="centered",
+    initial_sidebar_state="collapsed"  # إضافة هذا الخيار لضمان طي القائمة الجانبية افتراضيًا
+)
 st.markdown("""
 <style>
     /* CSS remains largely the same */
@@ -334,7 +338,24 @@ if not st.session_state.authenticated:
 # --- Main Application (Runs only if authenticated) ---
 st.title("تسجيل المهام المكتملة")
 
-# --- Instructions Expander ---
+# أزرار الإجراءات (تم نقلها من القائمة الجانبية)
+logout_col, cache_col = st.columns(2)
+with logout_col:
+    if st.button("تسجيل الخروج", type="secondary", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.selected_member = MEMBER_NAMES[0]
+        st.session_state.time_filter = TIME_FILTER_OPTIONS[0]
+        st.session_state.selected_category = INITIAL_CATEGORIES[0]
+        st.session_state.selected_program = PROGRAM_OPTIONS[0]
+        st.session_state.show_add_main_task_inline = False
+        st.rerun()
+with cache_col:
+    if st.button("مسح ذاكرة التخزين المؤقت", type="secondary", use_container_width=True):
+        clear_repo_cache()
+        st.info("تم مسح ذاكرة التخزين المؤقت.")
+        time.sleep(1)
+        st.rerun()
+st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px'>", unsafe_allow_html=True)
 with st.expander("تعليمات هامة لأعضاء هيئة التدريس بقسم القراءات", expanded=False):
      st.markdown("""
     **أهلاً بكم في نظام تسجيل المهام المكتملة،،**
@@ -373,20 +394,15 @@ with st.expander("تعليمات هامة لأعضاء هيئة التدريس �
 st.selectbox("اختر اسم العضو", options=MEMBER_NAMES, key="selected_member")
 
 # --- Sidebar ---
-# Added Logout button back
+# هذا القسم معطل الآن حيث تم نقل الأزرار إلى أعلى الصفحة الرئيسية
+# لم يتم حذفه لضمان عدم كسر الكود
+# هذا القسم لن يظهر بسبب CSS المضاف لإخفاء القائمة الجانبية
 with st.sidebar:
     st.header("الإجراءات")
-    if st.button("تسجيل الخروج", type="secondary"):
-        st.session_state.authenticated = False # Set auth to False
-        # Reset other relevant states if needed
-        st.session_state.selected_member = MEMBER_NAMES[0]
-        st.session_state.time_filter = TIME_FILTER_OPTIONS[0]
-        st.session_state.selected_category = INITIAL_CATEGORIES[0]
-        st.session_state.selected_program = PROGRAM_OPTIONS[0]
-        st.session_state.show_add_main_task_inline = False
-        st.rerun() # Rerun to show login form
-    if st.button("مسح ذاكرة التخزين المؤقت", type="secondary"):
-        clear_repo_cache(); st.info("تم مسح ذاكرة التخزين المؤقت."); time.sleep(1); st.rerun()
+    if st.button("تسجيل الخروج - غير مرئي", type="secondary", key="sidebar_logout"):
+        pass
+    if st.button("مسح ذاكرة التخزين المؤقت - غير مرئي", type="secondary", key="sidebar_cache"):
+        pass
 
 # --- Validate User Selection ---
 member = st.session_state.selected_member
@@ -421,8 +437,18 @@ st.header("1. إضافة مهمة جديدة")
 inline_form_placeholder = st.empty()
 
 with st.form("add_task_form", clear_on_submit=False):
-    task_title = st.text_input("عنوان مختصر للمهمة", key="task_title_input")
-    achievement_date = st.date_input("تاريخ المهمة الفعلي", value=datetime.now())
+    # عنوان المهمة
+    task_title = st.text_input(
+        "عنوان مختصر للمهمة", 
+        help="أدخل عنوانًا واضحًا ومختصرًا للمهمة (مثال: 'تطوير مقرر 101'، 'الإشراف على طالب الماجستير')",
+        key="task_title_input"
+    )
+    achievement_date = st.date_input(
+        "تاريخ المهمة التقريبي", 
+        value=datetime.now(),
+        help="يمكنك تحديد التاريخ التقريبي للمهمة، لا يلزم أن يكون التاريخ دقيقًا بشكل مطلق"
+    )
+    # وصف المهمة مع التنبيهات والأمثلة
     achievement_desc = st.text_area(
         "وصف المهمة بالتفصيل",
         help="""
@@ -438,9 +464,10 @@ with st.form("add_task_form", clear_on_submit=False):
         • "قمت (وحدي) بإكمال ملف متعلق بأدلة الاعتماد أخذ مني قرابة الساعتين"
         • "أعددت توصيف مقرر 'المهارات اللغوية' الجديد بالكامل، وشمل ذلك تحديد المخرجات التعليمية ووضع أساليب التقييم (استغرق ٦ ساعات)"
         • "راجعت تقرير الدراسة الذاتية للبرنامج وقمت بتصحيح ١٥ صفحة من التقرير وإضافة البيانات الناقصة (عملت ٣ ساعات)"
+        • "أشرفت على تدريب ٥ طالبات لإعداد ورشة عمل حول مهارات التلاوة، وتضمن ذلك ٣ لقاءات تدريبية مع متابعة مستمرة"
         
-        تنبيه هام: لا يدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس والمهام المكلف بها رسميًا 
-        (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي)، 
+        تنبيه هام: لا تدخل في هذا النظام المهام التي هي من صميم عمل عضو هيئة التدريس والمهام المكلف بها رسميًا 
+        (مثل: تدريس المقررات المجدولة، الإشراف الأكاديمي، حضور اجتماعات القسم الرسمية)، 
         أو المهام التي يتلقى عليها مكافأة مالية منفصلة.
         """,
         height=100, 
