@@ -1638,55 +1638,23 @@ with main_tabs[0]:
 # =========================================
 # القسم 14: تبويب إنجازات الأعضاء
 # =========================================
-# تأكد من أن المكتبات التالية مستوردة في بداية ملفك الرئيسي:
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from datetime import datetime, timedelta
 
-# !!! تأكد من أن st.set_page_config() هو أول أمر Streamlit في ملفك الرئيسي !!!
-# st.set_page_config(layout="wide", page_title="لوحة تحكم الإنجازات")
+# تعريف مستويات الإنجاز حسب نقاط الفئة الواحدة (يضاف قبل بداية التبويب)
+CATEGORY_ACHIEVEMENT_LEVELS = [
+    {"name": "مبتدئ", "min": 0, "max": 200, "color": "#5DADE2", "icon": "🔹"},  # أزرق فاتح
+    {"name": "ممارس", "min": 201, "max": 400, "color": "#3498DB", "icon": "🔷"},  # أزرق
+    {"name": "متقدم", "min": 401, "max": 600, "color": "#27AE60", "icon": "🌟"},  # أخضر
+    {"name": "خبير", "min": 601, "max": float('inf'), "color": "#F39C12", "icon": "✨"},   # برتقالي
+]
 
-# --- بداية القسم 14 ---
-# يفترض أن المتغيرات التالية معرفة قبل هذا الكود:
-# - achievements_data: DataFrame ببيانات الإنجازات
-# - main_tabs: قائمة التبويبات
-# - mobile_view: متغير boolean (إذا كنت تستخدمه)
-# - الدوال المساعدة الأخرى: get_achievement_level, get_member_of_month, ...الخ
-# - ACHIEVEMENT_LEVELS: قائمة أو قاموس بمستويات الإنجاز
-
-# --- دالة مساعدة لإنشاء بطاقات المقاييس ---
-# تمت إعادة إضافتها هنا
-def create_metric_card(value, label, color):
-    """ينشئ كود HTML لبطاقة مقياس."""
-    # تحديد لون الخلفية بناءً على لون النص الرئيسي لمزيد من التباين
-    bg_color_map = {
-        "#1e88e5": "#e3f2fd", # أزرق -> سماوي فاتح
-        "#27AE60": "#e8f5e9", # أخضر -> أخضر فاتح
-        "#F39C12": "#fff3e0"  # برتقالي -> برتقالي فاتح
-    }
-    bg_color = bg_color_map.get(color, "#f8f9fa") # لون افتراضي
-    # التأكد من أن القيمة رقمية قبل تنسيقها
-    try:
-        formatted_value = f"{int(value):,}" # إضافة فواصل الآلاف
-    except (ValueError, TypeError):
-        formatted_value = str(value) # عرض القيمة كما هي إذا لم تكن رقمية
-
-    return f"""
-    <div style="flex: 1; min-width: 120px; text-align: center; background-color: {bg_color}; padding: 15px; border-radius: 8px;">
-        <div style="font-size: 2rem; font-weight: bold; color: {color}; line-height: 1.2;">{formatted_value}</div>
-        <div style="font-size: 0.9rem; color: #555; margin-top: 5px;">{label}</div>
-    </div>
-    """
-
-# --- دالة لتحديث العضو المختار ---
-def set_selected_member(member_name):
-    """تحديث العضو المختار في حالة الجلسة."""
-    # إذا تم النقر على نفس العضو مرة أخرى، قم بإلغاء التحديد
-    if st.session_state.selected_member_detail == member_name:
-        st.session_state.selected_member_detail = None # أو "اختر عضوًا..." إذا كنت تفضل
-    else:
-        st.session_state.selected_member_detail = member_name
+def get_category_achievement_level(points):
+    """تحديد مستوى الإنجاز لفئة معينة بناءً على عدد النقاط"""
+    for level in CATEGORY_ACHIEVEMENT_LEVELS:
+        if level["min"] <= points <= level["max"]:
+            return level
+    
+    # في حالة قيم أكبر من الحد الأقصى للمستوى الأخير
+    return CATEGORY_ACHIEVEMENT_LEVELS[-1]  # إرجاع أعلى مستوى
 
 with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجازات الأعضاء"
     st.markdown("### إنجازات الأعضاء")
@@ -1959,12 +1927,17 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                  leader = category_leaders[category]
                                  leader_name = leader.get('اسم', 'N/A')
                                  leader_points = int(leader.get('النقاط', 0))
+                                 # تحديد مستوى الفئة
+                                 category_level = get_category_achievement_level(leader_points)
+                                 category_level_name = category_level["name"]
+                                 category_level_icon = category_level["icon"]
                                  with cols[col_index % num_cols]:
                                      st.markdown(f"""
                                      <div style="padding: 12px; border-radius: 8px; background-color: #e3f2fd; text-align: center; height: 100%; margin-bottom: 10px; border: 1px solid #bbdefb;">
                                          <div style="font-size: 0.9rem; color: #1565c0; margin-bottom: 5px; font-weight: 600;">{category}</div>
                                          <div style="font-weight: 600; color: #0d47a1; font-size: 1.1rem; margin-bottom: 5px;">{leader_name}</div>
                                          <div><span style="font-weight: bold; font-size: 1.2rem; color: #1e88e5;">{leader_points}</span> <span style="font-size: 0.8rem; color: #555;">نقطة</span></div>
+                                         <div style="margin-top: 5px;"><span style="font-size: 0.9rem;">{category_level_icon} {category_level_name}</span></div>
                                      </div>
                                      """, unsafe_allow_html=True)
                                  col_index += 1
@@ -2072,10 +2045,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                     st.info("لا يوجد أعضاء يطابقون معايير التصفية المحددة.")
                     st.markdown("---")
 
-                # --- إزالة القائمة المنسدلة selectbox ---
-                # تم حذف st.selectbox الذي كان هنا
-
-
                 # --- عرض تفاصيل العضو المحدد ---
                 selected_member_to_display = st.session_state.selected_member_detail
 
@@ -2096,7 +2065,28 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                 total_tasks = member_info["عدد المهام"]
 
                                 # حساب توزيع النقاط حسب الفئة
-                                category_points = calculate_points_by_category(member_data, selected_member_to_display)
+                                category_points = []
+                                
+                                # استخدام كود مشابه لـ calculate_points_by_category منعاً لمشاكل تعريف الدالة
+                                if not member_data.empty and "الفئة" in member_data.columns and "عدد النقاط" in member_data.columns:
+                                    # استبعاد السجلات بدون فئة أو ذات فئة فارغة
+                                    member_achievements = member_data[member_data["الفئة"].notna() & (member_data["الفئة"] != "")]
+                                    
+                                    if not member_achievements.empty:
+                                        # مجموع النقاط حسب الفئة
+                                        category_points = member_achievements.groupby("الفئة")["عدد النقاط"].sum().reset_index()
+                                        
+                                        # إضافة مستوى الإنجاز العام لكل فئة
+                                        category_points["مستوى_الإنجاز"] = category_points["عدد النقاط"].apply(get_achievement_level)
+                                        category_points["مستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["name"])
+                                        category_points["لون_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["color"])
+                                        category_points["أيقونة_المستوى"] = category_points["مستوى_الإنجاز"].apply(lambda x: x["icon"])
+                                        
+                                        # إضافة مستوى الإنجاز الخاص بالفئة (الجديد)
+                                        category_points["مستوى_الفئة"] = category_points["عدد النقاط"].apply(get_category_achievement_level)
+                                        category_points["مستوى_فئة"] = category_points["مستوى_الفئة"].apply(lambda x: x["name"])
+                                        category_points["لون_مستوى_فئة"] = category_points["مستوى_الفئة"].apply(lambda x: x["color"])
+                                        category_points["أيقونة_مستوى_فئة"] = category_points["مستوى_الفئة"].apply(lambda x: x["icon"])
 
                                 # عرض معلومات العضو
                                 st.markdown(f"""
@@ -2120,7 +2110,7 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
 
                                 with member_charts_cols[0]:
                                     # عرض الرادار
-                                    if not category_points.empty:
+                                    if not isinstance(category_points, list) and not category_points.empty:
                                         st.markdown("#### توزيع نقاط العضو حسب الفئات")
                                         radar_chart = create_radar_chart(category_points, selected_member_to_display, is_mobile=mobile_view)
                                         if radar_chart:
@@ -2167,13 +2157,13 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                             st.plotly_chart(fig_program_points, use_container_width=True, config={"displayModeBar": False})
 
                                 with member_charts_cols[1]:
-                                    # عرض جدول الفئات
-                                     if not category_points.empty:
-                                         st.markdown("##### تفاصيل الفئات والمستويات")
-                                         st.markdown("""<style>.achievements-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; } .achievements-table th, .achievements-table td { border: 1px solid #ddd; padding: 8px; text-align: right; } .achievements-table th { background-color: #f2f2f2; font-weight: bold; } .achievements-table tr:nth-child(even){background-color: #f9f9f9;} .achievements-table tr:hover {background-color: #e9e9e9;} </style> <table class="achievements-table"> <tr><th>الفئة</th><th>النقاط</th><th>المستوى</th></tr>""", unsafe_allow_html=True)
-                                         for _, row in category_points.sort_values("عدد النقاط", ascending=False).iterrows():
-                                             st.markdown(f"""<tr> <td>{row["الفئة"]}</td> <td>{int(row["عدد النقاط"])}</td> <td style="color: {row['لون_المستوى']}; font-weight: 500;">{row['أيقونة_المستوى']} {row['مستوى']}</td> </tr>""", unsafe_allow_html=True)
-                                         st.markdown("</table>", unsafe_allow_html=True)
+                                    # عرض جدول الفئات المعدّل مع مستوى الفئة
+                                    if not isinstance(category_points, list) and not category_points.empty:
+                                        st.markdown("##### تفاصيل الفئات والمستويات")
+                                        st.markdown("""<style>.achievements-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; } .achievements-table th, .achievements-table td { border: 1px solid #ddd; padding: 8px; text-align: right; } .achievements-table th { background-color: #f2f2f2; font-weight: bold; } .achievements-table tr:nth-child(even){background-color: #f9f9f9;} .achievements-table tr:hover {background-color: #e9e9e9;} </style> <table class="achievements-table"> <tr><th>الفئة</th><th>النقاط</th><th>المستوى العام</th><th>مستوى الفئة</th></tr>""", unsafe_allow_html=True)
+                                        for _, row in category_points.sort_values("عدد النقاط", ascending=False).iterrows():
+                                            st.markdown(f"""<tr> <td>{row["الفئة"]}</td> <td>{int(row["عدد النقاط"])}</td> <td style="color: {row['لون_المستوى']}; font-weight: 500;">{row['أيقونة_المستوى']} {row['مستوى']}</td> <td style="color: {row['لون_مستوى_فئة']}; font-weight: 500;">{row['أيقونة_مستوى_فئة']} {row['مستوى_فئة']}</td> </tr>""", unsafe_allow_html=True)
+                                        st.markdown("</table>", unsafe_allow_html=True)
 
                                      # عرض آخر المهام
                                      st.markdown("#### آخر مهام العضو (آخر 5)")
