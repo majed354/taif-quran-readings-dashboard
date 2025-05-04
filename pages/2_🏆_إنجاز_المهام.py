@@ -1655,25 +1655,22 @@ from datetime import datetime, timedelta
 # - الدوال المساعدة الأخرى: get_achievement_level, get_member_of_month, ...الخ
 # - ACHIEVEMENT_LEVELS: قائمة أو قاموس بمستويات الإنجاز
 
-# --- قائمة الفئات الرئيسية للمخطط السداسي ---
-# !!! قم بتعديل هذه القائمة لتشمل الفئات الست التي تريدها بالضبط !!!
-ALL_MAIN_CATEGORIES = ["التطوير", "التصميم", "الكتابة", "التسويق", "الابتكار والتطوير", "التخطيط الاستراتيجي"]
-
-
 # --- دالة مساعدة لإنشاء بطاقات المقاييس ---
+# تمت إعادة إضافتها هنا
 def create_metric_card(value, label, color):
     """ينشئ كود HTML لبطاقة مقياس."""
+    # تحديد لون الخلفية بناءً على لون النص الرئيسي لمزيد من التباين
     bg_color_map = {
         "#1e88e5": "#e3f2fd", # أزرق -> سماوي فاتح
         "#27AE60": "#e8f5e9", # أخضر -> أخضر فاتح
         "#F39C12": "#fff3e0"  # برتقالي -> برتقالي فاتح
     }
-    bg_color = bg_color_map.get(color, "#f8f9fa")
+    bg_color = bg_color_map.get(color, "#f8f9fa") # لون افتراضي
+    # التأكد من أن القيمة رقمية قبل تنسيقها
     try:
-        # استخدام فواصل الآلاف وتجنب الكسور العشرية غير الضرورية
-        formatted_value = f"{int(value):,}"
+        formatted_value = f"{int(value):,}" # إضافة فواصل الآلاف
     except (ValueError, TypeError):
-        formatted_value = str(value)
+        formatted_value = str(value) # عرض القيمة كما هي إذا لم تكن رقمية
 
     return f"""
     <div style="flex: 1; min-width: 120px; text-align: center; background-color: {bg_color}; padding: 15px; border-radius: 8px;">
@@ -1685,77 +1682,12 @@ def create_metric_card(value, label, color):
 # --- دالة لتحديث العضو المختار ---
 def set_selected_member(member_name):
     """تحديث العضو المختار في حالة الجلسة."""
+    # إذا تم النقر على نفس العضو مرة أخرى، قم بإلغاء التحديد
     if st.session_state.selected_member_detail == member_name:
-        st.session_state.selected_member_detail = None
+        st.session_state.selected_member_detail = None # أو "اختر عضوًا..." إذا كنت تفضل
     else:
         st.session_state.selected_member_detail = member_name
 
-# --- دالة حساب نقاط الفئات (مُعدلة للمخطط السداسي) ---
-def calculate_points_by_category(df, member_name, all_categories):
-    """
-    يحسب توزيع نقاط عضو معين حسب الفئة، مع ضمان تضمين جميع الفئات الرئيسية.
-    """
-    if not all(col in df.columns for col in ["اسم العضو", "الفئة", "عدد النقاط"]):
-         st.warning(f"أعمدة مطلوبة مفقودة لحساب نقاط الفئات للعضو {member_name}.")
-         # إنشاء DataFrame فارغ بجميع الفئات المطلوبة للرادار
-         empty_df = pd.DataFrame({'الفئة': all_categories, 'عدد النقاط': 0})
-         empty_df["مستوى_الإنجاز"] = empty_df["عدد النقاط"].apply(get_achievement_level)
-         empty_df["مستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["name"])
-         empty_df["لون_المستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["color"])
-         empty_df["أيقونة_المستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-         return empty_df
-
-    try:
-        member_data = df[df["اسم العضو"] == member_name].copy()
-        if member_data.empty:
-             # إنشاء DataFrame فارغ بجميع الفئات المطلوبة للرادار
-             empty_df = pd.DataFrame({'الفئة': all_categories, 'عدد النقاط': 0})
-             empty_df["مستوى_الإنجاز"] = empty_df["عدد النقاط"].apply(get_achievement_level)
-             empty_df["مستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["name"])
-             empty_df["لون_المستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["color"])
-             empty_df["أيقونة_المستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-             return empty_df
-
-        member_data['عدد النقاط'] = pd.to_numeric(member_data['عدد النقاط'], errors='coerce')
-        member_data = member_data.dropna(subset=['الفئة', 'عدد النقاط'])
-        member_data['عدد النقاط'] = member_data['عدد النقاط'].astype(int)
-    except Exception as e:
-        st.error(f"خطأ في تحويل البيانات لحساب نقاط الفئات للعضو {member_name}: {e}")
-        # إنشاء DataFrame فارغ بجميع الفئات المطلوبة للرادار
-        empty_df = pd.DataFrame({'الفئة': all_categories, 'عدد النقاط': 0})
-        empty_df["مستوى_الإنجاز"] = empty_df["عدد النقاط"].apply(get_achievement_level)
-        empty_df["مستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["name"])
-        empty_df["لون_المستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["color"])
-        empty_df["أيقونة_المستوى"] = empty_df["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-        return empty_df
-
-    # حساب النقاط للفئات الموجودة للعضو
-    category_points = member_data.groupby("الفئة")["عدد النقاط"].sum().reset_index()
-
-    # إنشاء DataFrame بجميع الفئات الرئيسية المطلوبة
-    all_categories_df = pd.DataFrame({'الفئة': all_categories})
-
-    # دمج نقاط العضو مع قائمة الفئات الكاملة، وملء الفئات المفقودة بـ 0 نقاط
-    merged_df = pd.merge(all_categories_df, category_points, on="الفئة", how="left")
-    merged_df['عدد النقاط'] = merged_df['عدد النقاط'].fillna(0).astype(int)
-
-    # حساب مستوى الإنجاز لكل فئة (بما في ذلك الفئات ذات النقاط الصفرية)
-    # تأكد من أن get_achievement_level معرفة
-    try:
-        merged_df["مستوى_الإنجاز"] = merged_df["عدد النقاط"].apply(get_achievement_level)
-        merged_df["مستوى"] = merged_df["مستوى_الإنجاز"].apply(lambda x: x["name"])
-        merged_df["لون_المستوى"] = merged_df["مستوى_الإنجاز"].apply(lambda x: x["color"])
-        merged_df["أيقونة_المستوى"] = merged_df["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-    except NameError:
-        st.error("الدالة get_achievement_level غير معرفة لحساب مستويات الفئات.")
-        merged_df["مستوى"] = "غير محدد"
-        merged_df["لون_المستوى"] = "#777"
-        merged_df["أيقونة_المستوى"] = "❓"
-
-    return merged_df
-
-
-# --- بداية التبويب ---
 with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجازات الأعضاء"
     st.markdown("### إنجازات الأعضاء")
 
@@ -1889,9 +1821,18 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                             <h3 style="margin-top: 5px; margin-bottom: 5px; font-weight: bold; font-size: 1.4rem;">نجم شهر {star_of_month["اسم_الشهر"]}</h3>
                             <div class="star-name" style="font-size: 1.8rem; font-weight: bold; color: #BF360C; margin-bottom: 15px;">{star_of_month["اسم"]}</div>
                             <div class="star-stats" style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
-                                {create_metric_card(int(star_of_month["النقاط"]), "النقاط", "#1e88e5")}
-                                {create_metric_card(int(star_of_month["الساعات"]), "الساعات", "#F39C12")}
-                                {create_metric_card(star_of_month["المهام"], "المهام", "#27AE60")}
+                                <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
+                                    <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{int(star_of_month["النقاط"])}</div>
+                                    <div class="star-stat-label" style="font-size: 0.9rem;">النقاط</div>
+                                </div>
+                                <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
+                                    <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{int(star_of_month["الساعات"])}</div>
+                                    <div class="star-stat-label" style="font-size: 0.9rem;">الساعات</div>
+                                </div>
+                                <div class="star-stat" style="background-color: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 10px; min-width: 80px;">
+                                    <div class="star-stat-value" style="font-size: 1.5rem; font-weight: bold;">{star_of_month["المهام"]}</div>
+                                    <div class="star-stat-label" style="font-size: 0.9rem;">المهام</div>
+                                </div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -2154,10 +2095,10 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                 total_hours = member_info["عدد الساعات"]
                                 total_tasks = member_info["عدد المهام"]
 
-                                # حساب توزيع النقاط حسب الفئة (مع ضمان كل الفئات الرئيسية)
-                                category_points = calculate_points_by_category(member_data, selected_member_to_display, ALL_MAIN_CATEGORIES)
+                                # حساب توزيع النقاط حسب الفئة
+                                category_points = calculate_points_by_category(member_data, selected_member_to_display)
 
-                                # --- عرض معلومات العضو (تم إصلاح استدعاء create_metric_card) ---
+                                # عرض معلومات العضو
                                 st.markdown(f"""
                                 <div style="padding: 20px; background-color: #ffffff; border-radius: 12px; margin-top: 20px; margin-bottom: 20px; direction: rtl; text-align: right; border: 1px solid #dee2e6; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                                     <h3 style="margin-top: 0; margin-bottom: 15px; color: {achievement_level['color']}; border-bottom: 2px solid {achievement_level['color']}; padding-bottom: 10px;">{selected_member_to_display} {achievement_level['icon']}</h3>
@@ -2165,9 +2106,9 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                         <span style="font-size: 1.3rem; color: {achievement_level['color']}; font-weight: bold; background-color: {achievement_level['color']}20; padding: 5px 10px; border-radius: 5px;">المستوى ({achievement_time_period}): {achievement_level['name']}</span>
                                     </div>
                                     <div style="display: flex; flex-direction: row-reverse; flex-wrap: wrap; gap: 20px; justify-content: space-around;">
-                                        {create_metric_card(total_points, "مجموع النقاط", "#1e88e5")}
-                                        {create_metric_card(total_tasks, "عدد المهام", "#27AE60")}
-                                        {create_metric_card(total_hours, "مجموع الساعات", "#F39C12")}
+                                        {create_metric_card(int(total_points), "مجموع النقاط", "#1e88e5")}
+                                        {create_metric_card(int(total_tasks), "عدد المهام", "#27AE60")}
+                                        {create_metric_card(int(total_hours), "مجموع الساعات", "#F39C12")}
                                     </div>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -2178,16 +2119,13 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                 member_charts_cols = st.columns([3, 2]) if not mobile_view else (st.container(), st.container())
 
                                 with member_charts_cols[0]:
-                                    # --- عرض الرادار (يستخدم الآن category_points المحدثة) ---
+                                    # عرض الرادار
                                     if not category_points.empty:
                                         st.markdown("#### توزيع نقاط العضو حسب الفئات")
                                         radar_chart = create_radar_chart(category_points, selected_member_to_display, is_mobile=mobile_view)
                                         if radar_chart:
                                             st.plotly_chart(radar_chart, use_container_width=True, config={"displayModeBar": False})
-                                        else:
-                                            st.warning("لم يتم إنشاء مخطط الرادار.") # رسالة في حالة عدم الإنشاء
                                     else:
-                                        # هذه الحالة يجب ألا تحدث الآن لأننا نضمن وجود جميع الفئات
                                         st.info(f"لا توجد بيانات فئات للعضو {selected_member_to_display} في الفترة المحددة.")
 
                                     # عرض مخطط التطور الزمني
@@ -2229,20 +2167,11 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
                                             st.plotly_chart(fig_program_points, use_container_width=True, config={"displayModeBar": False})
 
                                 with member_charts_cols[1]:
-                                    # --- عرض جدول الفئات (يستخدم الآن category_points المحدثة) ---
+                                    # عرض جدول الفئات
                                      if not category_points.empty:
                                          st.markdown("##### تفاصيل الفئات والمستويات")
                                          st.markdown("""<style>.achievements-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; } .achievements-table th, .achievements-table td { border: 1px solid #ddd; padding: 8px; text-align: right; } .achievements-table th { background-color: #f2f2f2; font-weight: bold; } .achievements-table tr:nth-child(even){background-color: #f9f9f9;} .achievements-table tr:hover {background-color: #e9e9e9;} </style> <table class="achievements-table"> <tr><th>الفئة</th><th>النقاط</th><th>المستوى</th></tr>""", unsafe_allow_html=True)
-                                         # عرض الفئات بالترتيب المحدد في ALL_MAIN_CATEGORIES
-                                         category_points_sorted = category_points.set_index('الفئة').reindex(ALL_MAIN_CATEGORIES).reset_index()
-                                         category_points_sorted['عدد النقاط'] = category_points_sorted['عدد النقاط'].fillna(0).astype(int)
-                                         # إعادة حساب المستوى للفئات التي قد تكون أصبحت NaN بعد reindex
-                                         category_points_sorted["مستوى_الإنجاز"] = category_points_sorted["عدد النقاط"].apply(get_achievement_level)
-                                         category_points_sorted["مستوى"] = category_points_sorted["مستوى_الإنجاز"].apply(lambda x: x["name"])
-                                         category_points_sorted["لون_المستوى"] = category_points_sorted["مستوى_الإنجاز"].apply(lambda x: x["color"])
-                                         category_points_sorted["أيقونة_المستوى"] = category_points_sorted["مستوى_الإنجاز"].apply(lambda x: x["icon"])
-
-                                         for _, row in category_points_sorted.iterrows():
+                                         for _, row in category_points.sort_values("عدد النقاط", ascending=False).iterrows():
                                              st.markdown(f"""<tr> <td>{row["الفئة"]}</td> <td>{int(row["عدد النقاط"])}</td> <td style="color: {row['لون_المستوى']}; font-weight: 500;">{row['أيقونة_المستوى']} {row['مستوى']}</td> </tr>""", unsafe_allow_html=True)
                                          st.markdown("</table>", unsafe_allow_html=True)
 
@@ -2290,7 +2219,6 @@ with main_tabs[1]: # نفترض أن التبويب الثاني هو "إنجا�
     else:
         # إذا كانت members_filtered_data فارغة من البداية أو تفتقد للأعمدة الأساسية
         st.info("لا توجد بيانات كافية لإظهار إنجازات الأعضاء للفترة الزمنية المحددة.")
-
 # =========================================
 # القسم 15: تبويب قائمة المهام
 # =========================================
